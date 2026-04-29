@@ -1,8 +1,57 @@
 // ═══════════════════════════════════════════════════════
-// PLAYER — UnitA spritesheet car renderer + tire dust FX
+// PLAYER — UnitA spritesheet car renderer + Nitro/Dust FX
 // ═══════════════════════════════════════════════════════
 import { P }                          from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
+
+// ── SPEED RULES ────────────────────────────────────────
+// Your game speed uses P.speed. In your project 34 ≈ 220km/h,
+// so we convert km/h into your internal speed scale.
+const GAME_SPEED_FOR_220_KMH = 34;
+
+export const PLAYER_SPEED = {
+  NORMAL_MAX_KMH: 100,
+  NITRO_MAX_KMH: 120,
+
+  get NORMAL_MAX() {
+    return (this.NORMAL_MAX_KMH / 220) * GAME_SPEED_FOR_220_KMH;
+  },
+
+  get NITRO_MAX() {
+    return (this.NITRO_MAX_KMH / 220) * GAME_SPEED_FOR_220_KMH;
+  },
+};
+
+// Nitro state
+let _nitroTime = 0;
+let _nitroActive = false;
+
+export function activateNitro(duration = 3.0) {
+  _nitroTime = Math.max(_nitroTime, duration);
+  _nitroActive = true;
+}
+
+export function updatePlayerNitro(dt) {
+  if (_nitroTime > 0) {
+    _nitroTime -= dt;
+    _nitroActive = true;
+  } else {
+    _nitroTime = 0;
+    _nitroActive = false;
+  }
+
+  // Clamp max speed here also, but main movement file should also respect this.
+  const maxSpeed = _nitroActive ? PLAYER_SPEED.NITRO_MAX : PLAYER_SPEED.NORMAL_MAX;
+  if (P.speed > maxSpeed) P.speed = maxSpeed;
+}
+
+export function isNitroActive() {
+  return _nitroActive;
+}
+
+export function getPlayerMaxSpeed() {
+  return _nitroActive ? PLAYER_SPEED.NITRO_MAX : PLAYER_SPEED.NORMAL_MAX;
+}
 
 // ── Car frames ─────────────────────────────────────────
 const FRAMES_A = [
@@ -45,14 +94,13 @@ _sheet.onload = () => { _sheet.ready = true; };
 _sheet.onerror = () => console.warn('[player] UnitsTeamB.png not found');
 _sheet.src = 'assets/player/UnitsTeamB.png';
 
-// ── Effects image ──────────────────────────────────────
+// ── Nitro boost image ──────────────────────────────────
 const _fx = new Image();
 _fx.ready = false;
 _fx.onload = () => { _fx.ready = true; };
 _fx.onerror = () => console.warn('[effects] Effects.png not found');
 _fx.src = 'assets/player/Effects.png';
 
-// Streak frames from Effects.json
 const STREAKS = [
   { x:1,    y:1,   w:480, h:270 },
   { x:482,  y:1,   w:480, h:270 },
@@ -68,86 +116,65 @@ const STREAKS = [
 
 let _fxTick = 0;
 
-function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
-  const speed01 = Math.min(1, Math.max(0, P.speed / 34));
-  if (!_fx.ready || speed01 < 0.55) return;
+// ── Nitro boost FX ─────────────────────────────────────
+function drawNitroBoost(ctx, anchorX, anchorY, drawW, drawH) {
+  if (!_fx.ready || !_nitroActive) return;
 
-  _fxTick += 0.35 + speed01 * 0.55;
+  const speed01 = Math.min(1, Math.max(0, P.speed / PLAYER_SPEED.NITRO_MAX));
+
+  _fxTick += 0.55 + speed01 * 0.75;
   const f = STREAKS[Math.floor(_fxTick) % STREAKS.length];
 
-  const SIZE_MULT = 1.50;
-  const Y_OFFSET  = 0.50;
-  const ALPHA     = 0.14 + speed01 * 0.18;
-
-  const sw = drawW * SIZE_MULT;
+  const sw = drawW * 1.65;
   const sh = sw * 0.56;
 
   const dx = anchorX - sw / 2;
-  const dy = anchorY - drawH * Y_OFFSET;
-
-  const off = document.createElement('canvas');
-  off.width = Math.ceil(sw);
-  off.height = Math.ceil(sh);
-  const octx = off.getContext('2d');
-
-  octx.drawImage(
-    _fx,
-    f.x, f.y, f.w, f.h,
-    0, 0, off.width, off.height
-  );
-
-  octx.globalCompositeOperation = 'destination-in';
-
-  const grad = octx.createLinearGradient(0, 0, off.width, 0);
-  grad.addColorStop(0.00, 'rgba(255,255,255,0)');
-  grad.addColorStop(0.16, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.84, 'rgba(255,255,255,1)');
-  grad.addColorStop(1.00, 'rgba(255,255,255,0)');
-  octx.fillStyle = grad;
-  octx.fillRect(0, 0, off.width, off.height);
-
-  const vgrad = octx.createLinearGradient(0, 0, 0, off.height);
-  vgrad.addColorStop(0.00, 'rgba(255,255,255,0)');
-  vgrad.addColorStop(0.18, 'rgba(255,255,255,1)');
-  vgrad.addColorStop(0.82, 'rgba(255,255,255,1)');
-  vgrad.addColorStop(1.00, 'rgba(255,255,255,0)');
-  octx.fillStyle = vgrad;
-  octx.fillRect(0, 0, off.width, off.height);
+  const dy = anchorY - drawH * 0.50;
 
   ctx.save();
-  ctx.globalAlpha = ALPHA;
+  ctx.globalAlpha = 0.22 + speed01 * 0.22;
   ctx.globalCompositeOperation = 'lighter';
-  ctx.drawImage(off, dx, dy, sw, sh);
+
+  ctx.drawImage(
+    _fx,
+    f.x, f.y, f.w, f.h,
+    dx, dy, sw, sh
+  );
+
   ctx.restore();
 }
 
+// ── Normal tire dust FX ────────────────────────────────
 function drawTireDust(ctx, anchorX, anchorY, drawW, drawH) {
-  const speed01 = Math.min(1, Math.max(0, P.speed / 34));
-  if (speed01 < 0.12) return;
+  if (_nitroActive) return;
+
+  const speed01 = Math.min(1, Math.max(0, P.speed / PLAYER_SPEED.NORMAL_MAX));
+  if (speed01 < 0.08) return;
 
   const rearY = anchorY + drawH * 0.05;
   const leftX = anchorX - drawW * 0.30;
   const rightX = anchorX + drawW * 0.30;
 
-  const len = drawH * (0.35 + speed01 * 0.75);
-  const spread = drawW * 0.13;
-  const alpha = 0.10 + speed01 * 0.28;
+  const len = drawH * (0.30 + speed01 * 0.60);
+  const spread = drawW * 0.10;
+  const alpha = 0.08 + speed01 * 0.22;
 
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   for (const tireX of [leftX, rightX]) {
-    for (let i = 0; i < 9; i++) {
-      const r = (Math.random() - 0.5);
+    for (let i = 0; i < 6; i++) {
+      const r = Math.random() - 0.5;
+
       const sx = tireX + r * spread;
-      const sy = rearY + Math.random() * drawH * 0.06;
-      const ex = sx + r * spread * 1.4;
+      const sy = rearY + Math.random() * drawH * 0.04;
+      const ex = sx + r * spread * 1.2;
       const ey = sy + len * (0.45 + Math.random() * 0.65);
 
-      ctx.globalAlpha = alpha * (0.35 + Math.random() * 0.65);
+      ctx.globalAlpha = alpha * (0.45 + Math.random() * 0.55);
       ctx.strokeStyle = 'rgba(190,170,125,1)';
-      ctx.lineWidth = 1 + Math.random() * 2.2;
+      ctx.lineWidth = 1 + Math.random() * 1.8;
 
       ctx.beginPath();
       ctx.moveTo(sx, sy);
@@ -164,11 +191,19 @@ function drawTireDust(ctx, anchorX, anchorY, drawW, drawH) {
   ctx.restore();
 }
 
-export function drawCar(steerVisual) {
+// ── Main car render ────────────────────────────────────
+export function drawCar(steerVisual = 0) {
+  // Important:
+  // This allows left/right sprite frames even when car is stopped
+  // or moving slowly. It depends only on steerVisual, not speed.
   const targetIdx = STRAIGHT + steerVisual * STRAIGHT;
 
-  _frameFloat += (targetIdx - _frameFloat) * 0.20;
-  const idx = Math.max(0, Math.min(TOTAL - 1, Math.round(_frameFloat)));
+  _frameFloat += (targetIdx - _frameFloat) * 0.22;
+
+  const idx = Math.max(
+    0,
+    Math.min(TOTAL - 1, Math.round(_frameFloat))
+  );
 
   const ctx = getCtx();
   const W = getW();
@@ -185,8 +220,14 @@ export function drawCar(steerVisual) {
   const dx = anchorX - drawW * ANCHOR_X;
   const dy = anchorY - drawH * ANCHOR_Y;
 
-  drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH);
-  drawTireDust(ctx, anchorX, anchorY, drawW, drawH);
+  // Only one FX at a time:
+  // Normal speed  = dust only
+  // Nitro active  = boost only
+  if (_nitroActive) {
+    drawNitroBoost(ctx, anchorX, anchorY, drawW, drawH);
+  } else {
+    drawTireDust(ctx, anchorX, anchorY, drawW, drawH);
+  }
 
   if (_sheet.ready) {
     const f = FRAMES_A[idx];
@@ -195,7 +236,15 @@ export function drawCar(steerVisual) {
     ctx.globalAlpha = 0.40;
     ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.ellipse(anchorX, anchorY + drawH * 0.06, drawW * 0.46, drawH * 0.06, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      anchorX,
+      anchorY + drawH * 0.06,
+      drawW * 0.46,
+      drawH * 0.06,
+      0,
+      0,
+      Math.PI * 2
+    );
     ctx.fill();
     ctx.restore();
 
@@ -209,13 +258,19 @@ export function drawCar(steerVisual) {
     );
   } else {
     ctx.fillStyle = '#1a88ff';
-    ctx.fillRect(dx + drawW * 0.08, dy + drawH * 0.28, drawW * 0.84, drawH * 0.65);
+    ctx.fillRect(
+      dx + drawW * 0.08,
+      dy + drawH * 0.28,
+      drawW * 0.84,
+      drawH * 0.65
+    );
   }
 }
 
 export function getCarAnchor() {
   const res = getRes();
   const SCALE = 1.5;
+
   const drawW = (SRC_W * res * SCALE) | 0;
   const drawH = (SRC_H * res * SCALE) | 0;
 
