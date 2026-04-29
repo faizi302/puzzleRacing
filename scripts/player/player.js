@@ -2,7 +2,7 @@
 // PLAYER — UnitA spritesheet car renderer + tire dust FX
 // ═══════════════════════════════════════════════════════
 import { P }                          from '../systems/roadSystem.js';
-import { getCtx, getW, getH, getRes } from '../systems/projectionSystem.js';
+import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 
 // ── Car frames ─────────────────────────────────────────
 const FRAMES_A = [
@@ -43,14 +43,14 @@ const _sheet = new Image();
 _sheet.ready = false;
 _sheet.onload = () => { _sheet.ready = true; };
 _sheet.onerror = () => console.warn('[player] UnitsTeamB.png not found');
-_sheet.src = 'assets/UnitsTeamB.png';
+_sheet.src = 'assets/player/UnitsTeamB.png';
 
 // ── Effects image ──────────────────────────────────────
 const _fx = new Image();
 _fx.ready = false;
 _fx.onload = () => { _fx.ready = true; };
 _fx.onerror = () => console.warn('[effects] Effects.png not found');
-_fx.src = 'assets/Effects.png';
+_fx.src = 'assets/player/Effects.png';
 
 // Streak frames from Effects.json
 const STREAKS = [
@@ -68,7 +68,6 @@ const STREAKS = [
 
 let _fxTick = 0;
 
-// ── Draw speed streaks near car sides ──────────────────
 function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
   const speed01 = Math.min(1, Math.max(0, P.speed / 34));
   if (!_fx.ready || speed01 < 0.55) return;
@@ -76,9 +75,8 @@ function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
   _fxTick += 0.35 + speed01 * 0.55;
   const f = STREAKS[Math.floor(_fxTick) % STREAKS.length];
 
-  // MANUAL SETTINGS
-  const SIZE_MULT = 1.50;   // smaller = tighter around car
-  const Y_OFFSET  = 0.50;   // smaller = lower/closer to car
+  const SIZE_MULT = 1.50;
+  const Y_OFFSET  = 0.50;
   const ALPHA     = 0.14 + speed01 * 0.18;
 
   const sw = drawW * SIZE_MULT;
@@ -87,20 +85,17 @@ function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
   const dx = anchorX - sw / 2;
   const dy = anchorY - drawH * Y_OFFSET;
 
-  // Offscreen canvas so fade does NOT erase road/background
   const off = document.createElement('canvas');
   off.width = Math.ceil(sw);
   off.height = Math.ceil(sh);
   const octx = off.getContext('2d');
 
-  // draw boost frame
   octx.drawImage(
     _fx,
     f.x, f.y, f.w, f.h,
     0, 0, off.width, off.height
   );
 
-  // fade left/right/top/bottom edges inside only this boost image
   octx.globalCompositeOperation = 'destination-in';
 
   const grad = octx.createLinearGradient(0, 0, off.width, 0);
@@ -126,7 +121,6 @@ function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
   ctx.restore();
 }
 
-// ── Draw realistic tire dust as thin backward threads ──
 function drawTireDust(ctx, anchorX, anchorY, drawW, drawH) {
   const speed01 = Math.min(1, Math.max(0, P.speed / 34));
   if (speed01 < 0.12) return;
@@ -170,11 +164,7 @@ function drawTireDust(ctx, anchorX, anchorY, drawW, drawH) {
   ctx.restore();
 }
 
-// ── Main car draw ──────────────────────────────────────
 export function drawCar(steerVisual) {
-  // IMPORTANT:
-  // This is reversed from old version so LEFT uses LEFT visual frames,
-  // RIGHT uses RIGHT visual frames.
   const targetIdx = STRAIGHT + steerVisual * STRAIGHT;
 
   _frameFloat += (targetIdx - _frameFloat) * 0.20;
@@ -195,16 +185,12 @@ export function drawCar(steerVisual) {
   const dx = anchorX - drawW * ANCHOR_X;
   const dy = anchorY - drawH * ANCHOR_Y;
 
-  // Draw speed streaks behind/side of car first
   drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH);
-
-  // Draw tire dust under tires before car
   drawTireDust(ctx, anchorX, anchorY, drawW, drawH);
 
   if (_sheet.ready) {
     const f = FRAMES_A[idx];
 
-    // shadow
     ctx.save();
     ctx.globalAlpha = 0.40;
     ctx.fillStyle = '#000';

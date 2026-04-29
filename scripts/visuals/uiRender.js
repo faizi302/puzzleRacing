@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════
 // UI RENDER — Menu star / background canvas
 // ═══════════════════════════════════════════════════════
+import { sizeMenuCanvas, getMenuCtx } from '../core/canvas.js';
+
 export function drawMenuStars() {
-  const cv = document.getElementById('menu-stars');
+  const cv = sizeMenuCanvas();
   if (!cv) return;
-  cv.width  = cv.offsetWidth  || window.innerWidth;
-  cv.height = cv.offsetHeight || window.innerHeight;
-  const c = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const c = getMenuCtx();
+  const W = cv.width, H = cv.height;
 
   // sky gradient
   const g = c.createLinearGradient(0,0,0,H);

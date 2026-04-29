@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // BACKGROUND RENDER — Persistent horizon + moving ground
 // ═══════════════════════════════════════════════════════
-import { getCtx, getW, getH } from '../systems/projectionSystem.js';
+import { getCtx, getW, getH } from '../core/canvas.js';
 import { clamp, P }           from '../systems/roadSystem.js';
 import { C }                  from '../configs/roadConfig.js';
 import { IMG }                from './objectRender.js';
@@ -24,17 +24,11 @@ export function drawCover(ctx, img, dx, dy, dw, dh, offPx = 0) {
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
 
-  // cover-scale: image is guaranteed to fully cover the dx,dy,dw,dh region
   const scale = Math.max(dh / ih, dw / iw);
   const sw = iw * scale;
   const sh = ih * scale;
 
-  // tile horizontally, anchored so wrap is seamless
   const startX = -wrap(offPx, sw) - sw;
-
-  // vertical: just center. DO NOT add a shift here — cover-scale only
-  // guarantees full coverage at this exact y. Any offset can expose the
-  // empty (black) canvas above or below the sky region.
   const yPos = dy + (dh - sh) * 0.5;
 
   for (let x = startX; x < dw + sw; x += sw) {
@@ -91,7 +85,6 @@ export function drawBG() {
 
   const speed01 = clamp(P.speed / C.MAX_SPD, 0, 1);
 
-  // Persistent horizontal pan based on road curvature + speed
   _horizonPan += -P.roadCurve * W * 0.010 * speed01;
 
   drawCover(ctx, IMG.horizon, 0, 0, W, skyH, _horizonPan);

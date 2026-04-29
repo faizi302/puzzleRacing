@@ -23,7 +23,7 @@ const _fx = new Image();
 _fx.ready  = false;
 _fx.onload = () => { _fx.ready = true; };
 _fx.onerror= () => { console.warn('[collisionSystem] Effects.png not found'); };
-_fx.src    = 'assets/Effects.png';
+_fx.src    = 'assets/player/Effects.png';
 
 // ── Boost frames from Effects.json (dust/smoke puffs) ──
 // 16 frames, each ~120×120 in a 128×128 sourceSize

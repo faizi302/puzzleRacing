@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // RENDER — Frame orchestrator
 // ═══════════════════════════════════════════════════════
-import { getCtx, getW, getH } from '../systems/projectionSystem.js';
+import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG }             from './BackgroundRender.js';
 import { drawRoad }           from './roadRender.js';
 import { drawScenery }        from './sceneryRender.js';

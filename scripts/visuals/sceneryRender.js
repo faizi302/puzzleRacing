@@ -5,7 +5,7 @@ import { C } from '../configs/roadConfig.js';
 import { SPR } from '../configs/sceneryConfig.js';
 import { segs, trackLen } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
-import { getCtx, getW, getH, getRes } from '../systems/projectionSystem.js';
+import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from './objectRender.js';
 import { _visibleSegs } from './roadRender.js';
 
@@ -17,7 +17,6 @@ export function buildScenery() {
   const rocks = ['rockLow', 'rockBig', 'totem'];
   const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
 
-  // Trees: alternating left/right
   for (let i = 30; i < total - 30; i += 28) {
     const z = i * C.SEG_LEN;
 
@@ -35,28 +34,54 @@ export function buildScenery() {
       offset: 1.65
     });
   }
-  // Rocks / totems
   for (let i = 40; i < total - 20; i += 38) {
     const z = i * C.SEG_LEN;
-    sceneryObjs.push({kind:rocks[(i*7)%rocks.length],    z:z+20,  side:-1, offset:1.25, small:true});
-    sceneryObjs.push({kind:rocks[(i*11+2)%rocks.length], z:z+280, side: 1, offset:1.48, small:true});
+    sceneryObjs.push({ kind: rocks[(i * 7) % rocks.length], z: z + 20, side: -1, offset: 1.25, small: true });
+    sceneryObjs.push({ kind: rocks[(i * 11 + 2) % rocks.length], z: z + 280, side: 1, offset: 1.48, small: true });
   }
-  // Bridges
   for (let i = 40; i < total - 20; i += 110) {
     const z = i * C.SEG_LEN;
-    sceneryObjs.push({kind:'bridge', z:z,     side:-1, offset:3.0});
-    sceneryObjs.push({kind:'bridge', z:z+240, side: 1, offset:2.62});
+    sceneryObjs.push({ kind: 'bridge', z: z, side: -1, offset: 3.0 });
+    sceneryObjs.push({ kind: 'bridge', z: z + 240, side: 1, offset: 2.62 });
   }
-  // Coins — center road only (side:0), spaced so they are fully visible
   for (let i = 35; i < total - 20; i += 28) {
     const z = i * C.SEG_LEN;
+
+    // wider lane positions
+    // left = more left, right = more right
+    const lanes = [-0.60, 0, 0.60];
+
+    // one full line per breakpoint
+    const laneOffset = lanes[Math.floor(i / 28) % lanes.length];
+
     for (let k = 0; k < 5; k++) {
-      // laneOffset: spread coins slightly left/center/right in the driving lanes
-      const laneOffset = (k % 3 - 1) * 0.28; // -0.28, 0, 0.28, -0.28, 0
-      sceneryObjs.push({ kind: 'coin', z: z + k * 100, side: 0, offset: laneOffset, isCoin: true });
+      sceneryObjs.push({
+        kind: "coin",
+        side: 0,
+        offset: laneOffset,
+
+        // restore strong vertical gap between coins
+        z: z + k * 300,
+
+        isCoin: true
+      });
     }
   }
-  // Overhead arches
+  // Boosters — rendered on road like coins
+  for (let i = 80; i < total - 40; i += 115) {
+    const z = i * C.SEG_LEN;
+
+    const lanes = [-0.60, 0, 0.60];
+    const laneOffset = lanes[Math.floor(i / 95) % lanes.length];
+
+    sceneryObjs.push({
+      kind: "booster",
+      z: z + 120,
+      side: 0,
+      offset: laneOffset,
+      isBooster: true
+    });
+  }
   for (let i = 120; i < total - 20; i += 220) {
     sceneryObjs.push({ kind: 'woodArch', z: i * C.SEG_LEN, side: 0, offset: 0, overhead: true });
   }
@@ -78,15 +103,8 @@ function visibleForZ(z) {
   return best ? { v: best, pct: 0 } : null;
 }
 
-/**
- * Draw a single sprite from a sheet, clipped to its destination rect so
- * neighbouring frames on the sheet never bleed through.
- */
 function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   ctx.save();
-  // Clip to the exact destination rectangle — prevents adjacent sprite-sheet
-  // frames from showing when sub-pixel rounding causes the source rect to
-  // slightly overlap a neighbour.
   ctx.beginPath();
   ctx.rect(dx, dy, dw, dh);
   ctx.clip();
@@ -111,9 +129,8 @@ export function drawScenery() {
     const y = v.y1 + (v.y2 - v.y1) * pct;
     const cx = v.x1 + (v.x2 - v.x1) * pct;
     const rw = v.w1 + (v.w2 - v.w1) * pct;
-    // For coins we allow them slightly above horizon; everything else must be below
-    if (!o.isCoin && (y < horizonY - 4 || y > _H * 0.98)) continue;
-    if (o.isCoin && (y < horizonY * 0.5 || y > _H * 0.98)) continue;
+    if (!o.isCoin && !o.isBooster && (y < horizonY - 4 || y > _H * 0.98)) continue;
+    if ((o.isCoin || o.isBooster) && (y < horizonY * 0.5 || y > _H * 0.98)) continue;
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
   }
@@ -126,30 +143,29 @@ export function drawScenery() {
     let drawW, drawH, x, y;
 
     if (it.o.overhead) {
-      // ── Overhead arch ───────────────────────────────────
       drawW = it.rw * 2.6 * s.scale;
       drawH = drawW * (s.sh / s.sw);
       x = it.cx - drawW / 2;
       y = it.y - drawH * s.anchorY;
 
-    } else if (it.o.isCoin) {
-      // ── Centre-road coin ────────────────────────────────
-      // Size: perspectively scaled, clamped to reasonable pixel range
-      const worldSize = C.SEG_LEN * 0.34 * s.scale;
+    } else if (it.o.isCoin || it.o.isBooster) {
+      const worldSize = C.SEG_LEN * (it.o.isBooster ? 0.55 : 0.34) * s.scale;
 
-      drawW = clamp(worldSize * it.scale * _W, 28 * _res, 72 * _res);
-      drawH = drawW; // force perfect circle
+      drawW = clamp(
+        worldSize * it.scale * _W,
+        (it.o.isBooster ? 42 : 28) * _res,
+        (it.o.isBooster ? 110 : 72) * _res
+      );
+
+      drawH = drawW * (s.sh / s.sw);
 
       x = it.cx + it.o.offset * it.rw - drawW / 2;
-
-      // keep full coin above road, not half inside road
       y = it.y - drawH * 0.88;
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
 
     } else {
-      // ── Roadside object (tree / rock / bridge) ──────────
       const side = it.o.side || 1;
       const worldR = it.o.small ? C.ROAD_W * 0.28 * s.scale : C.ROAD_W * 0.82 * s.scale;
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
@@ -171,7 +187,6 @@ export function drawScenery() {
 
     ctx.save();
     ctx.globalAlpha = 0.20 + fade * 0.80;
-    // Use clipped draw to prevent sprite-sheet frame bleeding
     drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
     ctx.restore();
   }

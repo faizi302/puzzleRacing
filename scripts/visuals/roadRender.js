@@ -5,7 +5,7 @@
 import { C, COL, LCOL }                    from '../configs/roadConfig.js';
 import { segs, trackLen, findSeg, project } from '../core/roadMap.js';
 import { P, clamp }                        from '../systems/roadSystem.js';
-import { getCtx, getW, getH }              from '../systems/projectionSystem.js';
+import { getCtx, getW, getH }              from '../core/canvas.js';
 
 export let _visibleSegs = [];
 
@@ -21,9 +21,6 @@ export function drawRoad() {
   const base    = findSeg(P.pos + P.playerZ);
   const basePct = (P.pos % C.SEG_LEN) / C.SEG_LEN;
 
-  // This is the important part:
-  // road turns right  → whole road/camera shifts right visually
-  // road turns left   → whole road/camera shifts left visually
   const targetShift = clamp(P.roadCurve, -1, 1) * W * 1.0;
   _curveScreenShift += (targetShift - _curveScreenShift) * 0.10;
 
@@ -41,7 +38,6 @@ export function drawRoad() {
     xOff += dx;
     dx   += seg.curve;
 
-    // Classic pseudo-3D curve offset + whole-road curve camera shift
     const curveDepthBoost = n / C.DRAW_D;
     const totalShift = xOff + _curveScreenShift * (1.0 - curveDepthBoost * 0.25);
 
@@ -89,12 +85,9 @@ function drawNearestRoadExtension(ctx, W, H) {
   const yTop = near.y1;
   if (yTop >= H) return;
 
-  // Extrapolate road center to bottom instead of forcing it full-screen.
-  // This makes road edges move on left/right curves.
   const centerSlope = near.x1 - next.x1;
   const bottomX = near.x1 + centerSlope * 0.55 + _curveScreenShift * 0.20;
 
-  // Keep straight road wide, but allow curve side/background to show.
   const bottomW = Math.min(W * 1.08, Math.max(near.w1 * 1.35, W * 0.62));
 
   const roadCol = near.index < C.RUMBLE * 2 ? LCOL.START.road : COL.ROAD_A;
@@ -110,7 +103,6 @@ function drawNearestRoadExtension(ctx, W, H) {
     0
   );
 
-  // Side rumble strips follow shifted road edge
   const rwTop = near.w1 * 0.13;
   const rwBot = bottomW * 0.13;
 
@@ -136,7 +128,6 @@ function drawNearestRoadExtension(ctx, W, H) {
     0
   );
 
-  // Bottom lane markers so the near road also follows curve movement
   if (C.LANES > 1) {
     for (let i = 1; i < C.LANES; i++) {
       const t = i / C.LANES;
