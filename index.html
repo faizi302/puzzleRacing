@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>Formula OLC Racing</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <!-- Portrait rotate warning -->
+  <div id="rot">
+    <div id="rot-icon">📱</div>
+    <p>Rotate to landscape to play</p>
+  </div>
+
+  <!-- MENU -->
+  <div id="s-menu" class="scr on">
+    <canvas id="menu-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <div class="mc">
+      <h1 class="t1">FORMULA<br><span>OLC</span></h1>
+      <p class="t2">RACING</p>
+      <div class="mbtns">
+        <button id="btn-start" class="mb pr">▶ START RACE</button>
+        <button id="btn-howto" class="mb">HOW TO PLAY</button>
+      </div>
+      <div class="mhint">↑ Gas &nbsp;↓ Brake &nbsp;← → Steer &nbsp;SPACE Handbrake</div>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div id="s-howto" class="scr">
+    <div class="hbox">
+      <h2>HOW TO PLAY</h2>
+      <div class="hg">
+        <div class="hr"><kbd>↑ / W</kbd><span>Accelerate</span></div>
+        <div class="hr"><kbd>↓ / S</kbd><span>Brake</span></div>
+        <div class="hr"><kbd>← / A</kbd><span>Steer Left</span></div>
+        <div class="hr"><kbd>→ / D</kbd><span>Steer Right</span></div>
+        <div class="hr"><kbd>SPACE</kbd><span>Handbrake</span></div>
+        <div class="hr"><kbd>ESC</kbd><span>Pause</span></div>
+      </div>
+      <p class="htip">Stay on road! Wall hit = speed penalty + sparks.<br>Complete 3 laps to win!</p>
+      <button id="btn-back" class="mb">← BACK</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="s-game" class="scr">
+    <canvas id="gc"></canvas>
+    <div id="hud">
+      <div class="hb"><span class="hl">SPEED</span><span class="hv" id="h-spd">0</span><span class="hu">km/h</span></div>
+      <div class="hb"><span class="hl">LAP</span><span class="hv" id="h-lap">0:00.000</span></div>
+      <div id="hc">
+        <div id="pw"><div id="pf"></div></div>
+        <span id="pl">0%</span>
+      </div>
+      <div class="hb"><span class="hl">BEST</span><span class="hv" id="h-best">--:--</span></div>
+      <div class="hb"><span class="hl">FPS</span><span class="hv" id="h-fps">60</span></div>
+    </div>
+    <div id="lp"><div class="lpt">TIMES</div><div id="ll"></div></div>
+    <div id="nf"></div>
+    <div id="ow"></div>
+    <div id="cd"><span id="cdn"></span></div>
+    <button id="pbtn">⏸</button>
+    <!-- Touch Controls -->
+    <div id="tc">
+      <div id="tcl">
+        <button class="tb" id="tc-l">◀</button>
+        <button class="tb" id="tc-r">▶</button>
+      </div>
+      <div id="tcr">
+        <button class="tb acc" id="tc-a">▲<br><small>GAS</small></button>
+        <button class="tb" id="tc-b">▼<br><small>BRK</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="s-pause" class="scr ov">
+    <div class="mbox">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="mb pr">▶ RESUME</button>
+      <button id="btn-quit"   class="mb">🏠 MENU</button>
+    </div>
+  </div>
+
+  <!-- WIN -->
+  <div id="s-win" class="scr ov">
+    <div class="mbox">
+      <div class="troph">🏆</div>
+      <h2>RACE COMPLETE!</h2>
+      <div id="ws">
+        <div class="wr"><span>Total Time</span><b id="ws-t">—</b></div>
+        <div class="wr"><span>Best Lap</span><b id="ws-b">—</b></div>
+        <div class="wr"><span>Laps</span><b id="ws-l">—</b></div>
+      </div>
+      <button id="btn-again"  class="mb pr">🔄 PLAY AGAIN</button>
+      <button id="btn-tomenu" class="mb">🏠 MENU</button>
+    </div>
+  </div>
+
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>
