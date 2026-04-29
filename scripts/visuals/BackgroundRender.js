@@ -6,17 +6,17 @@ import { clamp, P }           from '../systems/roadSystem.js';
 import { C }                  from '../configs/roadConfig.js';
 import { IMG }                from './objectRender.js';
 
-let _horizonPan = 0;
+let _horizonPan   = 0;
 let _groundScroll = 0;
-let _lastPos = 0;
+let _lastPos      = 0;
 
 function wrap(v, size) {
   return ((v % size) + size) % size;
 }
 
-export function drawCover(ctx, img, dx, dy, dw, dh, offPx = 0, verticalShift = 0) {
+export function drawCover(ctx, img, dx, dy, dw, dh, offPx = 0) {
   if (!img.ready) {
-    ctx.fillStyle = '#83b66a';
+    ctx.fillStyle = '#87CEEB';
     ctx.fillRect(dx, dy, dw, dh);
     return;
   }
@@ -24,20 +24,21 @@ export function drawCover(ctx, img, dx, dy, dw, dh, offPx = 0, verticalShift = 0
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
 
+  // cover-scale: image is guaranteed to fully cover the dx,dy,dw,dh region
   const scale = Math.max(dh / ih, dw / iw);
   const sw = iw * scale;
   const sh = ih * scale;
 
+  // tile horizontally, anchored so wrap is seamless
   const startX = -wrap(offPx, sw) - sw;
 
-  for (let x = startX; x < dw + sw * 2; x += sw) {
-    ctx.drawImage(
-      img,
-      dx + x,
-      dy + (dh - sh) * 0.5 + verticalShift,
-      sw,
-      sh
-    );
+  // vertical: just center. DO NOT add a shift here — cover-scale only
+  // guarantees full coverage at this exact y. Any offset can expose the
+  // empty (black) canvas above or below the sky region.
+  const yPos = dy + (dh - sh) * 0.5;
+
+  for (let x = startX; x < dw + sw; x += sw) {
+    ctx.drawImage(img, dx + x, yPos, sw, sh);
   }
 }
 
@@ -47,18 +48,13 @@ export function drawGroundLayer() {
   const H   = getH();
 
   const horizonY = H * 0.43;
-  const h = H - horizonY;
+  const h        = H - horizonY;
 
-  const posDelta = P.pos >= _lastPos
-    ? P.pos - _lastPos
-    : P.pos;
-
+  const posDelta = P.pos >= _lastPos ? P.pos - _lastPos : P.pos;
   _lastPos = P.pos;
 
-  // This makes ground.png move backward with real speed.
   _groundScroll += posDelta * 0.22;
 
-  // Add small curve sideways motion so it matches road/scenery.
   const curveSide = P.roadCurve * W * 0.12;
 
   if (IMG.ground.ready) {
@@ -71,7 +67,7 @@ export function drawGroundLayer() {
 
     const off = wrap(_groundScroll + curveSide, tw);
 
-    for (let x = -off - tw; x < W + tw * 2; x += tw) {
+    for (let x = -off - tw; x < W + tw; x += tw) {
       ctx.drawImage(IMG.ground, x, horizonY, tw, th);
     }
 
@@ -93,18 +89,11 @@ export function drawBG() {
 
   const skyH = H * 0.43 | 0;
 
-  // Persistent horizon movement:
-  // Left turn  roadCurve < 0 → horizon moves right.
-  // Right turn roadCurve > 0 → horizon moves left.
-  // It does NOT reset to original position after curve ends.
-  const speed01 = Math.min(1, Math.max(0, P.speed / C.MAX_SPD));
-  const panSpeed = -P.roadCurve * W * 0.010 * speed01;
+  const speed01 = clamp(P.speed / C.MAX_SPD, 0, 1);
 
-  _horizonPan += panSpeed;
+  // Persistent horizontal pan based on road curvature + speed
+  _horizonPan += -P.roadCurve * W * 0.010 * speed01;
 
-  // small camera vertical reaction for hills
-  const hillShift = clamp(P.cameraY * 0.018, -H * 0.045, H * 0.045);
-
-  drawCover(ctx, IMG.horizon, 0, 0, W, skyH, _horizonPan, hillShift);
+  drawCover(ctx, IMG.horizon, 0, 0, W, skyH, _horizonPan);
   drawGroundLayer();
 }
