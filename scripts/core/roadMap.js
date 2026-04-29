@@ -25,8 +25,8 @@ const addRoad = (nE,nH,nL,cv,hl) => {
   for(let i=0;i<nH;i++) addSeg(cv, hl);
   for(let i=0;i<nL;i++) addSeg(eIO(cv,0,i/nL), eIO(hl,0,i/nL));
 };
-const straight = (n=25)  => addRoad(n/4|0,n/2|0,n/4|0, 0,  0);
-const curve    = (n=25,cv=2,hl=0) => addRoad(n/4|0,n/2|0,n/4|0,cv,hl);
+const straight = (n=25)             => addRoad(n/4|0, n/2|0, n/4|0,  0,  0);
+const curve    = (n=25, cv=2, hl=0) => addRoad(n/4|0, n/2|0, n/4|0, cv, hl);
 
 export function buildTrack(buildSceneryCb) {
   segs = [];
@@ -44,15 +44,15 @@ export function buildTrack(buildSceneryCb) {
   if (typeof buildSceneryCb === 'function') buildSceneryCb();
 }
 
-export const findSeg = (z) => segs[Math.floor(z/C.SEG_LEN) % segs.length];
+export const findSeg = (z) => segs[Math.floor(z / C.SEG_LEN) % segs.length];
 
 export const project = (p, camX, camY, camZ, W, H) => {
   p.cam.x = (p.world.x||0) - camX;
   p.cam.y = (p.world.y||0) - camY;
   p.cam.z = (p.world.z||0) - camZ;
-  if(p.cam.z <= 0){ p.scr.scale=0; return; }
+  if (p.cam.z <= 0) { p.scr.scale = 0; return; }
   p.scr.scale = C.CAM_DEPTH / p.cam.z;
-  p.scr.x = ((W/2) + (p.scr.scale * p.cam.x * W/2));
-  p.scr.y = ((H*0.43) - (p.scr.scale * p.cam.y * H/2));
-  p.scr.w = (p.scr.scale * C.ROAD_W * W/2);
+  p.scr.x     = (W/2) + (p.scr.scale * p.cam.x * W/2);
+  p.scr.y     = (H*0.43) - (p.scr.scale * p.cam.y * H/2);
+  p.scr.w     = p.scr.scale * C.ROAD_W * W/2;
 };

@@ -1,133 +1,242 @@
 // ═══════════════════════════════════════════════════════
-// PLAYER — UnitB spritesheet car renderer
+// PLAYER — UnitA spritesheet car renderer + tire dust FX
 // ═══════════════════════════════════════════════════════
-// Spritesheet: assets/UnitsTeamB.png  (1901 × 511)
-// UnitB has 21 frames: UnitB_055 … UnitB_075
-//   Frames 055–063 (idx 0–8 ) = turning right → car faces right
-//   Frame  064     (idx 9   ) = straight ahead (dead-centre)
-//   Frames 065–075 (idx 10–20) = turning left  → car faces left
-//
-// We map the player's lateral position + steering input
-// to a frame index so the car visually turns with the road.
-// ═══════════════════════════════════════════════════════
-import { P }                        from '../systems/roadSystem.js';
-import { K }                        from '../core/inputController.js';
+import { P }                          from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../systems/projectionSystem.js';
 
-// ── UnitB atlas data (exact values from JSON) ───────────
-const UNIT_B_FRAMES = [
-  // idx  name          x    y    w    h   ssX  ssY
-  { x:228, y:102, w: 99, h:101, sx:33, sy:38 }, // 055 → turning right (most)
-  { x:330, y:202, w:100, h:101, sx:32, sy:38 }, // 056
-  { x:432, y:202, w:100, h:101, sx:31, sy:38 }, // 057
-  { x:117, y:410, w:102, h:100, sx:29, sy:38 }, // 058
-  { x:118, y:308, w:102, h:100, sx:28, sy:38 }, // 059
-  { x:120, y:201, w:103, h: 99, sx:26, sy:38 }, // 060
-  { x:329, y:101, w:103, h: 99, sx:25, sy:38 }, // 061
-  { x:588, y:100, w:104, h: 98, sx:23, sy:38 }, // 062
-  { x:225, y:205, w:103, h: 98, sx:22, sy:38 }, // 063
-  { x:122, y:102, w:104, h: 97, sx:20, sy:38 }, // 064 ← STRAIGHT (index 9)
-  { x:434, y:102, w:104, h: 97, sx:18, sy:38 }, // 065
-  { x:430, y:406, w:104, h: 97, sx:16, sy:38 }, // 066
-  { x:222, y:305, w:104, h: 98, sx:14, sy:38 }, // 067
-  { x:328, y:305, w:104, h: 98, sx:13, sy:38 }, // 068
-  { x:325, y:405, w:103, h: 99, sx:12, sy:38 }, // 069
-  { x:434, y:305, w:102, h: 99, sx:11, sy:38 }, // 070
-  { x:221, y:410, w:102, h:100, sx:10, sy:38 }, // 071
-  { x:640, y:302, w:102, h: 99, sx: 9, sy:39 }, // 072
-  { x:534, y:201, w:101, h:100, sx: 8, sy:39 }, // 073
-  { x:538, y:303, w:100, h:100, sx: 8, sy:39 }, // 074
-  { x:637, y:200, w: 99, h:100, sx: 8, sy:39 }, // 075 → turning left (most)
+// ── Car frames ─────────────────────────────────────────
+const FRAMES_A = [
+  { x:   1, y:  1, w:119, h:101, sx:17, sy:40 },
+  { x:   1, y:104, w:117, h:101, sx:19, sy:40 },
+  { x:   1, y:308, w:115, h:100, sx:20, sy:40 },
+  { x:   1, y:410, w:114, h:100, sx:21, sy:40 },
+  { x: 475, y:  1, w:111, h: 99, sx:23, sy:40 },
+  { x:1490, y:  1, w:109, h: 97, sx:24, sy:41 },
+  { x:1712, y:  1, w:108, h: 97, sx:24, sy:41 },
+  { x:1042, y:  1, w:110, h: 96, sx:21, sy:41 },
+  { x:1154, y:  1, w:110, h: 96, sx:19, sy:41 },
+  { x: 701, y:  1, w:112, h: 95, sx:16, sy:41 },
+  { x: 815, y:  1, w:112, h: 94, sx:14, sy:41 },
+  { x: 929, y:  1, w:111, h: 95, sx:12, sy:41 },
+  { x:1266, y:  1, w:110, h: 96, sx:11, sy:41 },
+  { x:1378, y:  1, w:110, h: 96, sx: 9, sy:41 },
+  { x: 701, y: 98, w:108, h: 97, sx: 8, sy:41 },
+  { x:1601, y:  1, w:109, h: 97, sx: 7, sy:42 },
+  { x: 588, y:  1, w:111, h: 97, sx: 6, sy:42 },
+  { x: 360, y:  1, w:113, h: 98, sx: 5, sy:42 },
+  { x: 243, y:  1, w:115, h: 98, sx: 5, sy:42 },
+  { x:   1, y:207, w:117, h: 99, sx: 4, sy:42 },
+  { x: 122, y:  1, w:119, h: 99, sx: 4, sy:42 },
 ];
 
-// sourceSize is always 140×173, anchor (0.5, 0.65)
-const SRC_W  = 140;
-const SRC_H  = 173;
-const ANCHOR_X = 0.5;   // horizontal centre
-const ANCHOR_Y = 0.65;  // anchor 65% from top = ground contact
+const SRC_W = 140;
+const SRC_H = 173;
+const ANCHOR_X = 0.5;
+const ANCHOR_Y = 0.65;
+const STRAIGHT = 9;
+const TOTAL = FRAMES_A.length;
 
-const STRAIGHT_IDX = 9; // UnitB_064
-const TOTAL_FRAMES  = UNIT_B_FRAMES.length; // 21
+let _frameFloat = STRAIGHT;
 
-// Smooth visual frame index (float, updated every render frame)
-let _frameFloat = STRAIGHT_IDX;
-
-// ── Load spritesheet ─────────────────────────────────────
+// ── Car image ──────────────────────────────────────────
 const _sheet = new Image();
 _sheet.ready = false;
 _sheet.onload = () => { _sheet.ready = true; };
-_sheet.onerror= () => { console.warn('UnitsTeamB.png not found'); };
+_sheet.onerror = () => console.warn('[player] UnitsTeamB.png not found');
 _sheet.src = 'assets/UnitsTeamB.png';
 
-// ── Public: call every render frame ─────────────────────
+// ── Effects image ──────────────────────────────────────
+const _fx = new Image();
+_fx.ready = false;
+_fx.onload = () => { _fx.ready = true; };
+_fx.onerror = () => console.warn('[effects] Effects.png not found');
+_fx.src = 'assets/Effects.png';
+
+// Streak frames from Effects.json
+const STREAKS = [
+  { x:1,    y:1,   w:480, h:270 },
+  { x:482,  y:1,   w:480, h:270 },
+  { x:963,  y:1,   w:480, h:270 },
+  { x:1444, y:1,   w:480, h:270 },
+  { x:1,    y:272, w:480, h:270 },
+  { x:482,  y:272, w:480, h:270 },
+  { x:963,  y:272, w:480, h:270 },
+  { x:1444, y:272, w:480, h:270 },
+  { x:1,    y:543, w:480, h:270 },
+  { x:482,  y:543, w:480, h:270 },
+];
+
+let _fxTick = 0;
+
+// ── Draw speed streaks near car sides ──────────────────
+function drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH) {
+  const speed01 = Math.min(1, Math.max(0, P.speed / 34));
+  if (!_fx.ready || speed01 < 0.55) return;
+
+  _fxTick += 0.35 + speed01 * 0.55;
+  const f = STREAKS[Math.floor(_fxTick) % STREAKS.length];
+
+  // MANUAL SETTINGS
+  const SIZE_MULT = 1.50;   // smaller = tighter around car
+  const Y_OFFSET  = 0.50;   // smaller = lower/closer to car
+  const ALPHA     = 0.14 + speed01 * 0.18;
+
+  const sw = drawW * SIZE_MULT;
+  const sh = sw * 0.56;
+
+  const dx = anchorX - sw / 2;
+  const dy = anchorY - drawH * Y_OFFSET;
+
+  // Offscreen canvas so fade does NOT erase road/background
+  const off = document.createElement('canvas');
+  off.width = Math.ceil(sw);
+  off.height = Math.ceil(sh);
+  const octx = off.getContext('2d');
+
+  // draw boost frame
+  octx.drawImage(
+    _fx,
+    f.x, f.y, f.w, f.h,
+    0, 0, off.width, off.height
+  );
+
+  // fade left/right/top/bottom edges inside only this boost image
+  octx.globalCompositeOperation = 'destination-in';
+
+  const grad = octx.createLinearGradient(0, 0, off.width, 0);
+  grad.addColorStop(0.00, 'rgba(255,255,255,0)');
+  grad.addColorStop(0.16, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.84, 'rgba(255,255,255,1)');
+  grad.addColorStop(1.00, 'rgba(255,255,255,0)');
+  octx.fillStyle = grad;
+  octx.fillRect(0, 0, off.width, off.height);
+
+  const vgrad = octx.createLinearGradient(0, 0, 0, off.height);
+  vgrad.addColorStop(0.00, 'rgba(255,255,255,0)');
+  vgrad.addColorStop(0.18, 'rgba(255,255,255,1)');
+  vgrad.addColorStop(0.82, 'rgba(255,255,255,1)');
+  vgrad.addColorStop(1.00, 'rgba(255,255,255,0)');
+  octx.fillStyle = vgrad;
+  octx.fillRect(0, 0, off.width, off.height);
+
+  ctx.save();
+  ctx.globalAlpha = ALPHA;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(off, dx, dy, sw, sh);
+  ctx.restore();
+}
+
+// ── Draw realistic tire dust as thin backward threads ──
+function drawTireDust(ctx, anchorX, anchorY, drawW, drawH) {
+  const speed01 = Math.min(1, Math.max(0, P.speed / 34));
+  if (speed01 < 0.12) return;
+
+  const rearY = anchorY + drawH * 0.05;
+  const leftX = anchorX - drawW * 0.30;
+  const rightX = anchorX + drawW * 0.30;
+
+  const len = drawH * (0.35 + speed01 * 0.75);
+  const spread = drawW * 0.13;
+  const alpha = 0.10 + speed01 * 0.28;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (const tireX of [leftX, rightX]) {
+    for (let i = 0; i < 9; i++) {
+      const r = (Math.random() - 0.5);
+      const sx = tireX + r * spread;
+      const sy = rearY + Math.random() * drawH * 0.06;
+      const ex = sx + r * spread * 1.4;
+      const ey = sy + len * (0.45 + Math.random() * 0.65);
+
+      ctx.globalAlpha = alpha * (0.35 + Math.random() * 0.65);
+      ctx.strokeStyle = 'rgba(190,170,125,1)';
+      ctx.lineWidth = 1 + Math.random() * 2.2;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(
+        sx + r * spread,
+        sy + len * 0.45,
+        ex,
+        ey
+      );
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+// ── Main car draw ──────────────────────────────────────
 export function drawCar(steerVisual) {
-  // steerVisual: smoothed float  -1 (full left) … 0 … +1 (full right)
-  // Map to frame index:
-  //   steer = -1  → idx 20 (hardest left)
-  //   steer =  0  → idx  9 (straight)
-  //   steer = +1  → idx  0 (hardest right)
-  // We use only the outer ~60 % of the range so slight inputs still look natural.
-  const targetIdx = STRAIGHT_IDX - steerVisual * STRAIGHT_IDX;
-  // Smooth the frame float so it doesn't snap (lerp at ~12 fps influence)
-  _frameFloat += (targetIdx - _frameFloat) * 0.22;
-  const idx = Math.max(0, Math.min(TOTAL_FRAMES - 1, Math.round(_frameFloat)));
+  // IMPORTANT:
+  // This is reversed from old version so LEFT uses LEFT visual frames,
+  // RIGHT uses RIGHT visual frames.
+  const targetIdx = STRAIGHT + steerVisual * STRAIGHT;
+
+  _frameFloat += (targetIdx - _frameFloat) * 0.20;
+  const idx = Math.max(0, Math.min(TOTAL - 1, Math.round(_frameFloat)));
 
   const ctx = getCtx();
-  const W   = getW();
-  const H   = getH();
-  const res = getRes();   // _W / 1024  — DPR-aware scale factor
+  const W = getW();
+  const H = getH();
+  const res = getRes();
 
-  // Desired rendered height of the car (in canvas pixels)
-  const drawH = (SRC_H * res * 0.62) | 0;
-  const drawW = (SRC_W * res * 0.62) | 0;
+  const SCALE = 1.5;
+  const drawH = (SRC_H * res * SCALE) | 0;
+  const drawW = (SRC_W * res * SCALE) | 0;
 
-  // Car anchor point on screen: horizontally centred, near bottom
   const anchorX = W / 2;
-  const anchorY = (H * 0.91) | 0;
+  const anchorY = (H * 0.89) | 0;
 
-  // Draw position: shift by anchor so the car sits on the road surface
   const dx = anchorX - drawW * ANCHOR_X;
   const dy = anchorY - drawH * ANCHOR_Y;
 
+  // Draw speed streaks behind/side of car first
+  drawSpeedStreaks(ctx, W, H, res, anchorX, anchorY, drawW, drawH);
+
+  // Draw tire dust under tires before car
+  drawTireDust(ctx, anchorX, anchorY, drawW, drawH);
+
   if (_sheet.ready) {
-    const f = UNIT_B_FRAMES[idx];
-    // Shadow ellipse under car
+    const f = FRAMES_A[idx];
+
+    // shadow
     ctx.save();
-    ctx.globalAlpha = 0.38;
-    ctx.fillStyle   = '#000';
+    ctx.globalAlpha = 0.40;
+    ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.ellipse(
-      anchorX, anchorY + drawH * 0.08,
-      drawW * 0.44, drawH * 0.07,
-      0, 0, Math.PI * 2
-    );
+    ctx.ellipse(anchorX, anchorY + drawH * 0.06, drawW * 0.46, drawH * 0.06, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Brake-light red glow overlay
-    if (P.isBraking && P.speed > 2) {
-      ctx.save();
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle   = '#ff2200';
-      ctx.fillRect(dx + drawW*0.1, dy + drawH*0.55, drawW*0.8, drawH*0.15);
-      ctx.restore();
-    }
-
-    // Draw sprite from sheet
     ctx.drawImage(
       _sheet,
-      f.x, f.y, f.w, f.h,   // source rect (trimmed frame)
-      dx + (f.sx / SRC_W) * drawW,   // compensate for trimmed offset
+      f.x, f.y, f.w, f.h,
+      dx + (f.sx / SRC_W) * drawW,
       dy + (f.sy / SRC_H) * drawH,
       (f.w / SRC_W) * drawW,
       (f.h / SRC_H) * drawH
     );
-
   } else {
-    // Fallback: coloured rectangle while sheet loads
     ctx.fillStyle = '#1a88ff';
-    ctx.fillRect(dx + drawW*0.1, dy + drawH*0.3, drawW*0.8, drawH*0.6);
-    ctx.fillStyle = '#0055cc';
-    ctx.fillRect(dx + drawW*0.2, dy + drawH*0.15, drawW*0.6, drawH*0.35);
+    ctx.fillRect(dx + drawW * 0.08, dy + drawH * 0.28, drawW * 0.84, drawH * 0.65);
   }
+}
+
+export function getCarAnchor() {
+  const res = getRes();
+  const SCALE = 1.5;
+  const drawW = (SRC_W * res * SCALE) | 0;
+  const drawH = (SRC_H * res * SCALE) | 0;
+
+  return {
+    anchorX: getW() / 2,
+    anchorY: (getH() * 0.89) | 0,
+    drawW,
+    drawH,
+  };
 }

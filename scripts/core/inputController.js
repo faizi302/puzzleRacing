@@ -4,11 +4,11 @@
 export const K = {up:false, down:false, left:false, right:false, hand:false, pause:false};
 
 const KM = {
-  ArrowUp:'up',   ArrowDown:'down',
-  ArrowLeft:'left', ArrowRight:'right',
-  KeyW:'up',  KeyS:'down',
-  KeyA:'left', KeyD:'right',
-  Space:'hand', Escape:'pause', KeyP:'pause',
+  ArrowUp   : 'up',    ArrowDown  : 'down',
+  ArrowLeft : 'left',  ArrowRight : 'right',
+  KeyW      : 'up',    KeyS       : 'down',
+  KeyA      : 'left',  KeyD       : 'right',
+  Space     : 'hand',  Escape     : 'pause',  KeyP : 'pause',
 };
 const BLK = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
 
