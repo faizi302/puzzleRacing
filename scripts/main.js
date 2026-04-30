@@ -1,185 +1,219 @@
-'use strict';
 // ═══════════════════════════════════════════════════════
-// MAIN — Entry point, game loop, screen wiring
+// MAIN — Boot, game loop, screen wiring
+// (lives at scripts/main.js — paths are relative from there)
 // ═══════════════════════════════════════════════════════
-import { K, initInput, bindTouch }              from './core/inputController.js';
-import { buildTrack, segs }                      from './core/roadMap.js';
-import { P, resetPhys, updatePhys, best, clamp } from './systems/roadSystem.js';
-import { C }                                     from './configs/roadConfig.js';
-import { show }                                  from './systems/gameState.js';
-import { initRenderer, sizeCanvas,
-         getW, getH, getRes }                    from './core/canvas.js';
-import { resetParts, tickParts,
-         spawnCrash, spawnDust }                 from './systems/collisionSystem.js';
-import { buildScenery }                          from './visuals/sceneryRender.js';
-import { renderFrame }                           from './visuals/render.js';
-import { updHUD, updLaps, fmtT }                 from './visuals/playerRender.js';
-import { notify, countdown }                     from './player/playerAnimation.js';
-import { drawMenuStars }                         from './visuals/uiRender.js';
-import { getCarAnchor }                          from './player/player.js';
+import { initRenderer, sizeCanvas, getCanvas, getW, getH } from './core/canvas.js';
+import { initInput, K, readInput, lockInput, bindTouch }   from './core/inputController.js';
+import { P, resetPhys, updatePhys, kmh, best }             from './systems/roadSystem.js';
+import { buildTrack, trackLen }                            from './core/roadMap.js';
+import { buildScenery, sceneryObjs }                       from './visuals/sceneryRender.js';
+import {
+  resetParts, tickParts, checkSceneryCollisions, tickEdgeScrape, spawnSkid,
+} from './systems/collisionSystem.js';
+import { renderFrame }                                      from './visuals/render.js';
+import { updHUD, updLaps, fmtT }                            from './visuals/playerRender.js';
+import { drawMenuStars }                                    from './visuals/uiRender.js';
+import { show }                                             from  './systems/gameState.js';
+import {
+  notify, countdown, playIntro, playOutro, tickCamAnim,
+} from './player/playerAnimation.js';
+import { camAnim, getCarAnchor }                            from './player/player.js';
+import {
+  unlockAudio, playSfx, stopAll, startMusic, stopMusic, setEngineSpeed,
+} from './core/audio.js';
+import { C }                                                from './configs/roadConfig.js';
 
-// ── Track length ─────────────────────────────────────────
-let _trackLen = 0;
+// ── Boot ───────────────────────────────────────────────
+const cv = document.getElementById('gc');
+initRenderer(cv);
+sizeCanvas();
+window.addEventListener('resize', sizeCanvas);
 
-// ── Game loop state ──────────────────────────────────────
-let _raf          = null;
-let _last         = 0;
-let _paused       = false;
-let _running      = false;
-let _prevLap      = 0;
-let _fpsBuf       = [];
-let _fps          = 60;
-let _accum        = 0;
+initInput();
 
-// ── Visual steer ─────────────────────────────────────────
-let _steerVisual  = 0;
-let _hillOff      = 0;
+// Touch controls
+bindTouch('tc-l', 'left');
+bindTouch('tc-r', 'right');
+bindTouch('tc-a', 'up');
+bindTouch('tc-b', 'down');
 
-// ── Fixed-step game loop ─────────────────────────────────
-function loop(ts) {
-  _raf = requestAnimationFrame(loop);
-  const rawDt = Math.min((ts - _last) / 1000, 0.05);
-  _last = ts;
+// Build track
+buildTrack(buildScenery);
 
-  if (rawDt > 0) {
-    _fpsBuf.push(1 / rawDt);
-    if (_fpsBuf.length > 30) _fpsBuf.shift();
-    _fps = _fpsBuf.reduce((a, b) => a + b, 0) / _fpsBuf.length;
-  }
-
-  if (_paused) return;
-  if (K.pause) { K.pause = false; doPause(); return; }
-
-  _accum += rawDt;
-  const step = C.STEP;
-  let guard  = 0;
-  while (_accum >= step && guard++ < 4) {
-    updatePhys(K, step, _trackLen);
-    tickParts(step);
-    _accum -= step;
-  }
-
-  const speedFrac  = P.speed / C.MAX_SPD;
-  const inputLean  = (K.left ? -1 : K.right ? 1 : 0) * speedFrac;
-  const curveLean  = P.roadCurve * speedFrac * 0.50;
-  const targetSteer = clamp(inputLean + curveLean, -1, 1);
-
-  _steerVisual += (targetSteer - _steerVisual) * Math.min(1, rawDt * 9);
-
-  if (!K.left && !K.right && Math.abs(P.roadCurve) < 0.05) {
-    _steerVisual *= Math.pow(0.88, rawDt * 60);
-  }
-
-  _hillOff += inputLean * rawDt * 38;
-
-  if (P.isOffTrack) {
-    spawnCrash(
-      getW() / 2 + (K.left ? -80 : 80),
-      getH() * 0.72 | 0
-    );
-    if (P.speed > 10) notify('⚠ WALL HIT!', 700);
-  }
-
-  if (P.speed > C.MAX_SPD * 0.04) {
-    const { anchorX, anchorY, drawW, drawH } = getCarAnchor();
-    const tyreY  = anchorY + drawH * (0.35 - 0.65);
-    const tyreXL = anchorX - drawW * 0.30;
-    const tyreXR = anchorX + drawW * 0.30;
-    const brk    = P.isBraking;
-
-    if (Math.random() < speedFrac * (brk ? 0.95 : 0.55)) {
-      spawnDust(tyreXL, tyreY, brk);
-      spawnDust(tyreXR, tyreY, brk);
-    }
-  }
-
-  renderFrame(_steerVisual);
-  updHUD(_fps, _trackLen);
-
-  if (P.lapCount > _prevLap && P.lapCount > 0) {
-    _prevLap = P.lapCount;
-    updLaps();
-    const lt = P.lapTimes[P.lapTimes.length - 1];
-    notify(
-      lt === best()
-        ? `🏆 LAP ${P.lapCount} — BEST! ${fmtT(lt)}`
-        : `✓  LAP ${P.lapCount} — ${fmtT(lt)}`
-    );
-  }
-
-  if (P.raceFinished && _running) { _running = false; onWin(); }
+// ── Menu ───────────────────────────────────────────────
+let _menuRaf = null;
+function loopMenu() {
+  drawMenuStars();
+  _menuRaf = requestAnimationFrame(loopMenu);
 }
+function stopMenu() { if (_menuRaf) cancelAnimationFrame(_menuRaf); _menuRaf = null; }
+loopMenu();
 
-// ── Race flow ─────────────────────────────────────────────
-async function startRace() {
-  show('game');
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+// ── State ──────────────────────────────────────────────
+let _running = false;
+let _paused  = false;
+let _last    = 0;
+let _accum   = 0;
+let _fps     = 60;
+let _fpsT    = 0;
+let _fpsN    = 0;
+let _winShown = false;
 
-  buildTrack(buildScenery);
-  _trackLen = segs.length * C.SEG_LEN;
+// ── Buttons ────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-howto').addEventListener('click', () => show('howto'));
+document.getElementById('btn-back') ?.addEventListener('click', () => show('menu'));
+document.getElementById('btn-resume')?.addEventListener('click', resumeGame);
+document.getElementById('btn-quit')  ?.addEventListener('click', quitToMenu);
+document.getElementById('btn-again') ?.addEventListener('click', startGame);
+document.getElementById('btn-tomenu')?.addEventListener('click', quitToMenu);
+document.getElementById('pbtn')      ?.addEventListener('click', pauseGame);
 
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' || e.code === 'KeyP') {
+    if (_running && !_paused) pauseGame();
+    else if (_paused)         resumeGame();
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// GAME LIFECYCLE
+// ═══════════════════════════════════════════════════════
+async function startGame() {
+  unlockAudio();          // user gesture → enables audio
+  stopMenu();
+  _winShown = false;
+
+  document.getElementById('s-win')  ?.classList.remove('on');
+  document.getElementById('s-pause')?.classList.remove('on');
+
+  buildTrack(buildScenery);  // rebuild so flagged-dead pickups respawn
   resetPhys();
   resetParts();
+
+  show('game');
   sizeCanvas();
-  _prevLap = 0; _steerVisual = 0; _hillOff = 0;
-  _paused  = false; _running = true;
 
+  // Lock input until intro + countdown both finish.
+  lockInput(true);
+
+  // Render an idle frame immediately so the screen isn't blank during intro.
+  renderFrame(0);
+
+  // 1. Camera fade-in
+  await playIntro();
+
+  // 2. Countdown
+  playSfx('start');
   await countdown();
-  notify('🏁 RACE START!', 2000);
-  _fpsBuf = []; _accum = 0; _last = performance.now();
-  cancelAnimationFrame(_raf);
-  _raf = requestAnimationFrame(loop);
+
+  // 3. Launch race
+  lockInput(false);
+  startMusic();
+  notify('LAP 1');
+  _running = true;
+  _paused  = false;
+  _last    = performance.now();
+  _accum   = 0;
+  requestAnimationFrame(loopGame);
 }
 
-function doPause()  { _paused = true;  show('pause'); }
-function doResume() { _paused = false; _last = performance.now(); show('game'); }
-function doQuit()   {
-  cancelAnimationFrame(_raf);
-  _running = false; _paused = false;
+function pauseGame() {
+  if (!_running) return;
+  _paused = true;
+  show('pause');
+  stopAll();
+}
+
+function resumeGame() {
+  if (!_running) return;
+  _paused = false;
+  show('game');
+  startMusic();
+  _last = performance.now();
+  requestAnimationFrame(loopGame);
+}
+
+function quitToMenu() {
+  _running = false;
+  _paused  = false;
+  stopAll();
   show('menu');
+  loopMenu();
 }
 
-function onWin() {
-  cancelAnimationFrame(_raf);
-  notify('🏆 RACE COMPLETE!', 4500);
-  setTimeout(() => {
-    const b = best();
-    document.getElementById('ws-t').textContent = fmtT(P.raceTime);
-    document.getElementById('ws-b').textContent = b ? fmtT(b) : '--';
-    document.getElementById('ws-l').textContent = P.lapCount;
-    show('win');
-  }, 1800);
+async function endRace() {
+  _winShown = true;
+  // Race-end fly-out (camera shrinks, player coasts forward — input already
+  // ignored because P.endPhase >= 1 in roadSystem).
+  lockInput(true);
+  stopMusic();
+  playSfx('win');
+
+  await playOutro();
+
+  // Show win card with fade
+  document.getElementById('ws-t').textContent = fmtT(P.raceTime);
+  document.getElementById('ws-b').textContent = best() ? fmtT(best()) : '—';
+  document.getElementById('ws-l').textContent = String(P.lapCount);
+  show('win');
+  // Render keeps running underneath until quit/again — pause its physics:
+  P.endPhase = 2;
 }
 
-// ── Resize ────────────────────────────────────────────────
-let _rT;
-window.addEventListener('resize', () => {
-  clearTimeout(_rT);
-  _rT = setTimeout(() => {
-    if (document.getElementById('s-game').classList.contains('on')) sizeCanvas();
-  }, 100);
-});
+// ═══════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════
+function loopGame(now) {
+  if (!_running || _paused) return;
 
-// ── Boot ──────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  const canvas = document.getElementById('gc');
-  initRenderer(canvas);
-  initInput();
+  const dtRaw = Math.min(0.05, (now - _last) / 1000);
+  _last = now;
 
-  bindTouch('tc-a', 'up');
-  bindTouch('tc-b', 'down');
-  bindTouch('tc-l', 'left');
-  bindTouch('tc-r', 'right');
+  // Fixed-step physics
+  _accum += dtRaw;
+  const STEP = C.STEP;
+  const inp = readInput();
 
-  document.getElementById('btn-start') .addEventListener('click', startRace);
-  document.getElementById('btn-howto') .addEventListener('click', () => show('howto'));
-  document.getElementById('btn-back')  .addEventListener('click', () => show('menu'));
-  document.getElementById('pbtn')      .addEventListener('click', doPause);
-  document.getElementById('btn-resume').addEventListener('click', doResume);
-  document.getElementById('btn-quit')  .addEventListener('click', doQuit);
-  document.getElementById('btn-again') .addEventListener('click', startRace);
-  document.getElementById('btn-tomenu').addEventListener('click', doQuit);
+  while (_accum >= STEP) {
+    updatePhys(inp, STEP, trackLen);
 
-  requestAnimationFrame(drawMenuStars);
-  window.addEventListener('resize', drawMenuStars);
-});
+    // Scenery collisions (player vs trees / arches / coins / boosters).
+    const a = getCarAnchor();
+    checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
+
+    // Skid marks under car when handbraking or braking hard
+    if ((inp.hand || inp.down) && P.speed > C.NORMAL_MAX * 0.35) {
+      if (Math.random() < 0.45) {
+        spawnSkid(a.anchorX - a.drawW * 0.30, a.anchorY + a.drawH * 0.06);
+        spawnSkid(a.anchorX + a.drawW * 0.30, a.anchorY + a.drawH * 0.06);
+      }
+    }
+
+    _accum -= STEP;
+  }
+
+  // Per-frame ticks (animations, audio loops)
+  tickParts(dtRaw);
+  tickCamAnim(dtRaw);
+  tickEdgeScrape();
+  setEngineSpeed(Math.min(1, P.speed / C.NITRO_MAX));
+
+  // Steering visual: works even at zero speed (UI keys directly).
+  const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
+
+  renderFrame(steerVisual);
+  updHUD(_fps, trackLen);
+  updLaps();
+
+  // FPS
+  _fpsT += dtRaw; _fpsN++;
+  if (_fpsT >= 0.5) { _fps = (_fpsN / _fpsT) | 0; _fpsT = 0; _fpsN = 0; }
+
+  // Race end trigger
+  if (P.raceFinished && !_winShown) {
+    endRace();
+  }
+
+  requestAnimationFrame(loopGame);
+}

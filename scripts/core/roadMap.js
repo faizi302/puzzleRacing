@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// ROAD MAP — Track generation & segment projection
+// ROAD MAP — Track generation & projection
 // ═══════════════════════════════════════════════════════
 import { C, COL, LCOL } from '../configs/roadConfig.js';
 
@@ -30,7 +30,10 @@ const curve    = (n=25, cv=2, hl=0) => addRoad(n/4|0, n/2|0, n/4|0, cv, hl);
 
 export function buildTrack(buildSceneryCb) {
   segs = [];
-  addRoad(1, C.RUMBLE*2, 1, 0, 0);
+  // Finish-line block (start segments)
+  addRoad(1, C.RUMBLE * 2, 1, 0, 0);
+
+  // Body of the track
   straight(260);
   curve(95,   0.28, 0);
   straight(230);
@@ -40,11 +43,19 @@ export function buildTrack(buildSceneryCb) {
   straight(260);
   curve(120, -0.24, 0);
   straight(320);
+
+  // Tail straight that loops back into the finish line — keeps the wrap smooth.
+  straight(40);
+
   trackLen = segs.length * C.SEG_LEN;
   if (typeof buildSceneryCb === 'function') buildSceneryCb();
 }
 
-export const findSeg = (z) => segs[Math.floor(z / C.SEG_LEN) % segs.length];
+export const findSeg = (z) => {
+  if (!segs.length) return null;
+  const i = Math.floor(z / C.SEG_LEN);
+  return segs[((i % segs.length) + segs.length) % segs.length];
+};
 
 export const project = (p, camX, camY, camZ, W, H) => {
   p.cam.x = (p.world.x||0) - camX;

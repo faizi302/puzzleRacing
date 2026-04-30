@@ -1,8 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// OBJECT RENDER — Image loader & particle renderer
+// OBJECT RENDER — Image loader (effects + scenery + horizon)
 // ═══════════════════════════════════════════════════════
-import { parts } from '../systems/collisionSystem.js';
-
 function loadImage(src) {
   const img  = new Image();
   img.ready  = false;
@@ -15,10 +13,6 @@ function loadImage(src) {
   return img;
 }
 
-// Asset paths to drop in your project:
-//   assets/backgrounds/Horizons.jpg     <-- atlas, HorizonE frame is used
-//   assets/road/LocationESegments.png   <-- road texture atlas
-//   assets/road/LocationEScenery.png    <-- scenery atlas (unchanged)
 export const IMG = {
   horizon: loadImage([
     'assets/backgrounds/Horizons.jpg',
@@ -38,19 +32,10 @@ export const IMG = {
     'assets/LocationEScenery.png',
     'LocationEScenery.png',
   ]),
+  effects: loadImage([
+    'assets/player/Effects.png',
+    'assets/effects/Effects.png',
+    'assets/Effects.png',
+    'Effects.png',
+  ]),
 };
-
-export function drawParts(ctx) {
-  for (const p of parts) {
-    ctx.save();
-    ctx.globalAlpha = p.life * .9;
-    if (p.t === 's') {
-      ctx.fillStyle = p.life > .6 ? '#ffdd44' : p.life > .3 ? '#ff8800' : '#ff3300';
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.fillStyle = `rgba(180,155,110,${p.life * .45})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-  }
-}

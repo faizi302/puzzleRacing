@@ -1,7 +1,14 @@
 // ═══════════════════════════════════════════════════════
-// INPUT CONTROLLER — Keyboard + Touch
+// INPUT CONTROLLER — Keyboard + Touch + Lock flag
 // ═══════════════════════════════════════════════════════
-export const K = {up:false, down:false, left:false, right:false, hand:false, pause:false};
+export const K = {
+  up:false, down:false, left:false, right:false,
+  hand:false, pause:false,
+
+  // When true, all read accesses behave as "no input"
+  // (used during intro fade-in and race-end fly-out).
+  _locked: false,
+};
 
 const KM = {
   ArrowUp   : 'up',    ArrowDown  : 'down',
@@ -11,6 +18,18 @@ const KM = {
   Space     : 'hand',  Escape     : 'pause',  KeyP : 'pause',
 };
 const BLK = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
+
+// Read snapshot — call this once per physics tick. Returns ZEROED input
+// when locked so the player car doesn't move during cinematics.
+export function readInput() {
+  if (K._locked) {
+    return { up:false, down:false, left:false, right:false, hand:false, pause:false };
+  }
+  return { up:K.up, down:K.down, left:K.left, right:K.right, hand:K.hand, pause:K.pause };
+}
+
+export function lockInput(v = true)  { K._locked = !!v; }
+export function isInputLocked()      { return K._locked; }
 
 export function initInput() {
   window.addEventListener('keydown', e => {

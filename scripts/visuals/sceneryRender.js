@@ -1,3 +1,4 @@
+// ═══════════════════════════════════════════════════════
 // SCENERY RENDER — Trees, arches, coins, bridges
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
