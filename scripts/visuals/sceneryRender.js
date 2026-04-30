@@ -1,4 +1,3 @@
-// ═══════════════════════════════════════════════════════
 // SCENERY RENDER — Trees, arches, coins, bridges
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
@@ -149,14 +148,17 @@ export function drawScenery() {
       y = it.y - drawH * s.anchorY;
 
     } else if (it.o.isCoin || it.o.isBooster) {
-      const worldSize = C.SEG_LEN * (it.o.isBooster ? 0.55 : 0.34) * s.scale;
+      const perspective = clamp(it.scale * 1800, 0.08, 1.65);
 
-      drawW = clamp(
-        worldSize * it.scale * _W,
-        (it.o.isBooster ? 42 : 28) * _res,
-        (it.o.isBooster ? 110 : 72) * _res
-      );
+      const baseSize = it.o.isBooster ? 92 : 80;
 
+      drawW = baseSize * perspective * _res;
+      drawH = drawW * (s.sh / s.sw);
+
+      const minSize = it.o.isBooster ? 14 * _res : 20 * _res;
+      const maxSize = it.o.isBooster ? 70 * _res : 180 * _res;
+
+      drawW = clamp(drawW, minSize, maxSize);
       drawH = drawW * (s.sh / s.sw);
 
       x = it.cx + it.o.offset * it.rw - drawW / 2;
@@ -164,7 +166,6 @@ export function drawScenery() {
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
-
     } else {
       const side = it.o.side || 1;
       const worldR = it.o.small ? C.ROAD_W * 0.28 * s.scale : C.ROAD_W * 0.82 * s.scale;
