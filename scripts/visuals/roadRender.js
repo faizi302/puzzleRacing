@@ -1,15 +1,27 @@
 // ═══════════════════════════════════════════════════════
-// ROAD RENDER — Segment polygons, rumble, lanes
-// Better curve camera shift + non-fixed road edges
+// ROAD RENDER — Textured road from LocationESegments atlas
+// Perspective-correct horizontal slice rendering
 // ═══════════════════════════════════════════════════════
-import { C, COL, LCOL }                    from '../configs/roadConfig.js';
+import {
+  C, COL,
+  SEG_TEX, SEG_TEX_CYCLE, SEG_TEX_RUN, ROAD_TEX_FRAC,
+} from '../configs/roadConfig.js';
 import { segs, trackLen, findSeg, project } from '../core/roadMap.js';
-import { P, clamp }                        from '../systems/roadSystem.js';
-import { getCtx, getW, getH }              from '../core/canvas.js';
+import { P, clamp }                         from '../systems/roadSystem.js';
+import { getCtx, getW, getH }               from '../core/canvas.js';
+import { IMG }                              from './objectRender.js';
 
 export let _visibleSegs = [];
 
 let _curveScreenShift = 0;
+
+// Pick which atlas frame this track segment uses.
+function pickSegTex(segIndex) {
+  // First few segments at the start/finish line.
+  if (segIndex < C.RUMBLE * 2) return SEG_TEX.FinishLine;
+  const i = Math.floor(segIndex / SEG_TEX_RUN) % SEG_TEX_CYCLE.length;
+  return SEG_TEX_CYCLE[i];
+}
 
 export function drawRoad() {
   const ctx = getCtx();
@@ -48,12 +60,11 @@ export function drawRoad() {
 
     const fogA = Math.min(1, Math.pow(n / C.DRAW_D, C.FOG_D));
 
-    drawSeg(
-      ctx, W,
+    drawSegTextured(
+      ctx,
       seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
       seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w,
-      seg.col,
-      COL.FOG,
+      seg.index,
       fogA
     );
 
@@ -76,6 +87,78 @@ export function drawRoad() {
   drawNearestRoadExtension(ctx, W, H);
 }
 
+// One trapezoidal road segment, drawn as a stack of horizontal texture slices
+// to fake perspective-correct mapping.
+//   (x1, y1, w1) = bottom (near) edge mid-x, screen-y, half-width
+//   (x2, y2, w2) = top    (far)  edge mid-x, screen-y, half-width
+function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
+  const img = IMG.segments;
+
+  if (!img.ready) {
+    // Fallback flat road while atlas loads
+    poly(ctx,
+      x1 - w1, y1, x1 + w1, y1,
+      x2 + w2, y2, x2 - w2, y2,
+      COL.ROAD_A, COL.FOG, fogA);
+    return;
+  }
+
+  if (y1 <= y2) return;
+
+  const frame = pickSegTex(segIndex);
+  const segH  = y1 - y2;
+
+  const SLICE_PX = 5;
+  const slices   = Math.max(1, Math.ceil(segH / SLICE_PX));
+  const sliceH   = segH / slices;
+
+  for (let i = 0; i < slices; i++) {
+    const t1   = i / slices;
+    const t2   = (i + 1) / slices;
+    const tMid = (t1 + t2) * 0.5;
+
+    const ySlice = y2 + segH * t1;
+
+    const cx = x2 + (x1 - x2) * tMid;
+    const cw = w2 + (w1 - w2) * tMid;
+
+    // Stretch the source so the road portion (ROAD_TEX_FRAC of source width)
+    // aligns with the projected road. Grass borders fall outside automatically.
+    const fullW = (cw * 2) / ROAD_TEX_FRAC;
+    const dx    = cx - fullW * 0.5;
+
+    const srcY = frame.sy + frame.sh * t1;
+    const srcH = Math.max(1, frame.sh * (t2 - t1));
+
+    ctx.drawImage(
+      img,
+      frame.sx, srcY, frame.sw, srcH,
+      dx, ySlice, fullW, sliceH + 0.5   // +0.5 hides sub-pixel seams
+    );
+  }
+
+  // Distance-fog overlay across the full ground span (road + texture grass).
+  if (fogA > 0.01) {
+    const fullW1 = (w1 * 2) / ROAD_TEX_FRAC;
+    const fullW2 = (w2 * 2) / ROAD_TEX_FRAC;
+
+    ctx.save();
+    ctx.globalAlpha = fogA;
+    ctx.fillStyle   = COL.FOG;
+    ctx.beginPath();
+    ctx.moveTo(x1 - fullW1 * 0.5, y1);
+    ctx.lineTo(x1 + fullW1 * 0.5, y1);
+    ctx.lineTo(x2 + fullW2 * 0.5, y2);
+    ctx.lineTo(x2 - fullW2 * 0.5, y2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Fills the area between the closest visible segment and the bottom of the
+// screen with the same texture, so the road never appears to "end" at the
+// player's feet.
 function drawNearestRoadExtension(ctx, W, H) {
   if (!_visibleSegs.length) return;
 
@@ -90,89 +173,48 @@ function drawNearestRoadExtension(ctx, W, H) {
 
   const bottomW = Math.min(W * 1.08, Math.max(near.w1 * 1.35, W * 0.62));
 
-  const roadCol = near.index < C.RUMBLE * 2 ? LCOL.START.road : COL.ROAD_A;
+  const img = IMG.segments;
 
-  poly(
-    ctx,
-    near.x1 - near.w1, yTop,
-    near.x1 + near.w1, yTop,
-    bottomX + bottomW, H + 4,
-    bottomX - bottomW, H + 4,
-    roadCol,
-    COL.FOG,
-    0
-  );
-
-  const rwTop = near.w1 * 0.13;
-  const rwBot = bottomW * 0.13;
-
-  poly(
-    ctx,
-    near.x1 - near.w1 - rwTop, yTop,
-    near.x1 - near.w1,         yTop,
-    bottomX - bottomW,         H + 4,
-    bottomX - bottomW - rwBot, H + 4,
-    COL.RUM_A,
-    COL.FOG,
-    0
-  );
-
-  poly(
-    ctx,
-    near.x1 + near.w1,         yTop,
-    near.x1 + near.w1 + rwTop, yTop,
-    bottomX + bottomW + rwBot, H + 4,
-    bottomX + bottomW,         H + 4,
-    COL.RUM_A,
-    COL.FOG,
-    0
-  );
-
-  if (C.LANES > 1) {
-    for (let i = 1; i < C.LANES; i++) {
-      const t = i / C.LANES;
-
-      const lxTop = (near.x1 - near.w1) + near.w1 * 2 * t;
-      const lxBot = (bottomX - bottomW) + bottomW * 2 * t;
-
-      const lwTop = Math.max(2, near.w1 * 0.006);
-      const lwBot = Math.max(3, bottomW * 0.006);
-
-      poly(
-        ctx,
-        lxTop - lwTop, yTop,
-        lxTop + lwTop, yTop,
-        lxBot + lwBot, H + 4,
-        lxBot - lwBot, H + 4,
-        COL.LANE,
-        COL.FOG,
-        0
-      );
-    }
+  if (!img.ready) {
+    poly(ctx,
+      near.x1 - near.w1, yTop,
+      near.x1 + near.w1, yTop,
+      bottomX + bottomW, H + 4,
+      bottomX - bottomW, H + 4,
+      COL.ROAD_A, COL.FOG, 0);
+    return;
   }
-}
 
-function drawSeg(ctx, W, x1, y1, w1, x2, y2, w2, col, fog, fogA) {
-  const { road, rum, lane } = col;
+  const frame = pickSegTex(near.index);
 
-  poly(ctx, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, road, fog, fogA);
+  const segH = (H + 4) - yTop;
+  if (segH <= 0) return;
 
-  const rw1 = w1 * 0.13;
-  const rw2 = w2 * 0.13;
+  const SLICE_PX = 6;
+  const slices   = Math.max(1, Math.ceil(segH / SLICE_PX));
+  const sliceH   = segH / slices;
 
-  poly(ctx, x1 - w1 - rw1, y1, x1 - w1, y1, x2 - w2, y2, x2 - w2 - rw2, y2, rum, fog, fogA);
-  poly(ctx, x1 + w1, y1, x1 + w1 + rw1, y1, x2 + w2 + rw2, y2, x2 + w2, y2, rum, fog, fogA);
+  for (let i = 0; i < slices; i++) {
+    const t1   = i / slices;
+    const t2   = (i + 1) / slices;
+    const tMid = (t1 + t2) * 0.5;
 
-  if (lane && Math.abs(y1 - y2) > 2 && w1 > 24) {
-    for (let i = 1; i < C.LANES; i++) {
-      const lx1 = x1 - w1 + (w1 * 2 / C.LANES) * i;
-      const lx2 = x2 - w2 + (w2 * 2 / C.LANES) * i;
+    const ySlice = yTop + segH * t1;
 
-      const lw1 = Math.max(1, (w1 * 2 * 0.006) | 0);
-      const lw2 = Math.max(1, (w2 * 2 * 0.006) | 0);
+    const cx = near.x1 + (bottomX - near.x1) * tMid;
+    const cw = near.w1 + (bottomW - near.w1)  * tMid;
 
-      poly(ctx, lx1 - lw1, y1, lx1 + lw1, y1, lx2 + lw2, y2, lx2 - lw2, y2, lane, fog, fogA * 0.8);
-    }
+    const fullW = (cw * 2) / ROAD_TEX_FRAC;
+    const dx    = cx - fullW * 0.5;
+
+    const srcY = frame.sy + frame.sh * t1;
+    const srcH = Math.max(1, frame.sh * (t2 - t1));
+
+    ctx.drawImage(
+      img,
+      frame.sx, srcY, frame.sw, srcH,
+      dx, ySlice, fullW, sliceH + 0.5
+    );
   }
 }
 

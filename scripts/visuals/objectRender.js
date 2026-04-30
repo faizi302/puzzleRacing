@@ -15,14 +15,29 @@ function loadImage(src) {
   return img;
 }
 
-// Put these files in your assets folders:
-// assets/backgrounds/Horizons1.jpg
-// assets/backgrounds/ground.png       (or assets/road/ground-sheet0.webp)
-// assets/road/LocationEScenery.png
+// Asset paths to drop in your project:
+//   assets/backgrounds/Horizons.jpg     <-- atlas, HorizonE frame is used
+//   assets/road/LocationESegments.png   <-- road texture atlas
+//   assets/road/LocationEScenery.png    <-- scenery atlas (unchanged)
 export const IMG = {
-  horizon: loadImage(['assets/backgrounds/Horizons1.jpg','assets/Horizons1.jpg','Horizons1.jpg']),
-  ground:  loadImage(['assets/backgrounds/ground.png','assets/road/ground-sheet0.webp','assets/ground.png','ground.png']),
-  scenery: loadImage(['assets/road/LocationEScenery.png','assets/LocationEScenery.png','LocationEScenery.png']),
+  horizon: loadImage([
+    'assets/backgrounds/Horizons.jpg',
+    'assets/Horizons.jpg',
+    'Horizons.jpg',
+  ]),
+  segments: loadImage([
+    'assets/road/LocationESegments.png',
+    'assets/road/LocationESegments.jpg',
+    'assets/LocationESegments.png',
+    'assets/LocationESegments.jpg',
+    'LocationESegments.png',
+    'LocationESegments.jpg',
+  ]),
+  scenery: loadImage([
+    'assets/road/LocationEScenery.png',
+    'assets/LocationEScenery.png',
+    'LocationEScenery.png',
+  ]),
 };
 
 export function drawParts(ctx) {
@@ -30,11 +45,11 @@ export function drawParts(ctx) {
     ctx.save();
     ctx.globalAlpha = p.life * .9;
     if (p.t === 's') {
-      ctx.fillStyle = p.life>.6 ? '#ffdd44' : p.life>.3 ? '#ff8800' : '#ff3300';
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = p.life > .6 ? '#ffdd44' : p.life > .3 ? '#ff8800' : '#ff3300';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill();
     } else {
-      ctx.fillStyle = `rgba(180,155,110,${p.life*.45})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(180,155,110,${p.life * .45})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
