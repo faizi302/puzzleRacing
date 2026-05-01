@@ -96,6 +96,7 @@ _sheet.onerror= () => console.warn('[player] UnitsTeamB.png not found');
 _sheet.src    = 'assets/player/UnitsTeamB.png';
 
 // ── Nitro streak FX (uses Effects.png Streaks frames) ─
+// ── Nitro streak FX — cleaned + blended, no box background ─
 const STREAKS = [
   { x:1,    y:1,   w:480, h:270 },
   { x:482,  y:1,   w:480, h:270 },
@@ -108,7 +109,77 @@ const STREAKS = [
   { x:1,    y:543, w:480, h:270 },
   { x:482,  y:543, w:480, h:270 },
 ];
+
 let _fxTick = 0;
+const _streakCache = new Map();
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
+function getCleanStreakFrame(frame) {
+  const key = `${frame.x}_${frame.y}_${frame.w}_${frame.h}`;
+  if (_streakCache.has(key)) return _streakCache.get(key);
+
+  const c = makeCanvas(frame.w, frame.h);
+  const cx = c.getContext('2d', { willReadFrequently:true });
+
+  cx.drawImage(
+    IMG.effects,
+    frame.x, frame.y, frame.w, frame.h,
+    0, 0, frame.w, frame.h
+  );
+
+  const imgData = cx.getImageData(0, 0, frame.w, frame.h);
+  const d = imgData.data;
+
+  // Auto-detect atlas background from corners
+  const samples = [
+    0,
+    (frame.w - 1) * 4,
+    ((frame.h - 1) * frame.w) * 4,
+    ((frame.h - 1) * frame.w + frame.w - 1) * 4,
+  ];
+
+  let br = 0, bg = 0, bb = 0;
+  for (const p of samples) {
+    br += d[p];
+    bg += d[p + 1];
+    bb += d[p + 2];
+  }
+  br /= samples.length;
+  bg /= samples.length;
+  bb /= samples.length;
+
+  for (let y = 0; y < frame.h; y++) {
+    for (let x = 0; x < frame.w; x++) {
+      const i = (y * frame.w + x) * 4;
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+
+      const dist = Math.hypot(r - br, g - bg, b - bb);
+
+      // Remove teal/solid background
+      if (dist < 52) {
+        d[i + 3] = 0;
+      } else if (dist < 95) {
+        d[i + 3] *= (dist - 52) / 43;
+      }
+
+      // Feather frame edges so no rectangle border appears
+      const edge = Math.min(x, y, frame.w - 1 - x, frame.h - 1 - y);
+      if (edge < 24) {
+        d[i + 3] *= edge / 24;
+      }
+    }
+  }
+
+  cx.putImageData(imgData, 0, 0);
+  _streakCache.set(key, c);
+  return c;
+}
 
 function drawNitroBoost(ctx, anchorX, anchorY, drawW, drawH) {
   if (!IMG.effects?.ready || !P.nitroActive) return;
@@ -117,29 +188,25 @@ function drawNitroBoost(ctx, anchorX, anchorY, drawW, drawH) {
 
   _fxTick += 0.35 + speed01 * 0.55;
   const f = STREAKS[Math.floor(_fxTick) % STREAKS.length];
+  const cleanFrame = getCleanStreakFrame(f);
 
-  const sw = drawW * 1.45;
-  const sh = drawH * 1.15;
+  const sw = drawW * 1.75;
+  const sh = drawH * 1.30;
 
-  // move effect lower so it emits from car, not above it
   const dx = anchorX - sw / 2;
-  const dy = anchorY - drawH * 0.68;
+  const dy = anchorY - drawH * 0.72;
 
   ctx.save();
-  ctx.globalAlpha = 0.16 + speed01 * 0.18;
-  ctx.globalCompositeOperation = "lighter";
 
-  ctx.drawImage(
-    IMG.effects,
-    f.x,
-    f.y,
-    f.w,
-    f.h,
-    dx,
-    dy,
-    sw,
-    sh
-  );
+  // Main soft speed lines
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.28 + speed01 * 0.20;
+  ctx.drawImage(cleanFrame, dx, dy, sw, sh);
+
+  // Small extra glow, still transparent
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.10 + speed01 * 0.10;
+  ctx.drawImage(cleanFrame, dx - sw * 0.03, dy, sw * 1.06, sh);
 
   ctx.restore();
 }
@@ -241,5 +308,24 @@ export function getCarAnchor() {
     anchorX: getW() / 2,
     anchorY: ((getH() * 0.89) + getCamCarYOff() * res) | 0,
     drawW, drawH,
+  };
+}
+
+
+export function getPlayerCollisionInfo() {
+  const car = getCarAnchor();
+
+  return {
+    x: P.playerX || 0,
+    z: P.pos + (P.playerZ || 0),
+
+    screenX: car.anchorX,
+    screenY: car.anchorY,
+    screenW: car.drawW,
+    screenH: car.drawH,
+
+    // world road-lane collision size
+    halfW: 0.34,
+    halfZ: 90,
   };
 }

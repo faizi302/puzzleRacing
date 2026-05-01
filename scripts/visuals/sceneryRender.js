@@ -1,95 +1,35 @@
 // ═══════════════════════════════════════════════════════
-// SCENERY RENDER — Trees, arches, coins, bridges
+// SCENERY RENDER — Drawing only. Building delegated to active level.
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { SPR } from '../configs/sceneryConfig.js';
-import { segs, trackLen } from '../core/roadMap.js';
+import { segs, trackLen, getActiveTrack } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from './objectRender.js';
 import { _visibleSegs } from './roadRender.js';
+import { getActiveLevel } from '../core/activeLevel.js';
 
+// Live binding — re-assigned by buildScenery() to whatever the
+// active level returns. Importers (collisionSystem, GameScene)
+// continue to see the latest array automatically.
 export let sceneryObjs = [];
 
+/**
+ * Re-builds scenery for the currently active level + currently
+ * active track. Called once at start, and again whenever the
+ * track hot-swaps (Road1 → Road2).
+ */
 export function buildScenery() {
-  sceneryObjs = [];
-  const trees = ['pineTall', 'tallTree', 'pineBig', 'pineSmall',];
-  const rocks = ['rockLow', 'rockBig', 'totem'];
-  const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
-
-  for (let i = 30; i < total - 30; i += 28) {
-    const z = i * C.SEG_LEN;
-
-    sceneryObjs.push({
-      kind: trees[(i * 3) % trees.length],
-      z: z + 40,
-      side: -1,
-      offset: 1.65
-    });
-
-    sceneryObjs.push({
-      kind: trees[(i * 5 + 2) % trees.length],
-      z: z + 260,
-      side: 1,
-      offset: 1.65
-    });
-  }
-  for (let i = 40; i < total - 20; i += 38) {
-    const z = i * C.SEG_LEN;
-    sceneryObjs.push({ kind: rocks[(i * 7) % rocks.length], z: z + 20, side: -1, offset: 1.25, small: true });
-    sceneryObjs.push({ kind: rocks[(i * 11 + 2) % rocks.length], z: z + 280, side: 1, offset: 1.48, small: true });
-  }
-  for (let i = 40; i < total - 20; i += 110) {
-    const z = i * C.SEG_LEN;
-    sceneryObjs.push({ kind: 'bridge', z: z, side: -1, offset: 3.0 });
-    sceneryObjs.push({ kind: 'bridge', z: z + 240, side: 1, offset: 2.62 });
-  }
-  for (let i = 35; i < total - 20; i += 28) {
-    const z = i * C.SEG_LEN;
-
-    // wider lane positions
-    // left = more left, right = more right
-    const lanes = [-0.60, 0, 0.60];
-
-    // one full line per breakpoint
-    const laneOffset = lanes[Math.floor(i / 28) % lanes.length];
-
-    for (let k = 0; k < 5; k++) {
-      sceneryObjs.push({
-        kind: "coin",
-        side: 0,
-        offset: laneOffset,
-
-        // restore strong vertical gap between coins
-        z: z + k * 300,
-
-        isCoin: true
-      });
-    }
-  }
-  // Boosters — rendered on road like coins
-  for (let i = 80; i < total - 40; i += 115) {
-    const z = i * C.SEG_LEN;
-
-    const lanes = [-0.60, 0, 0.60];
-    const laneOffset = lanes[Math.floor(i / 95) % lanes.length];
-
-    sceneryObjs.push({
-      kind: "booster",
-      z: z + 120,
-      side: 0,
-      offset: laneOffset,
-      isBooster: true
-    });
-  }
-  for (let i = 120; i < total - 20; i += 220) {
-    sceneryObjs.push({ kind: 'woodArch', z: i * C.SEG_LEN, side: 0, offset: 0, overhead: true });
-  }
-  for (let i = 230; i < total - 20; i += 260) {
-    sceneryObjs.push({ kind: 'stoneArch', z: i * C.SEG_LEN, side: 0, offset: 0, overhead: true });
+  const lvl = getActiveLevel();
+  if (lvl && typeof lvl.buildSceneryObjects === 'function') {
+    sceneryObjs = lvl.buildSceneryObjects();
+  } else {
+    sceneryObjs = [];
   }
 }
 
+// ── Fast Z-to-visibleSeg lookup ────────────────────────
 function visibleForZ(z) {
   if (!_visibleSegs.length) return null;
   let best = null, bestDz = Infinity;
@@ -98,11 +38,13 @@ function visibleForZ(z) {
     if (z2 < z1) z2 += trackLen;
     if (zz < z1) zz += trackLen;
     if (zz >= z1 && zz <= z2) return { v, pct: (zz - z1) / (z2 - z1) };
-    const d = Math.abs(zz - z1); if (d < bestDz) { bestDz = d; best = v; }
+    const d = Math.abs(zz - z1);
+    if (d < bestDz) { bestDz = d; best = v; }
   }
   return best ? { v: best, pct: 0 } : null;
 }
 
+// ── Sprite draw helper ─────────────────────────────────
 function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   ctx.save();
   ctx.beginPath();
@@ -112,25 +54,37 @@ function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   ctx.restore();
 }
 
+// ── Main scenery draw (UNCHANGED from original) ────────
 export function drawScenery() {
   if (!IMG.scenery.ready || !_visibleSegs.length) return;
-  const ctx = getCtx();
-  const _W = getW(), _H = getH(), _res = getRes();
+
+  const ctx      = getCtx();
+  const _W       = getW();
+  const _H       = getH();
+  const _res     = getRes();
   const horizonY = _H * 0.44;
+  const now      = performance.now();
+
   const list = [];
 
   for (const o of sceneryObjs) {
     let dz = o.z - P.pos;
     while (dz < 0) dz += trackLen;
     if (dz < 200 || dz > C.DRAW_D * C.SEG_LEN * 0.80) continue;
+
     const hit = visibleForZ(o.z);
     if (!hit) continue;
+
     const { v, pct } = hit;
-    const y = v.y1 + (v.y2 - v.y1) * pct;
+    const y  = v.y1 + (v.y2 - v.y1) * pct;
     const cx = v.x1 + (v.x2 - v.x1) * pct;
     const rw = v.w1 + (v.w2 - v.w1) * pct;
-    if (!o.isCoin && !o.isBooster && (y < horizonY - 4 || y > _H * 0.98)) continue;
-    if ((o.isCoin || o.isBooster) && (y < horizonY * 0.5 || y > _H * 0.98)) continue;
+
+    if (!o.isCoin && !o.isBooster && !o.isKey &&
+        (y < horizonY - 4 || y > _H * 0.98)) continue;
+    if ((o.isCoin || o.isBooster || o.isKey) &&
+        (y < horizonY * 0.5 || y > _H * 0.98)) continue;
+
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
   }
@@ -140,46 +94,57 @@ export function drawScenery() {
   for (const it of list) {
     const s = SPR[it.o.kind];
     if (!s) continue;
+
     let drawW, drawH, x, y;
 
     if (it.o.overhead) {
       drawW = it.rw * 2.6 * s.scale;
       drawH = drawW * (s.sh / s.sw);
-      x = it.cx - drawW / 2;
-      y = it.y - drawH * s.anchorY;
+      x     = it.cx - drawW / 2;
+      y     = it.y - drawH * s.anchorY;
 
-    } else if (it.o.isCoin || it.o.isBooster) {
+    } else if (it.o.isCoin || it.o.isBooster || it.o.isKey) {
       const perspective = clamp(it.scale * 1800, 0.08, 1.65);
-
-      const baseSize = it.o.isBooster ? 92 : 80;
+      let baseSize;
+      if      (it.o.isKey)     baseSize = 130;
+      else if (it.o.isBooster) baseSize = 92;
+      else                     baseSize = 80;
 
       drawW = baseSize * perspective * _res;
       drawH = drawW * (s.sh / s.sw);
 
-      const minSize = it.o.isBooster ? 14 * _res : 20 * _res;
-      const maxSize = it.o.isBooster ? 70 * _res : 180 * _res;
+      let minSize, maxSize;
+      if      (it.o.isKey)     { minSize = 32 * _res; maxSize = 240 * _res; }
+      else if (it.o.isBooster) { minSize = 14 * _res; maxSize =  70 * _res; }
+      else                     { minSize = 20 * _res; maxSize = 180 * _res; }
 
       drawW = clamp(drawW, minSize, maxSize);
       drawH = drawW * (s.sh / s.sw);
 
       x = it.cx + it.o.offset * it.rw - drawW / 2;
-      y = it.y - drawH * 0.88;
+      y = it.y  - drawH * 0.88;
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
+
     } else {
-      const side = it.o.side || 1;
-      const worldR = it.o.small ? C.ROAD_W * 0.28 * s.scale : C.ROAD_W * 0.82 * s.scale;
+      const side   = it.o.side || 1;
+      const worldR = it.o.small
+        ? C.ROAD_W * 0.28 * s.scale
+        : C.ROAD_W * 0.82 * s.scale;
+
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
       const minW = it.o.small ? 16 * _res : 48 * _res;
       const maxW = it.o.small ? 0.20 * _W : 0.55 * _W;
       drawW = clamp(drawW, minW, maxW);
       drawH = drawW * (s.sh / s.sw);
+
       const groundX = it.cx + side * it.rw * it.o.offset;
       x = groundX - drawW / 2;
-      y = it.y - drawH * s.anchorY;
+      y = it.y    - drawH * s.anchorY;
+
       if (side < 0 && x + drawW > it.cx - it.rw * 0.94) x = it.cx - it.rw * 0.94 - drawW;
-      if (side > 0 && x < it.cx + it.rw * 0.94) x = it.cx + it.rw * 0.94;
+      if (side > 0 && x         < it.cx + it.rw * 0.94) x = it.cx + it.rw * 0.94;
 
       if (y > _H || x > _W + drawW || x < -drawW) continue;
       if (y + drawH < horizonY) continue;
@@ -189,7 +154,45 @@ export function drawScenery() {
 
     ctx.save();
     ctx.globalAlpha = 0.20 + fade * 0.80;
-    drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+
+    if (it.o.isKey) {
+      const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
+      ctx.shadowBlur  = 30 * pulse;
+      ctx.shadowColor = 'rgba(255, 215, 60, 1)';
+      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (0.20 + fade * 0.80) * 0.45 * pulse;
+      ctx.fillStyle   = 'rgba(255, 200, 50, 1)';
+      ctx.beginPath();
+      ctx.ellipse(x + drawW / 2, y + drawH / 2, drawW * 0.42, drawH * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+    } else if (it.o.isForkGate) {
+      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      const pulse   = 0.80 + 0.20 * Math.sin(now * 0.0035);
+      const tintClr = it.o.forkTint === 'road2'
+        ? `rgba(255, 210, 50, ${0.30 * pulse})`
+        : `rgba(255, 80,  40, ${0.25 * pulse})`;
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.globalAlpha = 0.55 * fade * pulse;
+      ctx.fillStyle   = tintClr;
+      ctx.fillRect(x, y, drawW, drawH);
+
+    } else if (it.o.isForkMarker) {
+      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      const pulse   = 0.75 + 0.25 * Math.sin(now * 0.004 + it.o.z * 0.001);
+      const tintClr = (getActiveTrack() === 2)
+        ? `rgba(255, 220, 60, 0.4)`
+        : `rgba(255, 70,  30, 0.3)`;
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.globalAlpha = 0.45 * fade * pulse;
+      ctx.fillStyle   = tintClr;
+      ctx.fillRect(x, y, drawW, drawH);
+
+    } else {
+      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+    }
+
     ctx.restore();
   }
 }

@@ -15,7 +15,7 @@
 // ═══════════════════════════════════════════════════════
 
 const EXT = ['.mp3','.ogg','.wav','.m4a'];
-const DIRS = ['assets/audio/','audio/','assets/'];
+const DIRS = ['assets/fassets/audio','audio/','assets/'];
 
 const _cache = new Map();   // key → HTMLAudioElement (or array for instances)
 const _active = new Map();  // key id → currently-playing instance (loops)

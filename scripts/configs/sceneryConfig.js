@@ -20,11 +20,16 @@ export const SPR = {
   totem:     {sx:1325, sy:  45, sw: 500, sh: 490, scale: .95, anchorY:1.00},
   coin:      {sx:1680, sy: 760, sw: 128, sh: 128, scale: 1, anchorY: 1},
   booster: {
-  sx: 368,
-  sy: 1090,
-  sw: 210,
-  sh: 260,
-  scale: 1,
-  anchorY: 1
-}
+    sx: 368,
+    sy: 1090,
+    sw: 210,
+    sh: 260,
+    scale: 1,
+    anchorY: 1
+  },
+  // ── KEY pickup ───────────────────────────────────────
+  // Reuses the coin source rect, but is rendered LARGER and with
+  // a gold glow in sceneryRender so the player can see the
+  // difference between a regular coin and a critical key.
+  key:       {sx:1680, sy: 760, sw: 128, sh: 128, scale: 1, anchorY: 1},
 };

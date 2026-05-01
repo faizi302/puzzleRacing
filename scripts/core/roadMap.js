@@ -1,56 +1,69 @@
 // ═══════════════════════════════════════════════════════
-// ROAD MAP — Track generation & projection
+// ROAD MAP — Facade that delegates road geometry to the
+//            currently active level (levels/levelN/roadMap.js).
+// ─────────────────────────────────────────────────────
+// Importers (roadSystem, roadRender, sceneryRender, etc.) keep
+// using `segs` and `trackLen` as live bindings — they update
+// automatically when buildTrack() loads new level data and when
+// switchToTrack() hot-swaps Road1↔Road2.
 // ═══════════════════════════════════════════════════════
-import { C, COL, LCOL } from '../configs/roadConfig.js';
+import { C } from '../configs/roadConfig.js';
+import { getActiveLevel } from './activeLevel.js';
 
-export let segs = [];
+// ── Live exports — re-assigned when a level is loaded ─
+export let segs     = [];
 export let trackLen = 0;
 
-const addSeg = (curve, hill) => {
-  const n = segs.length;
-  const isS = n < C.RUMBLE * 2;
-  segs.push({
-    index: n,
-    p1:{world:{x:0,y:0,z: n    *C.SEG_LEN}, cam:{}, scr:{}},
-    p2:{world:{x:0,y:0,z:(n+1)*C.SEG_LEN}, cam:{}, scr:{}},
-    curve, hill,
-    col: isS ? LCOL.START : (Math.floor(n/C.RUMBLE)%2 ? LCOL.DARK : LCOL.LIGHT),
-  });
-};
+// ── Internal storage for both tracks of the active level ─
+let _t1Segs = [], _t1Len = 0;
+let _t2Segs = [], _t2Len = 0;
+let _activeTrack = 1;
 
-const eIO = (a,b,p) => a+(b-a)*((-Math.cos(p*Math.PI)/2)+.5);
-
-const addRoad = (nE,nH,nL,cv,hl) => {
-  for(let i=0;i<nE;i++) addSeg(eIO(0,cv,i/nE), eIO(0,hl,i/nE));
-  for(let i=0;i<nH;i++) addSeg(cv, hl);
-  for(let i=0;i<nL;i++) addSeg(eIO(cv,0,i/nL), eIO(hl,0,i/nL));
-};
-const straight = (n=25)             => addRoad(n/4|0, n/2|0, n/4|0,  0,  0);
-const curve    = (n=25, cv=2, hl=0) => addRoad(n/4|0, n/2|0, n/4|0, cv, hl);
-
+/**
+ * Build (or re-build) both tracks for the currently active level.
+ * Calls the level's buildRoads() to get the geometry.
+ */
 export function buildTrack(buildSceneryCb) {
-  segs = [];
-  // Finish-line block (start segments)
-  addRoad(1, C.RUMBLE * 2, 1, 0, 0);
+  const lvl = getActiveLevel();
+  if (!lvl || typeof lvl.buildRoads !== 'function') {
+    console.warn('[roadMap] No active level. Call setActiveLevel() first.');
+    return;
+  }
 
-  // Body of the track
-  straight(260);
-  curve(95,   0.28, 0);
-  straight(230);
-  curve(110, -0.34, 0);
-  straight(280);
-  curve(105,  0.30, 0);
-  straight(260);
-  curve(120, -0.24, 0);
-  straight(320);
+  const built = lvl.buildRoads();
+  _t1Segs = built.road1.segs;
+  _t1Len  = built.road1.len;
+  _t2Segs = built.road2.segs;
+  _t2Len  = built.road2.len;
 
-  // Tail straight that loops back into the finish line — keeps the wrap smooth.
-  straight(40);
+  // Race always begins on Road1
+  segs         = _t1Segs;
+  trackLen     = _t1Len;
+  _activeTrack = 1;
 
-  trackLen = segs.length * C.SEG_LEN;
   if (typeof buildSceneryCb === 'function') buildSceneryCb();
 }
 
+/**
+ * Hot-swap the live track. Called from roadSystem when keys are
+ * collected and the player crosses the finish line.
+ */
+export function switchToTrack(n) {
+  if (n === 2) {
+    segs         = _t2Segs;
+    trackLen     = _t2Len;
+    _activeTrack = 2;
+  } else {
+    segs         = _t1Segs;
+    trackLen     = _t1Len;
+    _activeTrack = 1;
+  }
+}
+
+export function getActiveTrack() { return _activeTrack; }
+export function getTrackLen(n)   { return n === 2 ? _t2Len : _t1Len; }
+
+// ── Lookup / projection helpers (unchanged math) ───────
 export const findSeg = (z) => {
   if (!segs.length) return null;
   const i = Math.floor(z / C.SEG_LEN);
@@ -58,12 +71,12 @@ export const findSeg = (z) => {
 };
 
 export const project = (p, camX, camY, camZ, W, H) => {
-  p.cam.x = (p.world.x||0) - camX;
-  p.cam.y = (p.world.y||0) - camY;
-  p.cam.z = (p.world.z||0) - camZ;
+  p.cam.x = (p.world.x || 0) - camX;
+  p.cam.y = (p.world.y || 0) - camY;
+  p.cam.z = (p.world.z || 0) - camZ;
   if (p.cam.z <= 0) { p.scr.scale = 0; return; }
   p.scr.scale = C.CAM_DEPTH / p.cam.z;
-  p.scr.x     = (W/2) + (p.scr.scale * p.cam.x * W/2);
-  p.scr.y     = (H*0.43) - (p.scr.scale * p.cam.y * H/2);
-  p.scr.w     = p.scr.scale * C.ROAD_W * W/2;
+  p.scr.x     = (W / 2)    + (p.scr.scale * p.cam.x * W / 2);
+  p.scr.y     = (H * 0.43) - (p.scr.scale * p.cam.y * H / 2);
+  p.scr.w     =  p.scr.scale * C.ROAD_W * W / 2;
 };

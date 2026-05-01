@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════
 // PLAYER RENDER — HUD & lap time display
+// Adds keys-collected & active-track readouts (optional HTML).
 // ═══════════════════════════════════════════════════════
 import { P, kmh, best }  from '../systems/roadSystem.js';
+import { C }             from '../configs/roadConfig.js';
 
 export function fmtT(t) {
   if (!t || t<0) return '--:--.---';
@@ -20,6 +22,21 @@ export function updHUD(fps, trackLen) {
   document.getElementById('pf').style.width      = pct.toFixed(1)+'%';
   document.getElementById('pl').textContent      = pct.toFixed(0)+'%';
   document.getElementById('ow').style.opacity    = P.isOffTrack ? '1' : '0';
+
+  // ── Optional: keys progress (#h-keys) ──────────────
+  const keysEl = document.getElementById('h-keys');
+  if (keysEl) {
+    keysEl.textContent = `${P.keysCollected}/${C.KEYS_REQUIRED}`;
+    // light up green once full
+    keysEl.style.color = (P.keysCollected >= C.KEYS_REQUIRED) ? '#9ee36b' : '';
+  }
+
+  // ── Optional: which track the player is on (#h-track) ──
+  const trackEl = document.getElementById('h-track');
+  if (trackEl) {
+    trackEl.textContent = P.onRoad2 ? 'ROAD 2' : 'ROAD 1';
+    trackEl.style.color = P.onRoad2 ? '#ffd54a' : '';
+  }
 }
 
 export function updLaps() {

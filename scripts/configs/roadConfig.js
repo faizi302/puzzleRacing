@@ -13,6 +13,18 @@ export const C = {
   FOG_D     :   12,
   STAR_N    :  200,
   FPS       :   60,
+
+  // ── Road2 unlock condition ───────────────────────────
+  // Player must collect this many keys on road1. On the very
+  // next finish-line crossing afterwards, the game hot-swaps
+  // to road2 (the RIGHT fork). One road2 lap = race win.
+  KEYS_REQUIRED : 3,
+
+  // ── Fork geometry ────────────────────────────────────
+  // How many segments from the start before the fork diverges.
+  // Road1 turns HARD LEFT here; Road2 turns HARD RIGHT.
+  // Used by sceneryRender to place fork-gate signs.
+  FORK_SEG : 69,   // = RUMBLE*2+1 + 60 (start block + approach straight)
 };
 
 // Derived constants
@@ -25,22 +37,12 @@ C.MAX_SPD   = C.SEG_LEN / C.STEP;          // 12000 world u/s
 // ═══════════════════════════════════════════════════════
 // SPEED MAPPING (km/h → world units)
 // ═══════════════════════════════════════════════════════
-// Player tops out at NORMAL_KMH (100 km/h) normally, NITRO_KMH (120) on boost.
-// We lower the WORLD speed factor so the camera/scenery feels calm.
-//
-//   world_speed_at_NORMAL_KMH = NORMAL_KMH * KMH_TO_WORLD
-//
-// KMH_TO_WORLD chosen so 100 km/h corresponds to ~45% of MAX_SPD —
-// this is what slows the visual scroll vs. the previous build.
-// ═══════════════════════════════════════════════════════
 C.NORMAL_KMH    = 100;
 C.NITRO_KMH     = 120;
 C.KMH_TO_WORLD  = (C.MAX_SPD * 0.45) / C.NORMAL_KMH;     // ~54 world u/s per km/h
 C.NORMAL_MAX    = C.NORMAL_KMH * C.KMH_TO_WORLD;          // ~5400
 C.NITRO_MAX     = C.NITRO_KMH  * C.KMH_TO_WORLD;          // ~6480
 
-// Acceleration / braking are scaled to the NORMAL cap, not MAX_SPD.
-// Reach 0 → 100 km/h in ~5s, brake hard, gentle engine drag when idle.
 C.ACCEL     =  C.NORMAL_MAX / 5.0;
 C.BRAKE     = -C.NORMAL_MAX * 1.6;
 C.DECEL     = -C.NORMAL_MAX / 4.0;
@@ -48,9 +50,10 @@ C.OFFRD_DC  = -C.NORMAL_MAX / 1.5;
 C.OFFRD_LIM =  C.NORMAL_MAX / 4.0;
 C.STEER_SPD =  2.0;
 
-// Minimum effective speed for steering when player is holding throttle —
-// lets the car visually & physically rotate even from a standstill.
 C.STEER_MIN_FAC = 0.35;
+
+// Fork world-Z — where the two roads diverge visually.
+C.FORK_Z = C.FORK_SEG * C.SEG_LEN;
 
 export const COL = {
   SKY0:'#040810', SKY1:'#091428', SKY2:'#0b1a0a',
@@ -93,16 +96,27 @@ export const SEG_TEX = {
   Grid:       { sx: 515, sy: 1821, sw: 512,  sh: 128 },
 };
 
-export const SEG_TEX_CYCLE = [
+// ── Per-track surface cycles ──────────────────────────
+// Road1 → Segments 1-4 (darker, tighter feel)
+// Road2 → Segments 5-9 (visually distinct — player knows they switched)
+export const SEG_TEX_CYCLE_ROAD1 = [
   SEG_TEX.Segment_1,
   SEG_TEX.Segment_2,
   SEG_TEX.Segment_3,
   SEG_TEX.Segment_4,
 ];
+export const SEG_TEX_CYCLE_ROAD2 = [
+  SEG_TEX.Segment_5,
+  SEG_TEX.Segment_6,
+  SEG_TEX.Segment_7,
+  SEG_TEX.Segment_8,
+  SEG_TEX.Segment_9,
+];
+// Backward-compat alias
+export const SEG_TEX_CYCLE = SEG_TEX_CYCLE_ROAD1;
 
-export const SEG_TEX_RUN = 6;
-export const ROAD_TEX_FRAC = 0.42;
+export const SEG_TEX_RUN    = 6;
+export const ROAD_TEX_FRAC  = 0.42;
 
-// How many world units BEFORE the lap-finish line the player starts at.
-// Bigger = finish line appears further ahead at race start / on each lap.
+// How many world units BEFORE the lap-finish line the player starts.
 export const START_PRE_FINISH = 1800;
