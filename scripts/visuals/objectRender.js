@@ -33,9 +33,8 @@ export const IMG = {
     'LocationEScenery.png',
   ]),
   effects: loadImage([
-    'assets/player/Effects.png',
-    'assets/effects/Effects.png',
-    'assets/Effects.png',
-    'Effects.png',
-  ]),
+  'assets/player/Effects.png',
+  'assets/Effects.png',
+  'Effects.png'
+]),
 };

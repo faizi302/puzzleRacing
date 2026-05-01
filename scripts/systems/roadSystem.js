@@ -6,30 +6,30 @@ import { C, START_PRE_FINISH } from '../configs/roadConfig.js';
 import { segs, findSeg, trackLen } from '../core/roadMap.js';
 
 export const P = {
-  pos          : 0,
-  speed        : 0,
-  playerX      : 0,
-  lapTime      : 0,
-  lapTimes     : [],
-  lapCount     : 0,
-  raceTime     : 0,
-  raceFinished : false,
-  isOffTrack   : false,
-  isBraking    : false,
-  roadCurve    : 0,
-  playerZ      : 0,
+  pos: 0,
+  speed: 0,
+  playerX: 0,
+  lapTime: 0,
+  lapTimes: [],
+  lapCount: 0,
+  raceTime: 0,
+  raceFinished: false,
+  isOffTrack: false,
+  isBraking: false,
+  roadCurve: 0,
+  playerZ: 0,
 
   // ── Nitro / boost ─────────────────────────────────────
-  nitroTime    : 0,         // seconds remaining
-  nitroActive  : false,
+  nitroTime: 0,         // seconds remaining
+  nitroActive: false,
 
   // ── Lap detection helpers ─────────────────────────────
   _firstCrossing: true,     // skip lap count on the very first cross
-  _prevPos      : 0,
+  _prevPos: 0,
 
   // ── Race-end coast / camera fly-out ───────────────────
-  endPhase     : 0,         // 0 = racing, 1 = end coast (no input), 2 = win shown
-  endTime      : 0,         // seconds spent in end-phase
+  endPhase: 0,         // 0 = racing, 1 = end coast (no input), 2 = win shown
+  endTime: 0,         // seconds spent in end-phase
 };
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -37,27 +37,27 @@ export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export function resetPhys() {
   // Player starts BEHIND the visible finish line so it's some distance ahead.
   // trackLen exists once roadMap built the track.
-  P.pos          = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
-  P.speed        = 0;
-  P.playerX      = 0;
-  P.lapTime      = 0;
-  P.lapTimes     = [];
-  P.lapCount     = 0;
-  P.raceTime     = 0;
+  P.pos = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
+  P.speed = 0;
+  P.playerX = 0;
+  P.lapTime = 0;
+  P.lapTimes = [];
+  P.lapCount = 0;
+  P.raceTime = 0;
   P.raceFinished = false;
-  P.isOffTrack   = false;
-  P.isBraking    = false;
-  P.roadCurve    = 0;
-  P.playerZ      = C.CAM_H / C.CAM_DEPTH;
+  P.isOffTrack = false;
+  P.isBraking = false;
+  P.roadCurve = 0;
+  P.playerZ = C.CAM_H / C.CAM_DEPTH;
 
-  P.nitroTime    = 0;
-  P.nitroActive  = false;
+  P.nitroTime = 0;
+  P.nitroActive = false;
 
   P._firstCrossing = true;
-  P._prevPos       = P.pos;
+  P._prevPos = P.pos;
 
   P.endPhase = 0;
-  P.endTime  = 0;
+  P.endTime = 0;
 }
 
 // ── Nitro API ─────────────────────────────────────────
@@ -150,8 +150,16 @@ export function updatePhys(inp, dt, len) {
   const curveNow = getLookAheadCurve(z);
   P.roadCurve += (curveNow - P.roadCurve) * 0.12;
 
-  const CENTRIFUGAL_STRENGTH = 5.15;
-  P.playerX -= P.roadCurve * Math.min(speedFrac, 1) * CENTRIFUGAL_STRENGTH * d;
+  // ── Smooth curve drift ─────────────────────────────────
+  // Old value 5.15 was too strong, so on long turns the car
+  // felt like it was being pushed into road edges.
+  const CENTRIFUGAL_STRENGTH = 1.85;
+
+  // Softens drift at high speed and prevents side-collision feeling.
+  const curvePush = P.roadCurve * Math.min(speedFrac, 1) * CENTRIFUGAL_STRENGTH * d;
+
+  // Smooth, controlled road-side pull
+  P.playerX -= curvePush;
 
   // ── Steering ─────────────────────────────────────────
   // Allow turning even when stopped IF throttle is held — helps the player
@@ -161,28 +169,29 @@ export function updatePhys(inp, dt, len) {
     : speedFrac;
   const steerDx = d * C.STEER_SPD * effSteer;
 
-  if (inp.left)  P.playerX -= steerDx;
+  if (inp.left) P.playerX -= steerDx;
   if (inp.right) P.playerX += steerDx;
 
   // ── Off-road wall collision (road edge) ──────────────
   const hitL = P.playerX < -1;
-  const hitR = P.playerX >  1;
+  const hitR = P.playerX > 1;
   P.isOffTrack = hitL || hitR;
 
   if (hitL) {
-    P.playerX += 0.10;
-    if (P.speed > C.OFFRD_LIM) P.speed += C.OFFRD_DC * d;
+    P.playerX += 0.035;
+    if (P.speed > C.OFFRD_LIM) P.speed += C.OFFRD_DC * d * 0.35;
   }
+
   if (hitR) {
-    P.playerX -= 0.10;
-    if (P.speed > C.OFFRD_LIM) P.speed += C.OFFRD_DC * d;
+    P.playerX -= 0.035;
+    if (P.speed > C.OFFRD_LIM) P.speed += C.OFFRD_DC * d * 0.35;
   }
   P.playerX = clamp(P.playerX, -1.18, 1.18);
 
   // ── Forward integration & lap detection ──────────────
   P._prevPos = P.pos;
-  P.pos      += P.speed * d;
-  P.lapTime  += d;
+  P.pos += P.speed * d;
+  P.lapTime += d;
   P.raceTime += d;
 
   if (len > 0 && P.pos >= len) {
@@ -200,14 +209,14 @@ export function updatePhys(inp, dt, len) {
       if (P.lapCount >= C.TOTAL_LAPS) {
         // Begin race-end fly-out.
         P.raceFinished = true;
-        P.endPhase     = 1;
-        P.endTime      = 0;
+        P.endPhase = 1;
+        P.endTime = 0;
       }
     }
   }
 }
 
-export const kmh  = () =>
+export const kmh = () =>
   Math.round(Math.min(P.speed, C.NITRO_MAX) / C.KMH_TO_WORLD);
 
 export const best = () => P.lapTimes.length ? Math.min(...P.lapTimes) : null;

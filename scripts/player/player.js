@@ -111,18 +111,36 @@ const STREAKS = [
 let _fxTick = 0;
 
 function drawNitroBoost(ctx, anchorX, anchorY, drawW, drawH) {
-  if (!IMG.effects.ready || !P.nitroActive) return;
+  if (!IMG.effects?.ready || !P.nitroActive) return;
+
   const speed01 = Math.min(1, Math.max(0, P.speed / C.NITRO_MAX));
-  _fxTick += 0.55 + speed01 * 0.75;
-  const f  = STREAKS[Math.floor(_fxTick) % STREAKS.length];
-  const sw = drawW * 1.65;
-  const sh = sw * 0.56;
+
+  _fxTick += 0.35 + speed01 * 0.55;
+  const f = STREAKS[Math.floor(_fxTick) % STREAKS.length];
+
+  const sw = drawW * 1.45;
+  const sh = drawH * 1.15;
+
+  // move effect lower so it emits from car, not above it
   const dx = anchorX - sw / 2;
-  const dy = anchorY - drawH * 0.50;
+  const dy = anchorY - drawH * 0.68;
+
   ctx.save();
-  ctx.globalAlpha = 0.22 + speed01 * 0.22;
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.drawImage(IMG.effects, f.x, f.y, f.w, f.h, dx, dy, sw, sh);
+  ctx.globalAlpha = 0.16 + speed01 * 0.18;
+  ctx.globalCompositeOperation = "lighter";
+
+  ctx.drawImage(
+    IMG.effects,
+    f.x,
+    f.y,
+    f.w,
+    f.h,
+    dx,
+    dy,
+    sw,
+    sh
+  );
+
   ctx.restore();
 }
 

@@ -7,9 +7,10 @@
 //   • SHINE  — coin/booster pickup sparkle (Charge frames)
 //
 // Scenery hits:
-//   • detected each frame against booster, coin, tunnel/arch and big trees
+//   • detected each frame against booster, coin, tunnel/arch, trees, rocks
 //   • coin/booster → consumed (removed from active list)
 //   • tunnel/arch  → bounce back via roadSystem.applyBounce()
+//   • tree/rock/totem → bounce back when player drifts to that road edge
 // ═══════════════════════════════════════════════════════
 import { IMG }                        from '../visuals/objectRender.js';
 import { P, applyBounce, activateNitro } from './roadSystem.js';
@@ -162,14 +163,22 @@ const HIT = {
 };
 
 // Categorise scenery objects → collision response.
+//
+// Earlier this function early-returned `null` for any `o.small === true`
+// object, which silently disabled collision for every rock and totem in the
+// game. We now route them through the same handler as trees so the player
+// actually crashes into them when drifting off the road. Decorative `bridge`
+// props sit at offset 3.0+ (well outside the road) and were previously
+// routed through the arch-pillar branch, producing phantom hits at the road
+// edge with no visible structure — they now return null.
 function objCat(o) {
-  if (o._dead)       return null;
-  if (o.isCoin)      return 'coin';
-  if (o.isBooster)   return 'booster';
-  if (o.overhead)    return 'arch';            // wood/stone arch / tunnel
-  if (o.kind === 'bridge') return 'arch';
-  if (o.small)       return null;              // small rocks → no collision
-  // Trees / totems
+  // Arches are permanent obstacles — never skip them via _dead.
+  if (o.overhead) return 'arch';
+  if (o._dead)              return null;
+  if (o.isCoin)             return 'coin';
+  if (o.isBooster)          return 'booster';
+  if (o.kind === 'bridge')  return null;        // far-off side decoration
+  // Trees, rocks, totems → all roadside obstacles.
   return 'tree';
 }
 
@@ -223,34 +232,54 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // Arch / tunnel / bridge — central span; pillars on each side.
-    // Player hits a pillar if they approach the arch and are far off-center.
+    // Arch / tunnel — central span; pillars on each side.
+    // The arch is a PERMANENT obstacle — never set _dead on it.
+    // A per-arch cooldown (_hitCooldown) prevents the bounce from firing
+    // every single physics tick while the player is overlapping the pillar.
+    //
+    // Pillar positions derived from the sprite sheet:
+    //   stoneArch sw:1290 — inner pillar edges are ~22% from each side
+    //   → opening spans roughly ±0.56 of road half-width
+    //   woodArch  sw:1285 — similar proportions, use same threshold
+    // Player car half-width in road coords ≈ 0.18, so collision fires when
+    //   |px| + 0.18 > 0.56  →  |px| > 0.38
+    // We use 0.42 as the threshold (a touch generous to feel fair).
     if (cat === 'arch') {
-      if (dz > -40 && dz < 80) {
-        // pillars roughly at x = ±0.85
-        if (Math.abs(px) > 0.78) {
-          o._dead = true;
-          const dir = px > 0 ? -1 : 1;
-          applyBounce('scenery', dir);
-          spawnCrash(screenAnchorX, screenAnchorY - 40);
-          playSfx('crash');
+      if (dz > -60 && dz < 110) {
+        // Pillar inner edges at roughly ±0.56 road half-width.
+        // Car half-width ~0.18 → hit when |px| > 0.56 - 0.18 = 0.38
+        const PILLAR_X = 0.42;
+        if (Math.abs(px) > PILLAR_X) {
+          // Per-arch hit cooldown: only bounce once per 400 ms passage
+          const now = performance.now();
+          if (!o._hitCooldown || now - o._hitCooldown > 400) {
+            o._hitCooldown = now;
+            const dir = px > 0 ? -1 : 1;
+            applyBounce('scenery', dir);
+            spawnCrash(screenAnchorX + (px > 0 ? 120 : -120), screenAnchorY - 40);
+            playSfx('crash');
+          }
         }
       }
       continue;
     }
 
-    // Tree / totem — roadside. Collide only if player is way off the road
-    // toward that side at the right z range.
+    // Tree / rock / totem — roadside. Collide only if player is drifting
+    // OFF the road on the same side. Small props (rocks, totems at offset
+    // ~1.25) sit closer to the road edge than full trees (offset ~1.65),
+    // so they get a slightly lenient threshold so the contact actually
+    // registers when the player clips them. Window widened to ~150u for
+    // reliable per-frame hits at full speed.
     if (cat === 'tree') {
-      if (dz > -30 && dz < 60) {
+      if (dz > -50 && dz < 100) {
         const side = o.side || 0;
-        // Player must be drifting OFF the road on the same side.
-        if (side < 0 && px < -0.92) {
+        const edge = o.small ? 0.90 : 0.92;
+        if (side < 0 && px < -edge) {
           o._dead = true;
           applyBounce('scenery', 1);
           spawnCrash(screenAnchorX - 60, screenAnchorY - 40);
           playSfx('crash');
-        } else if (side > 0 && px > 0.92) {
+        } else if (side > 0 && px > edge) {
           o._dead = true;
           applyBounce('scenery', -1);
           spawnCrash(screenAnchorX + 60, screenAnchorY - 40);
