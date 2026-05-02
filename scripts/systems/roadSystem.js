@@ -223,19 +223,40 @@ export function updatePhys(inp, dt, len) {
 
   const speedCap = P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX;
 
-  P.isBraking = false;
+ P.isBraking = false;
 
-  if (inp.up) {
-    P.speed += C.ACCEL * d * (P.nitroActive ? 1.35 : 1.0);
-  } else if (inp.down) {
-    P.speed += C.BRAKE * d;
-    P.isBraking = true;
-  } else {
-    P.speed += C.DECEL * d;
-  }
+const reverseMax   = -(C.REVERSE_MAX || C.NORMAL_MAX * 0.35);
+const reverseAccel = C.REVERSE_ACCEL || C.ACCEL * 0.55;
+const brakePower   = Math.abs(C.BRAKE || C.ACCEL * 1.4);
 
-  if (inp.hand) P.speed *= 0.965;
-  P.speed = clamp(P.speed, 0, speedCap);
+function moveToward(v, target, step) {
+  if (v < target) return Math.min(target, v + step);
+  if (v > target) return Math.max(target, v - step);
+  return target;
+}
+
+// ArrowUp = forward
+if (inp.up) {
+  P.speed += C.ACCEL * d * (P.nitroActive ? 1.35 : 1.0);
+}
+
+// ArrowDown = reverse / move backward
+else if (inp.down) {
+  P.speed -= reverseAccel * d;
+}
+
+// Space = brake
+else if (inp.hand) {
+  P.isBraking = true;
+  P.speed = moveToward(P.speed, 0, brakePower * d);
+}
+
+// No input = friction
+else {
+  P.speed = moveToward(P.speed, 0, Math.abs(C.DECEL) * d);
+}
+
+P.speed = clamp(P.speed, reverseMax, speedCap);
 
   const speedFrac = P.speed / C.NORMAL_MAX;
 
@@ -252,10 +273,12 @@ export function updatePhys(inp, dt, len) {
   P.playerX -= curvePush;
 
   // ── Steering ──────────────────────────────────────────
-  const effSteer  = inp.up ? Math.max(speedFrac, C.STEER_MIN_FAC) : speedFrac;
-  const steerDx   = d * C.STEER_SPD * effSteer;
-  if (inp.left)  P.playerX -= steerDx;
-  if (inp.right) P.playerX += steerDx;
+const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
+const effSteer = Math.max(speedAbsFrac, C.STEER_MIN_FAC);
+const steerDx = d * C.STEER_SPD * effSteer;
+
+if (inp.left)  P.playerX -= steerDx;
+if (inp.right) P.playerX += steerDx;
 
   // ── Road edge: soft scrape → hard wall ───────────────
   const hitL = P.playerX < -1;
@@ -276,8 +299,13 @@ export function updatePhys(inp, dt, len) {
   P.playerX = clamp(P.playerX, -1.18, 1.18);
 
   // ── Position advance ──────────────────────────────────
-  P._prevPos  = P.pos;
-  P.pos      += P.speed * d;
+P._prevPos = P.pos;
+P.pos += P.speed * d;
+
+if (len > 0) {
+  while (P.pos < 0) P.pos += len;
+  while (P.pos >= len) P.pos -= len;
+}
   P.lapTime  += d;
   P.raceTime += d;
 

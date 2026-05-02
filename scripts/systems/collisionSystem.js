@@ -284,51 +284,60 @@ function clampPlayerX() {
   P.playerX = Math.max(-1.18, Math.min(1.18, P.playerX || 0));
 }
 
-function resolveSolidTunnelCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
+function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   const px = P.playerX || 0;
 
-  // For tunnel/arch/hurdle placed on road:
-  // this is the blocked center/body area.
-  const tunnelHalfW = o.hitHalfW ?? o.blockHalfW ?? 0.44;
+  // Tunnel opening in center where player is allowed to pass
+  const openingHalfW = o.openingHalfW ?? 0.62;
+
+  // Pillar/body collision area outside opening
+  const tunnelOuterHalfW = o.outerHalfW ?? 1.15;
   const playerHalfW = 0.26;
 
   const zHit = dz > -95 && dz < 115;
-  const xHit = Math.abs(px - objX) < tunnelHalfW + playerHalfW;
+  if (!zHit) return;
 
-  if (!zHit || !xHit) return;
+  const dist = Math.abs(px - objX);
 
-  // Choose push direction.
-  // If player is exactly centered, push toward nearest side based on current x.
-  let pushDir = px >= objX ? 1 : -1;
-  if (Math.abs(px - objX) < 0.05) pushDir = px >= 0 ? 1 : -1;
+  // ✅ Player is inside tunnel gap, allow passing
+  if (dist < openingHalfW - playerHalfW) {
+    return;
+  }
 
-  // 1) Prevent passing through by moving player back in world Z.
-  const backPush = 55 + Math.max(0, 80 - Math.abs(dz)) * 0.45;
-  P.pos -= backPush;
-  if (P.pos < 0) P.pos += trackLen;
+  // ✅ Collision only with left/right tunnel pillars
+  const hitPillar =
+    dist > openingHalfW - playerHalfW &&
+    dist < tunnelOuterHalfW + playerHalfW;
 
-  // 2) Push player sideways out of the tunnel line.
-  P.playerX = px + pushDir * 0.13;
-  clampPlayerX();
+  if (!hitPillar) return;
 
-  // 3) Reduce speed strongly, but do not stop game completely.
-  const normalMax = C.NORMAL_MAX || C.MAX_SPEED || 70;
-  P.speed = Math.min(P.speed * 0.38, normalMax * 0.32);
+// Collision with tunnel pillar:
+// do NOT auto-fix player direction.
+// Player must manually reverse + turn.
 
-  // 4) Optional roadSystem impact hook.
-  // This keeps your existing shake/speed feedback if that function exists.
-  try {
-    applyCollisionImpact('hard', pushDir);
-  } catch (e) {}
+const pushDir = px < objX ? 1 : -1;
 
-  // 5) FX/sound only with cooldown, but physical blocking happens every frame.
-  if (canFx(o, 420)) {
-    spawnCrash(
-      screenAnchorX + pushDir * 85,
-      screenAnchorY - 45
-    );
+// Push player slightly backward in road depth
+P.pos -= 42;
+if (P.pos < 0) P.pos += trackLen;
+
+// Strong speed reduction
+P.speed = Math.min(
+  P.speed * 0.20,
+  C.NORMAL_MAX * 0.18
+);
+
+// Keep current lane position.
+// No auto side correction.
+clampPlayerX();
+
+try {
+  applyCollisionImpact('medium', pushDir);
+} catch (e) {}
+
+  if (canFx(o, 450)) {
     spawnSkid(screenAnchorX, screenAnchorY + 20);
-    safeSfx('crash');
+    safeSfx('screech');
   }
 }
 
@@ -424,16 +433,16 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     // TUNNEL / ARCH / CENTER HURDLE
     // Important: no o._dead here.
     // This remains solid forever.
-    if (cat === 'arch') {
-      resolveSolidTunnelCollision(
-        o,
-        dz,
-        objX,
-        screenAnchorX,
-        screenAnchorY
-      );
-      continue;
-    }
+if (cat === 'arch') {
+  resolveTunnelGateCollision(
+    o,
+    dz,
+    objX,
+    screenAnchorX,
+    screenAnchorY
+  );
+  continue;
+}
 
     // SIDE OBJECTS
     if (cat === 'sideScenery' || cat === 'hardSide') {
