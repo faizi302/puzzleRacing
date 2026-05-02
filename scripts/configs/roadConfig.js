@@ -18,9 +18,9 @@ export const C = {
   // ── NEW PUZZLE LOGIC ────────────────────────────────
   // Player must reverse this much distance on Road1.
   // After this, camera "turns 180" and Road2 secret path unlocks.
-  REVERSE_SECRET_DISTANCE: 900,
-  REVERSE_HINT_DISTANCE  : 250,
-  REVERSE_CAMERA_TIME    : 1.15,
+REVERSE_SECRET_DISTANCE: 2200,
+REVERSE_HINT_DISTANCE: 700,
+REVERSE_CAMERA_TIME: 2.2,
 
   // Old key system disabled but kept for HUD compatibility.
   KEYS_REQUIRED: 0,
@@ -70,7 +70,15 @@ export const LCOL = {
   START: { road:COL.ROAD_S, grass:COL.GRASS_A, rum:COL.RUM_A, lane:COL.LANE },
 };
 
-export const HORIZON_FRAME = { sx: 2, sy: 1362, sw: 1536, sh: 336 };
+export const HORIZON_FRAMES = {
+  A: { sx: 2, sy: 2,    sw: 1536, sh: 336 },
+  B: { sx: 2, sy: 342,  sw: 1536, sh: 336 },
+  C: { sx: 2, sy: 682,  sw: 1536, sh: 336 }, // backward secret road
+  D: { sx: 2, sy: 1022, sw: 1536, sh: 336 },
+  E: { sx: 2, sy: 1362, sw: 1536, sh: 336 }, // forward road
+};
+
+export const HORIZON_FRAME = HORIZON_FRAMES.E;
 
 export const SEG_TEX = {
   Segment_1:  { sx: 1,   sy: 131,  sw: 1024, sh: 128 },

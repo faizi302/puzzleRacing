@@ -1,22 +1,19 @@
-// ═══════════════════════════════════════════════════════
-// LEVEL 1 CONFIG — Reverse secret road puzzle
-// ═══════════════════════════════════════════════════════
 export const LEVEL_META = {
   id: 'level1',
   name: 'REVERSE GATE',
 
   startMessage:
-    'THE FINISH IS NOT AHEAD...',
+    '🏁 The road ahead is only a trap...',
 
   hintMessage:
-    'HINT: Sometimes the only way forward is backward.',
+    '🧩 CLUE: Stop chasing the finish. Try going backward.',
 
   reverseMessage:
-    'SECRET ROAD DISCOVERED!',
+    '✨ SECRET FOUND! The world is turning behind you...',
 
   forkMessage:
-    '180° CAMERA TURN — HIDDEN ROAD UNLOCKED!',
+    '🔄 180° CAMERA TURN — BACK ROAD UNLOCKED!',
 
   winMessage:
-    'SECRET ROAD COMPLETE!',
+    '🏆 You solved the reverse-road puzzle!',
 };

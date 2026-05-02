@@ -25,6 +25,8 @@ export const P = {
   isBraking: false,
   roadCurve: 0,
   playerZ: 0,
+  cameraTurning: false,
+cameraTurnTime: 0,
 
   nitroTime: 0,
   nitroActive: false,
@@ -93,6 +95,8 @@ export function resetPhys() {
   P.isBraking = false;
   P.roadCurve = 0;
   P.playerZ = C.CAM_H / C.CAM_DEPTH;
+  P.cameraTurning = false;
+P.cameraTurnTime = 0;
 
   P.nitroTime = 0;
   P.nitroActive = false;
@@ -198,19 +202,27 @@ function tickCollisionState(d) {
   }
 }
 
+function smooth01(t) {
+  t = clamp(t, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 function unlockReverseSecret() {
   if (P.secretUnlocked) return;
 
   P.secretUnlocked = true;
   P.reverseMode = true;
   P.onRoad2 = true;
+
+  // Start slow 180 camera rotation
   P.cameraFlipTarget = 1;
+  P.cameraTurnTime = 0;
+  P.cameraTurning = true;
 
   switchToTrack(2);
 
-  // Start just after the starting grid of secret road.
   P.pos = C.SEG_LEN * (C.RUMBLE * 2 + 3);
-  P.speed = Math.max(900, Math.abs(P.speed) * 0.55);
+  P.speed = Math.max(700, Math.abs(P.speed) * 0.45);
   P.playerX = 0;
   P.cameraX = 0;
   P.roadCurve = 0;
@@ -220,7 +232,7 @@ function unlockReverseSecret() {
   P._firstCrossing = true;
   P.lapTime = 0;
 
-  addCameraShake(0.65, 0.55);
+  addCameraShake(0.35, 0.35);
   playSfx('nitro', { volume: 0.9 });
 
   if (_reverseUnlockCb) _reverseUnlockCb();
@@ -248,8 +260,22 @@ export function updatePhys(inp, dt, len) {
   tickCollisionState(d);
 
   // Smooth fake 180 camera transition.
-  const flipFollow = 1 - Math.pow(0.012, d / Math.max(0.001, C.REVERSE_CAMERA_TIME));
+if (P.cameraTurning) {
+  P.cameraTurnTime += d;
+  const t = smooth01(P.cameraTurnTime / C.REVERSE_CAMERA_TIME);
+  P.cameraFlip = t;
+
+  // During rotation, reduce speed so it feels cinematic, not instant.
+  P.speed *= 0.985;
+
+  if (P.cameraTurnTime >= C.REVERSE_CAMERA_TIME) {
+    P.cameraFlip = 1;
+    P.cameraTurning = false;
+  }
+} else {
+  const flipFollow = 1 - Math.pow(0.02, d);
   P.cameraFlip += (P.cameraFlipTarget - P.cameraFlip) * flipFollow;
+}
 
   if (P.endPhase >= 1) {
     P.endTime += d;
