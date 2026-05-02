@@ -13,7 +13,7 @@ import { P }                      from '../systems/roadSystem.js';
 function getShakeOffset() {
   if (P.cameraShakeTime <= 0 || P.cameraShake <= 0) return { x:0, y:0 };
   const t = performance.now() * 0.055;
-  const amp = P.cameraShake * 9;
+  const amp = P.cameraShake * 3;
   return {
     x: Math.sin(t * 1.7) * amp + Math.sin(t * 0.7) * amp * 0.35,
     y: Math.cos(t * 1.3) * amp * 0.55,

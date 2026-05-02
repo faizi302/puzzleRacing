@@ -43,7 +43,7 @@ export function initRenderer(canvas) {
  * Call this on first render and on every resize event.
  */
 export function sizeCanvas() {
-  _dpr = Math.min(window.devicePixelRatio || 1, 2);
+  _dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   const W = window.innerWidth;
   const H = window.innerHeight;
 

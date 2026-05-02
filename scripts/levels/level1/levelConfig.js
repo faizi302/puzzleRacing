@@ -1,13 +1,22 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 1 CONFIG — Level-specific knobs and UI messages.
-// ─────────────────────────────────────────────────────
-// Shared physics (ROAD_W, SEG_LEN, ACCEL, etc.) stay in
-// configs/roadConfig.js. Only per-level values live here.
+// LEVEL 1 CONFIG — Reverse secret road puzzle
 // ═══════════════════════════════════════════════════════
 export const LEVEL_META = {
-  id              : 'level1',
-  name            : 'FOREST FORK',
-  startMessage    : 'LAP 1  •  FIND ALL 3 KEYS',
-  forkMessage     : 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!',
-  forkWarnMessage : 'TAKE THE RIGHT FORK!',
+  id: 'level1',
+  name: 'REVERSE GATE',
+
+  startMessage:
+    'THE FINISH IS NOT AHEAD...',
+
+  hintMessage:
+    'HINT: Sometimes the only way forward is backward.',
+
+  reverseMessage:
+    'SECRET ROAD DISCOVERED!',
+
+  forkMessage:
+    '180° CAMERA TURN — HIDDEN ROAD UNLOCKED!',
+
+  winMessage:
+    'SECRET ROAD COMPLETE!',
 };

@@ -1,58 +1,56 @@
 // ═══════════════════════════════════════════════════════
 // ROAD & PHYSICS CONFIGURATION
+// Ready Player One style reverse-road puzzle
 // ═══════════════════════════════════════════════════════
 export const C = {
   ROAD_W    : 2100,
-  SEG_LEN   :  200,
-  RUMBLE    :    3,
-  LANES     :    3,
-  DRAW_D    :  620,
-  CAM_H     :  980,
-  FOV       :   88,
-  TOTAL_LAPS:    3,
-  FOG_D     :   12,
-  STAR_N    :  200,
-  FPS       :   60,
+  SEG_LEN   : 200,
+  RUMBLE    : 3,
+  LANES     : 3,
+  DRAW_D    : 620,
+  CAM_H     : 980,
+  FOV       : 88,
+  TOTAL_LAPS: 1,
+  FOG_D     : 12,
+  STAR_N    : 200,
+  FPS       : 60,
 
-  // ── Road2 unlock condition ───────────────────────────
-  // Player must collect this many keys on road1. On the very
-  // next finish-line crossing afterwards, the game hot-swaps
-  // to road2 (the RIGHT fork). One road2 lap = race win.
-  KEYS_REQUIRED : 3,
+  // ── NEW PUZZLE LOGIC ────────────────────────────────
+  // Player must reverse this much distance on Road1.
+  // After this, camera "turns 180" and Road2 secret path unlocks.
+  REVERSE_SECRET_DISTANCE: 900,
+  REVERSE_HINT_DISTANCE  : 250,
+  REVERSE_CAMERA_TIME    : 1.15,
 
-  // ── Fork geometry ────────────────────────────────────
-  // How many segments from the start before the fork diverges.
-  // Road1 turns HARD LEFT here; Road2 turns HARD RIGHT.
-  // Used by sceneryRender to place fork-gate signs.
-  FORK_SEG : 69,   // = RUMBLE*2+1 + 60 (start block + approach straight)
+  // Old key system disabled but kept for HUD compatibility.
+  KEYS_REQUIRED: 0,
+
+  // Fake fork point / story gate marker
+  FORK_SEG: 69,
 };
 
-// Derived constants
 C.STEP      = 1 / C.FPS;
 C.CAM_DEPTH = 1 / Math.tan(C.FOV / 2 * Math.PI / 180);
 
-// MAX_SPD is the THEORETICAL world max (used for fog scale and road math).
-C.MAX_SPD   = C.SEG_LEN / C.STEP;          // 12000 world u/s
+C.MAX_SPD = C.SEG_LEN / C.STEP;
 
-// ═══════════════════════════════════════════════════════
-// SPEED MAPPING (km/h → world units)
-// ═══════════════════════════════════════════════════════
-C.NORMAL_KMH    = 100;
-C.NITRO_KMH     = 120;
-C.KMH_TO_WORLD  = (C.MAX_SPD * 0.45) / C.NORMAL_KMH;     // ~54 world u/s per km/h
-C.NORMAL_MAX    = C.NORMAL_KMH * C.KMH_TO_WORLD;          // ~5400
-C.NITRO_MAX     = C.NITRO_KMH  * C.KMH_TO_WORLD;          // ~6480
+C.NORMAL_KMH   = 100;
+C.NITRO_KMH    = 120;
+C.KMH_TO_WORLD = (C.MAX_SPD * 0.45) / C.NORMAL_KMH;
+C.NORMAL_MAX   = C.NORMAL_KMH * C.KMH_TO_WORLD;
+C.NITRO_MAX    = C.NITRO_KMH  * C.KMH_TO_WORLD;
 
-C.ACCEL     =  C.NORMAL_MAX / 5.0;
+C.REVERSE_MAX   = C.NORMAL_MAX * 0.42;
+C.REVERSE_ACCEL = C.ACCEL ? C.ACCEL * 0.6 : C.NORMAL_MAX / 7.0;
+
+C.ACCEL     = C.NORMAL_MAX / 5.0;
 C.BRAKE     = -C.NORMAL_MAX * 1.6;
 C.DECEL     = -C.NORMAL_MAX / 4.0;
 C.OFFRD_DC  = -C.NORMAL_MAX / 1.5;
-C.OFFRD_LIM =  C.NORMAL_MAX / 4.0;
-C.STEER_SPD =  2.0;
-
+C.OFFRD_LIM = C.NORMAL_MAX / 4.0;
+C.STEER_SPD = 2.0;
 C.STEER_MIN_FAC = 0.35;
 
-// Fork world-Z — where the two roads diverge visually.
 C.FORK_Z = C.FORK_SEG * C.SEG_LEN;
 
 export const COL = {
@@ -68,13 +66,10 @@ export const COL = {
 
 export const LCOL = {
   LIGHT: { road:COL.ROAD_A, grass:COL.GRASS_A, rum:COL.RUM_A, lane:COL.LANE },
-  DARK : { road:COL.ROAD_B, grass:COL.GRASS_B, rum:COL.RUM_B, lane:null    },
+  DARK : { road:COL.ROAD_B, grass:COL.GRASS_B, rum:COL.RUM_B, lane:null },
   START: { road:COL.ROAD_S, grass:COL.GRASS_A, rum:COL.RUM_A, lane:COL.LANE },
 };
 
-// ═══════════════════════════════════════════════════════
-// TEXTURE ATLAS FRAMES
-// ═══════════════════════════════════════════════════════
 export const HORIZON_FRAME = { sx: 2, sy: 1362, sw: 1536, sh: 336 };
 
 export const SEG_TEX = {
@@ -96,15 +91,13 @@ export const SEG_TEX = {
   Grid:       { sx: 515, sy: 1821, sw: 512,  sh: 128 },
 };
 
-// ── Per-track surface cycles ──────────────────────────
-// Road1 → Segments 1-4 (darker, tighter feel)
-// Road2 → Segments 5-9 (visually distinct — player knows they switched)
 export const SEG_TEX_CYCLE_ROAD1 = [
   SEG_TEX.Segment_1,
   SEG_TEX.Segment_2,
   SEG_TEX.Segment_3,
   SEG_TEX.Segment_4,
 ];
+
 export const SEG_TEX_CYCLE_ROAD2 = [
   SEG_TEX.Segment_5,
   SEG_TEX.Segment_6,
@@ -112,11 +105,9 @@ export const SEG_TEX_CYCLE_ROAD2 = [
   SEG_TEX.Segment_8,
   SEG_TEX.Segment_9,
 ];
-// Backward-compat alias
+
 export const SEG_TEX_CYCLE = SEG_TEX_CYCLE_ROAD1;
+export const SEG_TEX_RUN   = 6;
+export const ROAD_TEX_FRAC = 0.42;
 
-export const SEG_TEX_RUN    = 6;
-export const ROAD_TEX_FRAC  = 0.42;
-
-// How many world units BEFORE the lap-finish line the player starts.
 export const START_PRE_FINISH = 1800;

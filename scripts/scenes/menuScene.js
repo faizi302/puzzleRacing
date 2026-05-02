@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// MENU SCENE — Animates star background until the player
-// hits Start (which transitions to GameScene).
+// MENU SCENE — Title screen with star background.
+// "Next" button moves to HubScene instead of starting race.
 // ═══════════════════════════════════════════════════════
 import { drawMenuStars } from '../visuals/uiRender.js';
 import { show }          from '../systems/gameState.js';

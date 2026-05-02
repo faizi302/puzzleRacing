@@ -32,26 +32,33 @@ export function buildScenery() {
 // ── Fast Z-to-visibleSeg lookup ────────────────────────
 function visibleForZ(z) {
   if (!_visibleSegs.length) return null;
-  let best = null, bestDz = Infinity;
-  for (const v of _visibleSegs) {
-    let z1 = v.z1, z2 = v.z2, zz = z;
+
+  let zz = z;
+  if (zz < P.pos) zz += trackLen;
+
+  for (let i = 0; i < _visibleSegs.length; i++) {
+    const v = _visibleSegs[i];
+
+    let z1 = v.z1;
+    let z2 = v.z2;
+
+    if (z1 < P.pos) z1 += trackLen;
     if (z2 < z1) z2 += trackLen;
-    if (zz < z1) zz += trackLen;
-    if (zz >= z1 && zz <= z2) return { v, pct: (zz - z1) / (z2 - z1) };
-    const d = Math.abs(zz - z1);
-    if (d < bestDz) { bestDz = d; best = v; }
+
+    if (zz >= z1 && zz <= z2) {
+      return {
+        v,
+        pct: (zz - z1) / Math.max(1, z2 - z1),
+      };
+    }
   }
-  return best ? { v: best, pct: 0 } : null;
+
+  return null;
 }
 
 // ── Sprite draw helper ─────────────────────────────────
 function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(dx, dy, dw, dh);
-  ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-  ctx.restore();
 }
 
 // ── Main scenery draw (UNCHANGED from original) ────────
@@ -70,7 +77,7 @@ export function drawScenery() {
   for (const o of sceneryObjs) {
     let dz = o.z - P.pos;
     while (dz < 0) dz += trackLen;
-    if (dz < 200 || dz > C.DRAW_D * C.SEG_LEN * 0.80) continue;
+    if (dz < 120 || dz > C.DRAW_D * C.SEG_LEN * 0.45) continue;
 
     const hit = visibleForZ(o.z);
     if (!hit) continue;
@@ -157,8 +164,7 @@ export function drawScenery() {
 
     if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
-      ctx.shadowBlur  = 30 * pulse;
-      ctx.shadowColor = 'rgba(255, 215, 60, 1)';
+  ctx.shadowBlur = 0;
       drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = (0.20 + fade * 0.80) * 0.45 * pulse;

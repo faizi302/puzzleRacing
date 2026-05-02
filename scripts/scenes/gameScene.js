@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════
-// GAME SCENE — Race loop. Loads a level, runs physics +
-// rendering, owns pause/quit/win lifecycle.
+// GAME SCENE — Race loop. Now saves progress on completion
+// and tracks coins/keys collected during the race.
 // ═══════════════════════════════════════════════════════
 import { sizeCanvas }                   from '../core/canvas.js';
 import { readInput, lockInput, K }      from '../core/inputController.js';
 import {
-  P, resetPhys, updatePhys, best, setForkWarnCallback,
+ P, resetPhys, updatePhys, best, setReverseHintCallback, setReverseUnlockCallback,
 } from '../systems/roadSystem.js';
 import { buildTrack, trackLen }         from '../core/roadMap.js';
 import { setActiveLevel }               from '../core/activeLevel.js';
@@ -24,6 +24,9 @@ import {
   unlockAudio, playSfx, stopAll, startMusic, stopMusic, setEngineSpeed,
 } from '../core/audio.js';
 import { C }                            from '../configs/roadConfig.js';
+import {
+  addCoins, addKeys, completeLevel, getSetting,
+} from '../player/playerData.js';
 
 export class GameScene {
   constructor(sceneManager) {
@@ -38,16 +41,56 @@ export class GameScene {
     this.winShown = false;
     this.level    = null;
 
-    // Fork-warn callback only needs to be wired once.
-    setForkWarnCallback(() => {
-      try { notify(this.level?.forkWarnMessage || 'TAKE THE RIGHT FORK!'); } catch (e) {}
-      try { playSfx('coin'); } catch (e) {}
-    });
+    // Track stats for THIS race only — committed on win.
+    this._raceCoins = 0;
+    this._raceKeys  = 0;
+    this._lastKeyCount  = 0;
+    this._lastCoinCount = 0;
+
+setReverseHintCallback(() => {
+  try {
+    notify(this.level?.hintMessage || 'Sometimes the only way forward is backward.');
+  } catch (e) {}
+  try {
+    if (getSetting('soundOn')) playSfx('coin');
+  } catch (e) {}
+});
+
+setReverseUnlockCallback(() => {
+  try {
+    notify(this.level?.reverseMessage || 'SECRET ROAD DISCOVERED!');
+  } catch (e) {}
+  try {
+    if (getSetting('soundOn')) playSfx('nitro');
+  } catch (e) {}
+});
+
+    this._autoPausedByTab = false;
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (this.running && !this.paused) {
+      this._autoPausedByTab = true;
+      this.pause();
+    }
+  } else {
+    if (this.running && this._autoPausedByTab) {
+      this._autoPausedByTab = false;
+      this.resume();
+    }
+  }
+});
+
+window.addEventListener('blur', () => {
+  if (this.running && !this.paused) {
+    this._autoPausedByTab = true;
+    this.pause();
+  }
+});
   }
 
   isPaused() { return this.paused; }
 
-  // ── Lifecycle ────────────────────────────────────────
   async enter(level) {
     if (level) {
       this.level = level;
@@ -57,6 +100,10 @@ export class GameScene {
 
     unlockAudio();
     this.winShown = false;
+    this._raceCoins = 0;
+    this._raceKeys  = 0;
+    this._lastKeyCount  = 0;
+    this._lastCoinCount = 0;
 
     document.getElementById('s-win')  ?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
@@ -72,11 +119,11 @@ export class GameScene {
     renderFrame(0);
 
     await playIntro();
-    playSfx('start');
+    if (getSetting('soundOn')) playSfx('start');
     await countdown();
 
     lockInput(false);
-    startMusic();
+    if (getSetting('musicOn')) startMusic();
     notify(this.level.startMessage || 'LAP 1');
 
     this.running = true;
@@ -86,7 +133,7 @@ export class GameScene {
     requestAnimationFrame(this.loop);
   }
 
-  exit() { /* nothing — handled by quit()/win flow */ }
+  exit() {}
 
   pause() {
     if (!this.running) return;
@@ -99,7 +146,7 @@ export class GameScene {
     if (!this.running) return;
     this.paused = false;
     show('game');
-    startMusic();
+    if (getSetting('musicOn')) startMusic();
     this.last = performance.now();
     requestAnimationFrame(this.loop);
   }
@@ -114,7 +161,14 @@ export class GameScene {
     this.winShown = true;
     lockInput(true);
     stopMusic();
-    playSfx('win');
+    if (getSetting('soundOn')) playSfx('win');
+
+    // ── Persist to player data ──
+    if (this._raceCoins > 0) addCoins(this._raceCoins);
+    if (this._raceKeys  > 0) addKeys(this._raceKeys);
+
+    const levelNum = parseInt((this.level?.id || 'level1').replace('level', ''), 10) || 1;
+    completeLevel(levelNum, P.raceTime);
 
     await playOutro();
 
@@ -125,7 +179,22 @@ export class GameScene {
     P.endPhase = 2;
   }
 
-  // ── Main loop ────────────────────────────────────────
+  // Track coin/key gain during the race
+  _trackPickups() {
+    // P.keysCollected and (if you have it) coin counter
+    // Adjust according to your existing collision system
+    if (typeof P.keysCollected === 'number') {
+      const gained = P.keysCollected - this._lastKeyCount;
+      if (gained > 0) this._raceKeys += gained;
+      this._lastKeyCount = P.keysCollected;
+    }
+    if (typeof P.coinsCollected === 'number') {
+      const gained = P.coinsCollected - this._lastCoinCount;
+      if (gained > 0) this._raceCoins += gained;
+      this._lastCoinCount = P.coinsCollected;
+    }
+  }
+
   loop = (now) => {
     if (!this.running || this.paused) return;
 
@@ -152,12 +221,13 @@ export class GameScene {
       this.accum -= STEP;
     }
 
-    // Deferred track switch (Road1 → Road2)
+    this._trackPickups();
+
     if (P._needsTrackSwitch) {
       P._needsTrackSwitch = false;
       buildScenery();
       try { notify(this.level.forkMessage || 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!'); } catch (e) {}
-      try { playSfx('nitro'); } catch (e) {}
+      try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) {}
     }
 
     tickParts(dtRaw);

@@ -1,125 +1,241 @@
 // ═══════════════════════════════════════════════════════
-// AUDIO MANAGER — All game SFX & music
-// ═══════════════════════════════════════════════════════
-// Place audio files in: assets/audio/
-//   bg.mp3       — looping background music (in-race)
-//   start.mp3    — countdown / "GO!"
-//   coin.mp3     — coin pickup
-//   nitro.mp3    — booster pickup / nitro engage
-//   crash.mp3    — wall / scenery crash
-//   screech.mp3  — looping tyre screech (off-road / handbrake)
-//   engine.mp3   — looping engine hum (volume tracks speed)
-//   win.mp3      — race finished jingle
-//
-// Multiple file extensions are tried per name. Missing files → silent.
+// AUDIO MANAGER — Background music + SFX + engine loops
+// Path: assets/fassets/audio/
 // ═══════════════════════════════════════════════════════
 
-const EXT = ['.mp3','.ogg','.wav','.m4a'];
-const DIRS = ['assets/fassets/audio','audio/','assets/'];
+const BASE = 'assets/fassets/audio/';
 
-const _cache = new Map();   // key → HTMLAudioElement (or array for instances)
-const _active = new Map();  // key id → currently-playing instance (loops)
+const BANK = {
+  menuMusic : ['MusicMenu.ogg'],
+  raceMusic : ['MusicGameModeRace.ogg'],
+  raceOutro : ['MusicGameModeRaceOutro.ogg'],
 
+  button    : ['ButtonClick.ogg'],
+  sceneOpen : ['ModalIn.ogg'],
+  sceneClose: ['ModalOut.ogg'],
+  invalid   : ['ButtonInvalid.ogg'],
+
+  start     : ['GameStart1.ogg', 'GameStart2.ogg', 'GameStart3.ogg'],
+  coin      : ['Coin1.ogg', 'Coin2.ogg', 'Coin3.ogg', 'Coin4.ogg'],
+  nitro     : ['BoostActivate1.ogg', 'BoostActivate2.ogg', 'BoostActivate3.ogg', 'BoostActivate4.ogg'],
+
+  engine    : ['UnitBIgnition.ogg'],
+  brake     : ['HudDriftLoop.ogg'],
+  screech   : ['HudDriftLoop.ogg'],
+  crash     : ['UnitCollision1.ogg', 'UnitCollision2.ogg', 'UnitCollision3.ogg', 'UnitCollision4.ogg'],
+
+  win       : ['Stars3.ogg'],
+};
+
+const _cache = new Map();
+const _loops = new Map();
+
+let _unlocked = false;
 let _muted = false;
-let _ready = false;
+let _musicVolume = 0.35;
+let _sfxVolume = 0.75;
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getFile(name) {
+  const files = BANK[name];
+  if (!files) {
+    console.warn('[audio] Missing BANK key:', name);
+    return null;
+  }
+  return BASE + pick(files);
+}
+
+function makeAudio(src) {
+  const a = new Audio(src);
+  a.preload = 'auto';
+  return a;
+}
+
+function getBaseAudio(name) {
+  const src = getFile(name);
+  if (!src) return null;
+
+  if (!_cache.has(src)) {
+    _cache.set(src, makeAudio(src));
+  }
+
+  return _cache.get(src);
+}
 
 export function unlockAudio() {
-  // Browsers require a user gesture before audio can play. Call this from
-  // any click handler (the START button is a good place).
-  _ready = true;
+  _unlocked = true;
+
+  // tiny silent unlock attempt
+  const a = getBaseAudio('button');
+  if (a) {
+    const oldVol = a.volume;
+    a.volume = 0;
+    a.play().then(() => {
+      a.pause();
+      a.currentTime = 0;
+      a.volume = oldVol;
+    }).catch(() => {
+      a.volume = oldVol;
+    });
+  }
 }
 
-export function setMuted(v) { _muted = !!v; }
+export function setMuted(v) {
+  _muted = !!v;
 
-function tryLoad(name) {
-  return new Promise((resolve) => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= DIRS.length * EXT.length) return resolve(null);
-      const dir = DIRS[(i / EXT.length) | 0];
-      const ext = EXT[i % EXT.length];
-      i++;
-      const a = new Audio();
-      a.preload = 'auto';
-      a.addEventListener('canplaythrough', () => resolve(a), { once:true });
-      a.addEventListener('error', tryNext, { once:true });
-      a.src = dir + name + ext;
-    };
-    tryNext();
-  });
+  for (const [, a] of _loops) {
+    a.muted = _muted;
+  }
 }
 
-async function getAudio(name) {
-  if (_cache.has(name)) return _cache.get(name);
-  const p = tryLoad(name);
-  _cache.set(name, p);
-  const audio = await p;
-  _cache.set(name, audio); // replace promise with element (or null)
-  return audio;
+export function isMuted() {
+  return _muted;
 }
 
-// Play a one-shot SFX or control a looping channel.
-//
-//   playSfx('coin');                                 // one-shot
-//   playSfx('bg',     { loop:true, volume:.45 });    // start music
-//   playSfx('engine', { loop:true, key:'engine' });  // tracked loop
-//   playSfx('engine', { stop:true, key:'engine' });  // stop tracked loop
-//   playSfx('engine', { volume:0.7, key:'engine' }); // adjust volume
-export async function playSfx(name, opts = {}) {
+export function setMusicVolume(v) {
+  _musicVolume = Math.max(0, Math.min(1, v));
+  const bg = _loops.get('music');
+  if (bg) bg.volume = _musicVolume;
+}
+
+export function setSfxVolume(v) {
+  _sfxVolume = Math.max(0, Math.min(1, v));
+}
+
+export function playSfx(name, opts = {}) {
   if (_muted) return;
+  if (!_unlocked && !opts.force) return;
+
   const key = opts.key || name;
 
   if (opts.stop) {
-    const cur = _active.get(key);
-    if (cur) { try { cur.pause(); cur.currentTime = 0; } catch(e){} _active.delete(key); }
+    const loop = _loops.get(key);
+    if (loop) {
+      try {
+        loop.pause();
+        loop.currentTime = 0;
+      } catch (e) {}
+      _loops.delete(key);
+    }
     return;
   }
 
-  const base = await getAudio(name);
+  const base = getBaseAudio(name);
   if (!base) return;
 
   if (opts.loop) {
-    let inst = _active.get(key);
-    if (!inst) {
-      inst = base.cloneNode(true);
-      inst.loop = true;
-      _active.set(key, inst);
+    let loop = _loops.get(key);
+
+    if (!loop) {
+      loop = base.cloneNode(true);
+      loop.loop = true;
+      loop.volume = opts.volume ?? _sfxVolume;
+      loop.muted = _muted;
+      _loops.set(key, loop);
     }
-    inst.volume = opts.volume ?? 0.6;
-    if (inst.paused) {
-      try { await inst.play(); } catch(e){}
+
+    loop.volume = opts.volume ?? loop.volume;
+    if (opts.rate) loop.playbackRate = opts.rate;
+
+    if (loop.paused) {
+      loop.play().catch(() => {});
     }
-    return;
+
+    return loop;
   }
 
-  // One-shot — clone so concurrent plays don't cut each other off.
   const inst = base.cloneNode(true);
-  inst.volume = opts.volume ?? 0.7;
-  try { inst.play(); } catch(e){}
+  inst.volume = opts.volume ?? _sfxVolume;
+  inst.playbackRate = opts.rate ?? 1;
+  inst.muted = _muted;
+  inst.play().catch(() => {});
 }
 
-export function stopAll() {
-  for (const [, inst] of _active) {
-    try { inst.pause(); inst.currentTime = 0; } catch(e){}
-  }
-  _active.clear();
-}
-
-// Convenience helpers for common loops.
-export function setEngineSpeed(speed01) {
-  // speed01: 0..1 (player speed / NITRO_MAX). Mute below 0.05.
-  if (_muted) return;
-  if (speed01 < 0.05) {
-    playSfx('engine', { stop:true, key:'engine' });
-    return;
-  }
-  const vol = 0.15 + speed01 * 0.45;
-  playSfx('engine', { loop:true, volume:vol, key:'engine' });
-  const inst = _active.get('engine');
-  if (inst) inst.playbackRate = 0.85 + speed01 * 0.55;
+export function startMenuMusic() {
+  stopMusic();
+  const a = playSfx('menuMusic', {
+    loop: true,
+    key: 'music',
+    volume: _musicVolume,
+  });
+  return a;
 }
 
 export function startMusic() {
-  playSfx('bg', { loop:true, volume:0.35, key:'bg' });
+  stopMusic();
+  const a = playSfx('raceMusic', {
+    loop: true,
+    key: 'music',
+    volume: _musicVolume,
+  });
+  return a;
 }
-export function stopMusic() { playSfx('bg', { stop:true, key:'bg' }); }
+
+export function stopMusic() {
+  playSfx('raceMusic', { stop: true, key: 'music' });
+  playSfx('menuMusic', { stop: true, key: 'music' });
+}
+
+export function stopAll() {
+  for (const [, a] of _loops) {
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch (e) {}
+  }
+  _loops.clear();
+}
+
+export function setEngineSpeed(speed01) {
+  if (_muted || !_unlocked) return;
+
+  speed01 = Math.max(0, Math.min(1, speed01));
+
+  if (speed01 < 0.04) {
+    playSfx('engine', { stop: true, key: 'engine' });
+    return;
+  }
+
+  playSfx('engine', {
+    loop: true,
+    key: 'engine',
+    volume: 0.12 + speed01 * 0.35,
+    rate: 0.85 + speed01 * 0.55,
+  });
+}
+
+export function setBrakeLoop(active) {
+  if (active) {
+    playSfx('brake', {
+      loop: true,
+      key: 'brake',
+      volume: 0.35,
+    });
+  } else {
+    playSfx('brake', {
+      stop: true,
+      key: 'brake',
+    });
+  }
+}
+
+export function initGlobalAudioButtons() {
+  window.addEventListener('pointerdown', unlockAudio, { once: true });
+  window.addEventListener('keydown', unlockAudio, { once: true });
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('button, .btn, [data-sound="button"]');
+    if (!el) return;
+    playSfx('button', { volume: 0.65 });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      setBrakeLoop(false);
+      setEngineSpeed(0);
+    }
+  });
+}
