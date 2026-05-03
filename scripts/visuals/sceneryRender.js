@@ -65,12 +65,12 @@ function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
 export function drawScenery() {
   if (!IMG.scenery.ready || !_visibleSegs.length) return;
 
-  const ctx      = getCtx();
-  const _W       = getW();
-  const _H       = getH();
-  const _res     = getRes();
+  const ctx = getCtx();
+  const _W = getW();
+  const _H = getH();
+  const _res = getRes();
   const horizonY = _H * 0.44;
-  const now      = performance.now();
+  const now = performance.now();
 
   const list = [];
 
@@ -83,14 +83,14 @@ export function drawScenery() {
     if (!hit) continue;
 
     const { v, pct } = hit;
-    const y  = v.y1 + (v.y2 - v.y1) * pct;
+    const y = v.y1 + (v.y2 - v.y1) * pct;
     const cx = v.x1 + (v.x2 - v.x1) * pct;
     const rw = v.w1 + (v.w2 - v.w1) * pct;
 
     if (!o.isCoin && !o.isBooster && !o.isKey &&
-        (y < horizonY - 4 || y > _H * 0.98)) continue;
+      (y < horizonY - 4 || y > _H * 0.98)) continue;
     if ((o.isCoin || o.isBooster || o.isKey) &&
-        (y < horizonY * 0.5 || y > _H * 0.98)) continue;
+      (y < horizonY * 0.5 || y > _H * 0.98)) continue;
 
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
@@ -107,51 +107,57 @@ export function drawScenery() {
     if (it.o.overhead) {
       drawW = it.rw * 2.6 * s.scale;
       drawH = drawW * (s.sh / s.sw);
-      x     = it.cx - drawW / 2;
-      y     = it.y - drawH * s.anchorY;
+      x = it.cx - drawW / 2;
+      y = it.y - drawH * s.anchorY;
 
     } else if (it.o.isCoin || it.o.isBooster || it.o.isKey) {
       const perspective = clamp(it.scale * 1800, 0.08, 1.65);
       let baseSize;
-      if      (it.o.isKey)     baseSize = 130;
+      if (it.o.isKey) baseSize = 130;
       else if (it.o.isBooster) baseSize = 92;
-      else                     baseSize = 80;
+      else baseSize = 80;
 
       drawW = baseSize * perspective * _res;
       drawH = drawW * (s.sh / s.sw);
 
       let minSize, maxSize;
-      if      (it.o.isKey)     { minSize = 32 * _res; maxSize = 240 * _res; }
-      else if (it.o.isBooster) { minSize = 14 * _res; maxSize =  70 * _res; }
-      else                     { minSize = 20 * _res; maxSize = 180 * _res; }
+      if (it.o.isKey) { minSize = 32 * _res; maxSize = 240 * _res; }
+      else if (it.o.isBooster) { minSize = 14 * _res; maxSize = 70 * _res; }
+      else { minSize = 20 * _res; maxSize = 180 * _res; }
 
       drawW = clamp(drawW, minSize, maxSize);
       drawH = drawW * (s.sh / s.sw);
 
       x = it.cx + it.o.offset * it.rw - drawW / 2;
-      y = it.y  - drawH * 0.88;
+      y = it.y - drawH * 0.88;
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
 
     } else {
-      const side   = it.o.side || 1;
-      const worldR = it.o.small
-        ? C.ROAD_W * 0.28 * s.scale
-        : C.ROAD_W * 0.82 * s.scale;
+      const side = it.o.side || 1;
+      let worldR;
+
+      if (it.o.isBoundaryPole) {
+        worldR = C.ROAD_W * 0.11 * s.scale;
+      } else {
+        worldR = it.o.small
+          ? C.ROAD_W * 0.28 * s.scale
+          : C.ROAD_W * 0.82 * s.scale;
+      }
 
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
-      const minW = it.o.small ? 16 * _res : 48 * _res;
-      const maxW = it.o.small ? 0.20 * _W : 0.55 * _W;
+      const minW = it.o.isBoundaryPole ? 4 * _res : (it.o.small ? 16 * _res : 48 * _res);
+      const maxW = it.o.isBoundaryPole ? 42 * _res : (it.o.small ? 0.20 * _W : 0.55 * _W);
       drawW = clamp(drawW, minW, maxW);
       drawH = drawW * (s.sh / s.sw);
 
       const groundX = it.cx + side * it.rw * it.o.offset;
       x = groundX - drawW / 2;
-      y = it.y    - drawH * s.anchorY;
+      y = it.y - drawH * s.anchorY;
 
       if (side < 0 && x + drawW > it.cx - it.rw * 0.94) x = it.cx - it.rw * 0.94 - drawW;
-      if (side > 0 && x         < it.cx + it.rw * 0.94) x = it.cx + it.rw * 0.94;
+      if (side > 0 && x < it.cx + it.rw * 0.94) x = it.cx + it.rw * 0.94;
 
       if (y > _H || x > _W + drawW || x < -drawW) continue;
       if (y + drawH < horizonY) continue;
@@ -164,35 +170,35 @@ export function drawScenery() {
 
     if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
-  ctx.shadowBlur = 0;
+      ctx.shadowBlur = 0;
       drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = (0.20 + fade * 0.80) * 0.45 * pulse;
-      ctx.fillStyle   = 'rgba(255, 200, 50, 1)';
+      ctx.fillStyle = 'rgba(255, 200, 50, 1)';
       ctx.beginPath();
       ctx.ellipse(x + drawW / 2, y + drawH / 2, drawW * 0.42, drawH * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
 
     } else if (it.o.isForkGate) {
       drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
-      const pulse   = 0.80 + 0.20 * Math.sin(now * 0.0035);
+      const pulse = 0.80 + 0.20 * Math.sin(now * 0.0035);
       const tintClr = it.o.forkTint === 'road2'
         ? `rgba(255, 210, 50, ${0.30 * pulse})`
         : `rgba(255, 80,  40, ${0.25 * pulse})`;
       ctx.globalCompositeOperation = 'source-atop';
       ctx.globalAlpha = 0.55 * fade * pulse;
-      ctx.fillStyle   = tintClr;
+      ctx.fillStyle = tintClr;
       ctx.fillRect(x, y, drawW, drawH);
 
     } else if (it.o.isForkMarker) {
       drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
-      const pulse   = 0.75 + 0.25 * Math.sin(now * 0.004 + it.o.z * 0.001);
+      const pulse = 0.75 + 0.25 * Math.sin(now * 0.004 + it.o.z * 0.001);
       const tintClr = (getActiveTrack() === 2)
         ? `rgba(255, 220, 60, 0.4)`
         : `rgba(255, 70,  30, 0.3)`;
       ctx.globalCompositeOperation = 'source-atop';
       ctx.globalAlpha = 0.45 * fade * pulse;
-      ctx.fillStyle   = tintClr;
+      ctx.fillStyle = tintClr;
       ctx.fillRect(x, y, drawW, drawH);
 
     } else {

@@ -15,6 +15,36 @@ export function buildSceneryObjects() {
   // When secret road is discovered, left/right scenery is mirrored.
   const sideFlip = P.reverseMode ? -1 : 1;
 
+ function addBoundaryPoles(startSeg, endSeg, stepSeg, offset = 1.10) {
+  const poleKinds = ['poleStump'];
+
+  for (let i = startSeg, n = 0; i < Math.min(total - 10, endSeg); i += stepSeg, n++) {
+    const z = i * C.SEG_LEN;
+    const leftKind  = poleKinds[n % poleKinds.length];
+    const rightKind = poleKinds[(n + 1) % poleKinds.length];
+
+    objs.push({
+      kind: leftKind,
+      z: z + 40,
+      side: -1 * sideFlip,
+      offset,
+      small: true,
+      isBoundaryPole: true,
+    });
+
+    objs.push({
+      kind: rightKind,
+      z: z + 95,   // mini gap, not too far
+      side: 1 * sideFlip,
+      offset,
+      small: true,
+      isBoundaryPole: true,
+    });
+  }
+}
+
+  // Boundary poles for Road1 fake road and Road2 winning road
+ addBoundaryPoles(6, total - 25, onRoad2 ? 2 : 2, onRoad2 ? 1.10 : 1.10);
   const trees = ['pineTall', 'tallTree', 'pineBig', 'pineSmall'];
   const rocks = ['rockLow', 'rockBig', 'totem'];
 
