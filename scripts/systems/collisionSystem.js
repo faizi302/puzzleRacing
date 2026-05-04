@@ -254,6 +254,10 @@ function objCat(o) {
     return 'arch';
   }
 
+  // On-road hurdles have their own positional collision logic.
+  // Must be checked BEFORE the generic sideScenery/hardSide fallback.
+  if (o.isHurdle) return 'hurdle';
+
   if (
     o.kind === 'rockBig' ||
     o.kind === 'rockLow' ||
@@ -268,6 +272,8 @@ function objCat(o) {
 
 function objLateralX(o) {
   if (o.isCoin || o.isBooster || o.isKey) return o.offset || 0;
+  // Hurdles store their lane position directly in offset (no side multiplier).
+  if (o.isHurdle) return o.offset || 0;
   return (o.side || 0) * (o.offset || 1.0);
 }
 
@@ -379,8 +385,112 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
 }
 
 // ═══════════════════════════════════════════════════════
-// MAIN SCENERY COLLISION
+// HURDLE COLLISION — positional, only blocks where the
+// hurdle physically sits. Player can freely pass any
+// clear gap beside or between hurdles.
+//
+// CRITICAL: hurdleHalfW MUST match the renderer formula
+// exactly: C.ROAD_W * o.size * s.scale  (full width).
+// Half of that = o.size * s.scale * 0.5 in road-X units
+// (road half-width = 1.0 by convention).
+//
+// Per-sprite scale values mirror sceneryConfig.js SPR:
+//   gorillaRock: scale 1.00
+//   woodFence:   scale 0.65   ← wide sprite, small scale
+//   stoneWall:   scale 1.00
+//   stoneBlock:  scale 1.00
+// Without per-sprite scale the fence hitbox was 2× too
+// wide, making the center gap impassable even though the
+// visual showed clear space.
 // ═══════════════════════════════════════════════════════
+
+// Mirror of SPR.scale from sceneryConfig — kept local so
+// collisionSystem has zero import dependency on sceneryConfig.
+const HURDLE_SPR_SCALE = {
+  gorillaRock : 1.00,
+  woodFence   : 0.65,
+  stoneWall   : 1.00,
+  stoneBlock  : 1.00,
+};
+
+function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
+  // ── Hitbox dimensions ──────────────────────────────────
+  // X  : match renderer (o.size * sprScale * 0.5) × tightening 0.82
+  // Z  : depth half-extent in road units, derived from o.size so
+  //      smaller hurdles have shallower boxes (gorillaRock ~32,
+  //      woodFence ~23, stoneBlock ~37).
+  const sprScale    = HURDLE_SPR_SCALE[o.kind] ?? 1.00;
+  const hurdleSize  = o.size ?? 0.45;
+  const hurdleHalfW = hurdleSize * sprScale * 0.5 * 0.82;
+  const hurdleHalfZ = hurdleSize * sprScale * 80;   // depth half-extent (road units)
+
+  const playerHalfW = 0.28;
+  const playerHalfZ = 80;   // matches getPlayerCollisionInfo().halfZ
+
+  // ── 2-D AABB overlap test ─────────────────────────────
+  const xOverlap = (P.playerX + playerHalfW) > (objX - hurdleHalfW) &&
+                   (P.playerX - playerHalfW) < (objX + hurdleHalfW);
+  const zOverlap = dz > -(hurdleHalfZ + playerHalfZ) &&
+                   dz <  (hurdleHalfZ + playerHalfZ);
+
+  if (!xOverlap || !zOverlap) return;
+
+  // ── Minimum Separation Vector ─────────────────────────
+  // Penetration depths are in different units (X: road fractions 0-1,
+  // Z: world units ~0-3200). Normalize each to 0-1 relative to the
+  // combined half-extents so the axis comparison is scale-independent.
+  const penXraw = (playerHalfW + hurdleHalfW) - Math.abs(P.playerX - objX);
+  const penZraw = (playerHalfZ + hurdleHalfZ) - Math.abs(dz);
+
+  // Normalized penetration: 1.0 = fully inside, 0 = just touching edge.
+  const penXnorm = penXraw / (playerHalfW + hurdleHalfW);
+  const penZnorm = penZraw / (playerHalfZ + hurdleHalfZ);
+
+  const lateralPushDir = P.playerX < objX ? -1 : 1;
+  // dz > 0 → hurdle is ahead → push player backward (pos--)
+  // dz < 0 → hurdle is behind → push player forward  (pos++)
+  const zPushSign = dz > 0 ? -1 : 1;
+
+  if (penXnorm <= penZnorm) {
+    // ── Side hit (left or right face of hurdle) ──────────
+    P.playerX += lateralPushDir * (penXraw + 0.02);
+    clampPlayerX();
+
+    const normalMax = C.NORMAL_MAX || 70;
+    P.speed = Math.min(P.speed * 0.60, normalMax * 0.50);
+
+    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) {}
+
+    if (canFx(o, 350)) {
+      spawnCrash(screenAnchorX + lateralPushDir * 60, screenAnchorY - 30);
+      safeSfx('crash');
+    }
+
+  } else {
+    // ── Front / back hit ─────────────────────────────────
+    const posDelta = (penZraw + C.SEG_LEN * 0.18) * zPushSign;
+    P.pos += posDelta;
+    if (P.pos < 0) P.pos += trackLen;
+    while (P.pos >= trackLen) P.pos -= trackLen;
+
+    // Preserve speed direction (reversers stay reversing, just slower).
+    const normalMax = C.NORMAL_MAX || 70;
+    const sign = P.speed < 0 ? -1 : 1;
+    P.speed = sign * Math.min(Math.abs(P.speed) * 0.45, normalMax * 0.38);
+
+    P.playerX += lateralPushDir * 0.04;
+    clampPlayerX();
+
+    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) {}
+
+    if (canFx(o, 480)) {
+      spawnCrash(screenAnchorX, screenAnchorY - 40);
+      safeSfx('crash');
+    }
+  }
+}
+
+
 export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY) {
   if (!sceneryObjs || !sceneryObjs.length) return;
   if (P.endPhase >= 1) return;
@@ -443,6 +553,12 @@ if (cat === 'arch') {
   );
   continue;
 }
+
+    // ON-ROAD HURDLE — positional collision only where the sprite sits.
+    if (cat === 'hurdle') {
+      resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);
+      continue;
+    }
 
     // SIDE OBJECTS
     if (cat === 'sideScenery' || cat === 'hardSide') {

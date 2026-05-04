@@ -87,10 +87,11 @@ export function drawScenery() {
     const cx = v.x1 + (v.x2 - v.x1) * pct;
     const rw = v.w1 + (v.w2 - v.w1) * pct;
 
-    if (!o.isCoin && !o.isBooster && !o.isKey &&
+    if (!o.isCoin && !o.isBooster && !o.isKey && !o.isHurdle &&
       (y < horizonY - 4 || y > _H * 0.98)) continue;
     if ((o.isCoin || o.isBooster || o.isKey) &&
       (y < horizonY * 0.5 || y > _H * 0.98)) continue;
+    if (o.isHurdle && y > _H * 1.10) continue;   // only cull if completely off-bottom
 
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
@@ -133,6 +134,32 @@ export function drawScenery() {
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
+
+    } else if (it.o.isHurdle) {
+      // ── On-road hurdle — FIXED physical size ────────────
+      // We define the hurdle's real-world width in road units
+      // and project it at the hurdle's ACTUAL distance (dz).
+      // Because both numerator and the sprite stay in the same
+      // coordinate space, the object grows correctly as you
+      // approach and never pops or shrinks unexpectedly.
+      //
+      // HURDLE_WORLD_W controls how wide each hurdle type is
+      // in "road half-widths".  Tune per-sprite via s.scale.
+      const hurdleSize = it.o.size ?? 0.45;
+      const HURDLE_WORLD_W = C.ROAD_W * hurdleSize * s.scale;
+      drawW = HURDLE_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
+
+      // Clamp only to stop extreme near/far edge cases.
+      drawW = clamp(drawW, 40 * _res, 0.80 * _W);
+      drawH = drawW * (s.sh / s.sw);
+
+      const groundX = it.cx + it.o.offset * it.rw;
+      x = groundX - drawW / 2;
+      const anchor = it.o.anchorY ?? 1.0;
+      y = it.y - drawH * anchor;
+
+      if (y > _H || x > _W + drawW || x < -drawW) continue;
+      if (y + drawH < horizonY) continue;
 
     } else {
       const side = it.o.side || 1;
@@ -200,6 +227,9 @@ export function drawScenery() {
       ctx.globalAlpha = 0.45 * fade * pulse;
       ctx.fillStyle = tintClr;
       ctx.fillRect(x, y, drawW, drawH);
+
+    } else if (it.o.isHurdle) {
+      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
     } else {
       drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);

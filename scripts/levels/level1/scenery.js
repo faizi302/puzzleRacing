@@ -15,41 +15,41 @@ export function buildSceneryObjects() {
   // When secret road is discovered, left/right scenery is mirrored.
   const sideFlip = P.reverseMode ? -1 : 1;
 
- function addBoundaryPoles(startSeg, endSeg, stepSeg, offset = 1.10) {
-  const poleKinds = ['poleStump'];
+  function addBoundaryPoles(startSeg, endSeg, stepSeg, offset = 1.10) {
+    const poleKinds = ['poleStump'];
 
-  for (let i = startSeg, n = 0; i < Math.min(total - 10, endSeg); i += stepSeg, n++) {
-    const z = i * C.SEG_LEN;
-    const leftKind  = poleKinds[n % poleKinds.length];
-    const rightKind = poleKinds[(n + 1) % poleKinds.length];
+    for (let i = startSeg, n = 0; i < Math.min(total - 10, endSeg); i += stepSeg, n++) {
+      const z = i * C.SEG_LEN;
+      const leftKind = poleKinds[n % poleKinds.length];
+      const rightKind = poleKinds[(n + 1) % poleKinds.length];
 
-    objs.push({
-      kind: leftKind,
-      z: z + 40,
-      side: -1 * sideFlip,
-      offset,
-      small: true,
-      isBoundaryPole: true,
-    });
+      objs.push({
+        kind: leftKind,
+        z: z + 40,
+        side: -1 * sideFlip,
+        offset,
+        small: true,
+        isBoundaryPole: true,
+      });
 
-    objs.push({
-      kind: rightKind,
-      z: z + 95,   // mini gap, not too far
-      side: 1 * sideFlip,
-      offset,
-      small: true,
-      isBoundaryPole: true,
-    });
+      objs.push({
+        kind: rightKind,
+        z: z + 95,   // mini gap, not too far
+        side: 1 * sideFlip,
+        offset,
+        small: true,
+        isBoundaryPole: true,
+      });
+    }
   }
-}
 
   // Boundary poles for Road1 fake road and Road2 winning road
- addBoundaryPoles(6, total - 25, onRoad2 ? 2 : 2, onRoad2 ? 1.10 : 1.10);
+  addBoundaryPoles(6, total - 25, onRoad2 ? 2 : 2, onRoad2 ? 1.10 : 1.10);
   const trees = ['pineTall', 'tallTree', 'pineBig', 'pineSmall'];
-  const rocks = ['rockLow', 'rockBig', 'totem'];
+  const rocks = ['totemOnly'];
 
   // Trees on both sides
-  for (let i = 30; i < total - 30; i += 28) {
+  for (let i = 30; i < total - 30; i += 20) {
     const z = i * C.SEG_LEN;
     objs.push({
       kind: trees[(i * 3) % trees.length],
@@ -65,22 +65,26 @@ export function buildSceneryObjects() {
     });
   }
 
-  // Rocks / totems
-  for (let i = 40; i < total - 20; i += 38) {
+  // ── Totem only on both road sides ─────────────────────
+  for (let i = 35; i < total - 25; i += 45) {
     const z = i * C.SEG_LEN;
+
     objs.push({
-      kind: rocks[(i * 7) % rocks.length],
-      z: z + 20,
+      kind: 'totemOnly',
+      z: z + 40,
       side: -1 * sideFlip,
-      offset: onRoad2 ? 1.12 : 1.25,
-      small: true,
+      offset: onRoad2 ? 1.45 : 1.55,
+      small: false,
+      isTotem: true,
     });
+
     objs.push({
-      kind: rocks[(i * 11 + 2) % rocks.length],
-      z: z + 280,
+      kind: 'totemOnly',
+      z: z + 220,
       side: 1 * sideFlip,
-      offset: onRoad2 ? 1.25 : 1.48,
-      small: true,
+      offset: onRoad2 ? 1.45 : 1.55,
+      small: false,
+      isTotem: true,
     });
   }
 
@@ -130,6 +134,59 @@ export function buildSceneryObjects() {
       side: 0,
       offset: laneOff,
       isBooster: true,
+    });
+  }
+
+  // ── ON-ROAD HURDLES — MANUAL PLACEMENT ────────────────
+  // Each entry: { kind, seg, offset }
+  //   kind   — 'gorillaRock' | 'stoneWall' | 'woodFence' | 'stoneBlock'
+  //   seg    — road segment number (higher = further along the track)
+  //   offset — lane position: -0.60 = left, 0 = centre, 0.60 = right
+  //
+  // Add, remove, or reorder lines freely to place hurdles exactly
+  // where you want them. Segments are spaced C.SEG_LEN (200) units apart.
+  // ─────────────────────────────────────────────────────
+  const HURDLES = [
+    // ── gorillaRock ──────────────────────────────────────
+    { kind: 'gorillaRock', seg: 55, offset: -0.58, size: 0.40 },
+    { kind: 'gorillaRock', seg: 400, offset: -0.58, size: 0.40 },   // H2 — left lane
+    { kind: 'gorillaRock', seg: 1080, offset: 0.00, size: 0.40 },   // H2 — left lane
+    { kind: 'gorillaRock', seg: 1260, offset: 0.00, size: 0.40 },   // H2 — left lane
+    { kind: 'gorillaRock', seg: 1760, offset: 0.00, size: 0.40 },   // H2 — left lane
+
+    // ── stoneWall ─────────────────────────────────────────
+    { kind: 'stoneWall', seg: 170, offset: 0.00, size: 0.40 },
+    { kind: 'stoneWall', seg: 700, offset: 0.70, size: 0.40 },
+    { kind: 'stoneWall', seg: 840, offset: 0.00, size: 0.40 },
+    { kind: 'stoneWall', seg: 930, offset: 0.00, size: 0.40 },
+
+    // ── woodFence ─────────────────────────────────────────
+    { kind: 'woodFence', seg: 95, offset: 0.70, size: 0.70, anchorY: 1.00 },
+    { kind: 'woodFence', seg: 365, offset: 0.70, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+    { kind: 'woodFence', seg: 600, offset: -0.58, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+    { kind: 'woodFence', seg: 1190, offset: -0.58, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+    { kind: 'woodFence', seg: 1190, offset: 0.70, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+    { kind: 'woodFence', seg: 1520, offset: -0.58, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+    { kind: 'woodFence', seg: 1520, offset: 0.70, size: 0.70, anchorY: 1.00 },   // F1 — left lane
+
+    // ── stoneBlock ────────────────────────────────────────
+    { kind: 'stoneBlock', seg: 320, offset: 0.00, size: 0.45 },
+    { kind: 'stoneBlock', seg: 670, offset: 0.70, size: 0.45 },
+    { kind: 'stoneBlock', seg: 760, offset: -0.58, size: 0.45 },
+    { kind: 'stoneBlock', seg: 970, offset: -0.58, size: 0.45 },
+    { kind: 'stoneBlock', seg: 1390, offset: 0.00, size: 0.45 },
+    { kind: 'stoneBlock', seg: 1560, offset: 0.00, size: 0.45 },
+  ];
+
+  for (const h of HURDLES) {
+    if (h.seg >= total - 30) continue;   // skip if track is shorter
+    objs.push({
+      kind: h.kind,
+      z: h.seg * C.SEG_LEN,
+      side: 0,
+      offset: h.offset,
+      isHurdle: true,
+      size: h.size,
     });
   }
 
