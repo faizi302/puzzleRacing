@@ -160,3 +160,4 @@ export function renderFrame(steerVisual) {
   drawReversePuzzleCard();
   drawFadeOverlay();
 }
+

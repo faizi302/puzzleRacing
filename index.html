@@ -3,206 +3,371 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta name="theme-color" content="#05060d"/>
   <title>Formula OLC Racing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
-  <!-- Portrait rotate warning -->
+  <!-- ════════════════════════════════════════════════════════
+       PERSISTENT CINEMATIC BACKGROUND (slideshow + parallax)
+       ════════════════════════════════════════════════════════ -->
+  <div class="bg-stage" id="bg-stage">
+    <div class="bg-layer" data-bg="1"></div>
+    <div class="bg-layer" data-bg="2"></div>
+    <div class="bg-layer" data-bg="3"></div>
+    <div class="bg-layer" data-bg="4"></div>
+    <div class="bg-layer" data-bg="5"></div>
+  </div>
+  <div class="bg-particles" id="bg-particles"></div>
+
+  <!-- Portrait warning -->
   <div id="rot">
     <div id="rot-icon">📱</div>
-    <p>Rotate to landscape to play</p>
+    <p>Rotate your device to landscape</p>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       MENU (Title screen)
-       ════════════════════════════════════════════════ -->
+  <!-- Global notification toast -->
+  <div id="nf"></div>
+
+  <!-- Reward burst popup -->
+  <div class="reward-burst" id="reward-burst"></div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MENU SCENE
+       ════════════════════════════════════════════════════════ -->
   <div id="s-menu" class="scr on">
-    <canvas id="menu-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
-    <div class="mc">
-      <h1 class="t1">FORMULA<br><span>OLC</span></h1>
-      <p class="t2">RACING</p>
-      <div class="mbtns">
-        <button id="btn-start" class="mb pr">▶ NEXT</button>
-        <button id="btn-howto" class="mb">HOW TO PLAY</button>
+    <div class="menu-top-bar">
+      <div class="profile-chip" id="profile-chip">
+        <div class="avatar" id="avatar-text">P1</div>
+        <div>
+          <div class="pname" id="profile-name">RACER</div>
+          <div class="plevel" id="profile-level">LV 1 · NOVICE</div>
+        </div>
       </div>
+      <div class="stats">
+        <div class="stat-pill"><span class="ico">🪙</span><span id="menu-coins">0</span></div>
+        <div class="stat-pill gems"><span class="ico">💎</span><span id="menu-gems">0</span></div>
+      </div>
+    </div>
+
+    <div class="mc">
+      <h1 class="t1">FORMULA<span>OLC</span></h1>
+      <p class="t2">RACING</p>
+
+      <div class="mbtns">
+        <button id="btn-start" class="mb pr">▶ PLAY</button>
+        <div class="mb-row">
+          <button id="btn-continue" class="mb">⚡ CONTINUE</button>
+          <button id="btn-howto"    class="mb ghost">HOW TO PLAY</button>
+        </div>
+      </div>
+
+      <div class="menu-quick">
+        <div class="q-tile" id="q-daily">
+          <div class="qi">🎁</div>
+          <span>Daily</span>
+          <div class="badge">1</div>
+        </div>
+        <div class="q-tile" id="q-events">
+          <div class="qi">🏁</div>
+          <span>Events</span>
+        </div>
+        <div class="q-tile" id="q-store">
+          <div class="qi">🛒</div>
+          <span>Store</span>
+        </div>
+        <div class="q-tile" id="q-leaderboard">
+          <div class="qi">🏆</div>
+          <span>Ranks</span>
+        </div>
+      </div>
+
       <div class="mhint">↑ Gas &nbsp;↓ Brake &nbsp;← → Steer &nbsp;SPACE Handbrake</div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
+  <!-- ════════════════════════════════════════════════════════
        HOW TO PLAY
-       ════════════════════════════════════════════════ -->
+       ════════════════════════════════════════════════════════ -->
   <div id="s-howto" class="scr">
     <div class="hbox">
       <h2>HOW TO PLAY</h2>
       <div class="hg">
         <div class="hr"><kbd>↑ / W</kbd><span>Accelerate</span></div>
-        <div class="hr"><kbd>↓ / S</kbd><span>Brake</span></div>
+        <div class="hr"><kbd>↓ / S</kbd><span>Brake / Reverse</span></div>
         <div class="hr"><kbd>← / A</kbd><span>Steer Left</span></div>
         <div class="hr"><kbd>→ / D</kbd><span>Steer Right</span></div>
         <div class="hr"><kbd>SPACE</kbd><span>Handbrake</span></div>
         <div class="hr"><kbd>ESC</kbd><span>Pause</span></div>
       </div>
-      <p class="htip">Stay on road! Wall hit = speed penalty + sparks.<br>Collect 3 keys to unlock the right fork!</p>
+      <p class="htip">Stay on the road. Walls cost you speed and spawn sparks.<br>Collect 3 keys to unlock the secret right fork!</p>
       <button id="btn-back" class="mb">← BACK</button>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       HUB (Main navigation: Career/Garage/Settings)
-       ════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       HUB
+       ════════════════════════════════════════════════════════ -->
   <div id="s-hub" class="scr">
-    <canvas id="hub-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <button class="btn-icon btn-back-top" id="btn-hub-back" title="Back">←</button>
+    <div class="top-stats">
+      <div class="stat-pill"><span class="ico">🪙</span><span id="hub-coins">0</span></div>
+      <div class="stat-pill keys"><span class="ico">🔑</span><span id="hub-keys">0</span></div>
+      <div class="stat-pill gems"><span class="ico">💎</span><span id="hub-gems">0</span></div>
+    </div>
+
     <div class="hub-wrap">
-
-      <!-- Top stats bar -->
-      <div class="top-stats">
-        <div class="stat-pill"><span class="ico">🪙</span><span id="hub-coins">0</span></div>
-        <div class="stat-pill keys"><span class="ico">🔑</span><span id="hub-keys">0</span></div>
-      </div>
-
       <h1 class="page-title">GAME HUB</h1>
       <p class="page-subtitle">CHOOSE YOUR PATH</p>
 
       <div class="hub-grid">
-        <div class="hub-card" id="hub-career">
+        <div class="hub-card" id="hub-career" data-card="career">
           <div class="ico">🏆</div>
-          <div class="lbl">My Career</div>
+          <div class="lbl">Career</div>
           <div class="sub" id="hub-career-progress">0 / 3 LEVELS</div>
         </div>
-        <div class="hub-card" id="hub-garage">
-          <div class="ico">🚗</div>
+        <div class="hub-card" id="hub-garage" data-card="garage">
+          <div class="ico">🏎️</div>
           <div class="lbl">Garage</div>
-          <div class="sub">SELECT CAR</div>
+          <div class="sub">Select & Tune</div>
         </div>
-        <div class="hub-card" id="hub-settings">
+        <div class="hub-card" id="hub-settings" data-card="settings">
           <div class="ico">⚙️</div>
           <div class="lbl">Settings</div>
-          <div class="sub">AUDIO • DISPLAY</div>
+          <div class="sub">Audio · Display</div>
         </div>
-        <div class="hub-card" id="hub-help">
+        <div class="hub-card" id="hub-help" data-card="help">
           <div class="ico">❓</div>
           <div class="lbl">How to Play</div>
-          <div class="sub">CONTROLS GUIDE</div>
+          <div class="sub">Controls Guide</div>
         </div>
       </div>
 
-      <button id="btn-hub-back" class="mb" style="margin-top:1.4rem;">← BACK TO MENU</button>
+      <div class="hub-panels">
+        <div class="hub-panel">
+          <h3>DAILY MISSIONS <span class="badge">+150 🪙</span></h3>
+          <div class="mission-row" id="mr-1">
+            <div class="check">○</div>
+            <span>Finish 1 race</span>
+            <span class="reward">+50 🪙</span>
+          </div>
+          <div class="mission-row" id="mr-2">
+            <div class="check">○</div>
+            <span>Collect 5 keys</span>
+            <span class="reward">+50 🪙</span>
+          </div>
+          <div class="mission-row" id="mr-3">
+            <div class="check">○</div>
+            <span>Beat a best time</span>
+            <span class="reward">+50 🪙</span>
+          </div>
+        </div>
+        <div class="hub-panel">
+          <h3>NEXT REWARD</h3>
+          <div class="mission-row">
+            <div class="check">🎁</div>
+            <span>Login Day <b id="login-streak">1</b></span>
+            <span class="reward">+100 🪙</span>
+          </div>
+          <div class="mission-row">
+            <div class="check">⭐</div>
+            <span>Complete Forest Fork</span>
+            <span class="reward">UNLOCK Lv2</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       CAREER (Level Select)
-       ════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       CAREER
+       ════════════════════════════════════════════════════════ -->
   <div id="s-career" class="scr">
-    <canvas id="career-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <button class="btn-icon btn-back-top" id="btn-career-back" title="Back">←</button>
+    <div class="top-stats">
+      <div class="stat-pill"><span class="ico">🪙</span><span id="career-coins">0</span></div>
+      <div class="stat-pill keys"><span class="ico">🔑</span><span id="career-keys">0</span></div>
+    </div>
+
     <div class="hub-wrap">
-
-      <button class="btn-icon btn-back-top" id="btn-career-back">←</button>
-
-      <div class="top-stats">
-        <div class="stat-pill"><span class="ico">🪙</span><span id="career-coins">0</span></div>
-        <div class="stat-pill keys"><span class="ico">🔑</span><span id="career-keys">0</span></div>
-      </div>
-
       <h1 class="page-title">SELECT LEVEL</h1>
       <p class="page-subtitle">CONQUER EACH TRACK</p>
-
-      <div class="level-grid" id="level-grid"><!-- filled by CareerScene --></div>
+      <div class="level-grid" id="level-grid"></div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       GARAGE (Car Selection)
-       ════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       GARAGE
+       ════════════════════════════════════════════════════════ -->
   <div id="s-garage" class="scr">
-    <canvas id="garage-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <button class="btn-icon btn-back-top" id="btn-garage-back" title="Back">←</button>
+    <div class="top-stats">
+      <div class="stat-pill"><span class="ico">🪙</span><span id="garage-coins">0</span></div>
+    </div>
+
     <div class="hub-wrap">
-
-      <button class="btn-icon btn-back-top" id="btn-garage-back">←</button>
-
       <h1 class="page-title">GARAGE</h1>
       <p class="page-subtitle">CHOOSE YOUR MACHINE</p>
 
-      <div class="garage-display">
-        <div class="garage-car-icon">🏎️</div>
-        <div class="garage-car-name" id="garage-car-name">RACER ONE</div>
-        <div class="garage-car-stats">
-          <span>⚡ ★★★☆☆</span>
-          <span>🛞 ★★★☆☆</span>
-          <span>💨 ★★★☆☆</span>
-        </div>
-      </div>
+      <div class="garage-wrap">
+        <div class="garage-display">
+          <div class="garage-stage">
+            <div class="garage-car-icon" id="garage-car-icon">🏎️</div>
+          </div>
+          <div class="garage-car-name" id="garage-car-name">RACER ONE</div>
+          <div class="garage-car-class" id="garage-car-class">CLASS · STARTER</div>
 
-      <div class="garage-controls">
-        <button class="mb" id="btn-car-prev">◀ PREV</button>
-        <button class="mb pr" id="btn-car-select">SELECT</button>
-        <button class="mb" id="btn-car-next">NEXT ▶</button>
+          <div class="stats-grid">
+            <div class="stat-bar">
+              <div class="lbl">⚡ Speed <b id="stat-speed">3/5</b></div>
+              <div class="track"><div class="fill" id="bar-speed" style="width:60%"></div></div>
+            </div>
+            <div class="stat-bar">
+              <div class="lbl">🛞 Grip <b id="stat-grip">3/5</b></div>
+              <div class="track"><div class="fill" id="bar-grip" style="width:60%"></div></div>
+            </div>
+            <div class="stat-bar">
+              <div class="lbl">💨 Nitro <b id="stat-nitro">3/5</b></div>
+              <div class="track"><div class="fill" id="bar-nitro" style="width:60%"></div></div>
+            </div>
+            <div class="stat-bar">
+              <div class="lbl">🛡 Durability <b id="stat-dura">3/5</b></div>
+              <div class="track"><div class="fill" id="bar-dura" style="width:60%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="garage-controls">
+          <button class="btn-icon" id="btn-car-prev" title="Previous">◀</button>
+          <button class="mb pr" id="btn-car-select">SELECT</button>
+          <button class="mb" id="btn-car-upgrade">⚡ UPGRADE</button>
+          <button class="btn-icon" id="btn-car-next" title="Next">▶</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
+  <!-- ════════════════════════════════════════════════════════
        SETTINGS
-       ════════════════════════════════════════════════ -->
+       ════════════════════════════════════════════════════════ -->
   <div id="s-settings" class="scr">
-    <canvas id="settings-stars" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <button class="btn-icon btn-back-top" id="btn-settings-back" title="Back">←</button>
+
     <div class="hub-wrap">
-
-      <button class="btn-icon btn-back-top" id="btn-settings-back">←</button>
-
       <h1 class="page-title">SETTINGS</h1>
+      <p class="page-subtitle">PERSONALIZE EXPERIENCE</p>
 
-      <div class="settings-panel">
-        <div class="setting-row">
-          <span class="label">🔊 SOUND EFFECTS</span>
-          <div class="toggle on" id="tog-sound"></div>
+      <div class="settings-wrap">
+        <div class="settings-panel">
+          <h3>AUDIO & DISPLAY</h3>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🔊 Sound Effects</span>
+              <span class="desc">In-game SFX, UI clicks, engine</span>
+            </div>
+            <div class="toggle on" id="tog-sound"></div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🎚 SFX Volume</span>
+              <span class="desc">Master SFX level</span>
+            </div>
+            <input type="range" min="0" max="100" value="75" class="slider" id="sl-sfx">
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🎵 Music</span>
+              <span class="desc">Background soundtrack</span>
+            </div>
+            <div class="toggle on" id="tog-music"></div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🎼 Music Volume</span>
+              <span class="desc">Soundtrack level</span>
+            </div>
+            <input type="range" min="0" max="100" value="35" class="slider" id="sl-music">
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🖥 Fullscreen</span>
+              <span class="desc">Immersive mode</span>
+            </div>
+            <div class="toggle" id="tog-fullscreen"></div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">📱 Vibration</span>
+              <span class="desc">Haptic feedback (mobile)</span>
+            </div>
+            <div class="toggle on" id="tog-vibration"></div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🎨 Graphics</span>
+              <span class="desc">Visual quality preset</span>
+            </div>
+            <div class="seg" id="seg-graphics">
+              <button data-q="low">LOW</button>
+              <button data-q="med" class="on">MED</button>
+              <button data-q="high">HIGH</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🎮 Controls</span>
+              <span class="desc">Input scheme</span>
+            </div>
+            <div class="seg" id="seg-controls">
+              <button data-c="auto" class="on">AUTO</button>
+              <button data-c="kb">KEYBOARD</button>
+              <button data-c="touch">TOUCH</button>
+            </div>
+          </div>
         </div>
-        <div class="setting-row">
-          <span class="label">🎵 MUSIC</span>
-          <div class="toggle on" id="tog-music"></div>
-        </div>
-        <div class="setting-row">
-          <span class="label">🖥️ FULLSCREEN</span>
-          <div class="toggle" id="tog-fullscreen"></div>
+
+        <div class="help-card">
+          <h3>CONTROLS</h3>
+          <p><span><kbd>↑</kbd> <kbd>W</kbd></span><span>Accelerate</span></p>
+          <p><span><kbd>↓</kbd> <kbd>S</kbd></span><span>Reverse / Brake</span></p>
+          <p><span><kbd>←</kbd> <kbd>→</kbd></span><span>Steer</span></p>
+          <p><span><kbd>SPACE</kbd></span><span>Handbrake</span></p>
+          <p><span><kbd>ESC</kbd></span><span>Pause</span></p>
+          <button id="btn-reset-data" class="mb danger compact" style="margin-top:18px;width:100%">🗑 RESET PROGRESS</button>
         </div>
       </div>
-
-      <div class="help-card">
-        <h3>CONTROLS</h3>
-        <p><kbd>↑</kbd> / <kbd>W</kbd> &nbsp; Accelerate</p>
-        <p><kbd>↓</kbd> / <kbd>S</kbd> &nbsp; Reverse / Brake</p>
-        <p><kbd>←</kbd> <kbd>→</kbd> &nbsp; Steer</p>
-        <p><kbd>SPACE</kbd> &nbsp; Handbrake</p>
-        <p><kbd>ESC</kbd> &nbsp; Pause</p>
-      </div>
-
-      <button id="btn-reset-data" class="mb" style="margin-top:1rem;">🗑 RESET PROGRESS</button>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       GAME (race screen)
-       ════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       GAME (race)
+       ════════════════════════════════════════════════════════ -->
   <div id="s-game" class="scr">
     <canvas id="gc"></canvas>
     <div id="hud">
       <div class="hb"><span class="hl">SPEED</span><span class="hv" id="h-spd">0</span><span class="hu">km/h</span></div>
       <div class="hb"><span class="hl">LAP</span><span class="hv" id="h-lap">0:00.000</span></div>
-      <div id="hc">
-        <div id="pw"><div id="pf"></div></div>
-        <span id="pl">0%</span>
-      </div>
+      <div id="hc"><div id="pw"><div id="pf"></div></div><span id="pl">0%</span></div>
       <div class="hb"><span class="hl">BEST</span><span class="hv" id="h-best">--:--</span></div>
       <div class="hb"><span class="hl">FPS</span><span class="hv" id="h-fps">60</span></div>
     </div>
     <div id="lp"><div class="lpt">TIMES</div><div id="ll"></div></div>
-    <div id="nf"></div>
     <div id="ow"></div>
     <div id="cd"><span id="cdn"></span></div>
     <button id="pbtn">⏸</button>
-    <!-- Touch Controls -->
+
     <div id="tc">
       <div id="tcl">
         <button class="tb" id="tc-l">◀</button>
@@ -215,9 +380,9 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       PAUSE
-       ════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════
+       PAUSE / WIN
+       ════════════════════════════════════════════════════════ -->
   <div id="s-pause" class="scr ov">
     <div class="mbox">
       <h2>PAUSED</h2>
@@ -226,9 +391,6 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════
-       WIN
-       ════════════════════════════════════════════════ -->
   <div id="s-win" class="scr ov">
     <div class="mbox">
       <div class="troph">🏆</div>
