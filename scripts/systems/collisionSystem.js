@@ -11,50 +11,51 @@ import { P, applyCollisionImpact, activateNitro } from './roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 import { trackLen } from '../core/roadMap.js';
 import { playSfx } from '../core/audio.js';
+import { addCoins } from '../player/playerData.js';
 
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
-  { x:1920, y: 624, w:127, h:127 },
-  { x:1907, y: 752, w:128, h:128 },
-  { x: 824, y: 814, w:128, h:128 },
-  { x: 222, y: 935, w:127, h:127 },
-  { x: 222, y:1063, w:126, h:126 },
-  { x:1925, y: 251, w:122, h:122 },
-  { x: 449, y:1393, w:100, h:104 },
-  { x: 668, y:1376, w:107, h:112 },
-  { x:1257, y:1340, w:112, h:119 },
-  { x: 553, y:1376, w:114, h:124 },
-  { x: 214, y:1311, w:114, h:126 },
-  { x:1925, y: 374, w:117, h:127 },
-  { x:1925, y:   1, w:120, h:126 },
-  { x: 214, y:1190, w:122, h:120 },
-  { x:1023, y:1457, w:123, h:107 },
-  { x: 898, y:1370, w:124, h:107 },
+  { x: 1920, y: 624, w: 127, h: 127 },
+  { x: 1907, y: 752, w: 128, h: 128 },
+  { x: 824, y: 814, w: 128, h: 128 },
+  { x: 222, y: 935, w: 127, h: 127 },
+  { x: 222, y: 1063, w: 126, h: 126 },
+  { x: 1925, y: 251, w: 122, h: 122 },
+  { x: 449, y: 1393, w: 100, h: 104 },
+  { x: 668, y: 1376, w: 107, h: 112 },
+  { x: 1257, y: 1340, w: 112, h: 119 },
+  { x: 553, y: 1376, w: 114, h: 124 },
+  { x: 214, y: 1311, w: 114, h: 126 },
+  { x: 1925, y: 374, w: 117, h: 127 },
+  { x: 1925, y: 1, w: 120, h: 126 },
+  { x: 214, y: 1190, w: 122, h: 120 },
+  { x: 1023, y: 1457, w: 123, h: 107 },
+  { x: 898, y: 1370, w: 124, h: 107 },
 ];
 
 const SKID = [
-  { x:1172, y:1027, w:401, h:113 },
-  { x: 411, y: 934, w:408, h:115 },
-  { x: 411, y: 814, w:412, h:119 },
-  { x:1194, y: 543, w:418, h:121 },
-  { x:1194, y: 665, w:415, h:120 },
-  { x:1187, y: 907, w:414, h:119 },
-  { x:1187, y: 786, w:411, h:120 },
-  { x:   1, y: 814, w:409, h:120 },
+  { x: 1172, y: 1027, w: 401, h: 113 },
+  { x: 411, y: 934, w: 408, h: 115 },
+  { x: 411, y: 814, w: 412, h: 119 },
+  { x: 1194, y: 543, w: 418, h: 121 },
+  { x: 1194, y: 665, w: 415, h: 120 },
+  { x: 1187, y: 907, w: 414, h: 119 },
+  { x: 1187, y: 786, w: 411, h: 120 },
+  { x: 1, y: 814, w: 409, h: 120 },
 ];
 
 const CHARGE = [
-  { x:1838, y: 881, w:197, h:197 },
-  { x:   1, y: 935, w:220, h:196 },
-  { x:1610, y: 754, w:227, h:200 },
-  { x:1602, y: 955, w:225, h:201 },
-  { x:1814, y:1286, w:223, h:197 },
-  { x:1613, y: 543, w:220, h:210 },
-  { x: 963, y: 778, w:223, h:206 },
-  { x: 949, y: 985, w:222, h:203 },
-  { x:1585, y:1356, w:219, h:199 },
-  { x:   1, y:1132, w:212, h:197 },
-  { x:1398, y:1141, w:191, h:196 },
+  { x: 1838, y: 881, w: 197, h: 197 },
+  { x: 1, y: 935, w: 220, h: 196 },
+  { x: 1610, y: 754, w: 227, h: 200 },
+  { x: 1602, y: 955, w: 225, h: 201 },
+  { x: 1814, y: 1286, w: 223, h: 197 },
+  { x: 1613, y: 543, w: 220, h: 210 },
+  { x: 963, y: 778, w: 223, h: 206 },
+  { x: 949, y: 985, w: 222, h: 203 },
+  { x: 1585, y: 1356, w: 219, h: 199 },
+  { x: 1, y: 1132, w: 212, h: 197 },
+  { x: 1398, y: 1141, w: 191, h: 196 },
 ];
 
 // ─── Particle pool ─────────────────────────────────────
@@ -66,93 +67,93 @@ export function resetParts() {
 
 export function spawnCrash(x, y) {
   parts.push({
-    type:'burst',
-    frames:BURST,
-    frame:0,
-    fps:32,
+    type: 'burst',
+    frames: BURST,
+    frame: 0,
+    fps: 32,
     x,
     y,
-    vx:0,
-    vy:-0.4,
-    life:1.0,
-    decay:0.038,
-    size:140,
-    growth:1.6,
-    alpha0:0.95,
+    vx: 0,
+    vy: -0.4,
+    life: 1.0,
+    decay: 0.038,
+    size: 140,
+    growth: 1.6,
+    alpha0: 0.95,
   });
 
   for (let i = 0; i < 4; i++) {
     const a = Math.random() * Math.PI * 2;
 
     parts.push({
-      type:'burst',
-      frames:BURST,
-      frame:Math.floor(Math.random() * BURST.length),
-      fps:24,
-      x:x + Math.cos(a) * 18,
-      y:y + Math.sin(a) * 12,
-      vx:Math.cos(a) * 1.6,
-      vy:Math.sin(a) * 1.6 - 0.6,
-      life:1.0,
-      decay:0.052,
-      size:80 + Math.random() * 40,
-      growth:1.3,
-      alpha0:0.75,
+      type: 'burst',
+      frames: BURST,
+      frame: Math.floor(Math.random() * BURST.length),
+      fps: 24,
+      x: x + Math.cos(a) * 18,
+      y: y + Math.sin(a) * 12,
+      vx: Math.cos(a) * 1.6,
+      vy: Math.sin(a) * 1.6 - 0.6,
+      life: 1.0,
+      decay: 0.052,
+      size: 80 + Math.random() * 40,
+      growth: 1.3,
+      alpha0: 0.75,
     });
   }
 }
 
 export function spawnSkid(x, y) {
   parts.push({
-    type:'skid',
-    frames:SKID,
-    frame:Math.floor(Math.random() * SKID.length),
-    fps:0,
+    type: 'skid',
+    frames: SKID,
+    frame: Math.floor(Math.random() * SKID.length),
+    fps: 0,
     x,
     y,
-    vx:0,
-    vy:0,
-    life:1.0,
-    decay:0.018,
-    size:110,
-    growth:1.0,
-    alpha0:0.55,
+    vx: 0,
+    vy: 0,
+    life: 1.0,
+    decay: 0.018,
+    size: 110,
+    growth: 1.0,
+    alpha0: 0.55,
   });
 }
 
 export function spawnPickup(x, y, isBooster = false) {
   parts.push({
-    type:'shine',
-    frames:CHARGE,
-    frame:0,
-    fps:30,
+    type: 'shine',
+    frames: CHARGE,
+    frame: 0,
+    fps: 30,
     x,
     y,
-    vx:0,
-    vy:-0.8,
-    life:1.0,
-    decay:0.040,
-    size:isBooster ? 150 : 90,
-    growth:1.6,
-    alpha0:isBooster ? 1.0 : 0.85,
+    vx: 0,
+    vy: -0.8,
+    life: 1.0,
+    decay: 0.040,
+    size: isBooster ? 150 : 90,
+    growth: 1.6,
+    alpha0: isBooster ? 1.0 : 0.85,
   });
 }
 
 export function spawnKeyPickup(x, y) {
   parts.push({
-    type:'shine',
-    frames:CHARGE,
-    frame:0,
-    fps:30,
+    type: 'shine',
+    frames: CHARGE,
+    frame: 0,
+    fps: 30,
     x,
     y,
-    vx:0,
-    vy:-1.2,
-    life:1.2,
-    decay:0.030,
-    size:200,
-    growth:2.0,
-    alpha0:1.0,
+    vx: 0,
+    vy: -1.2,
+    life: 1.2,
+    decay: 0.030,
+    size: 200,
+    growth: 2.0,
+    alpha0: 1.0,
   });
 }
 
@@ -223,16 +224,34 @@ const HIT = {
 function safeSfx(name, opts) {
   try {
     playSfx(name, opts);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function wrapDz(objZ, playerZ) {
   let dz = objZ - playerZ;
 
   while (dz < -trackLen / 2) dz += trackLen;
-  while (dz >  trackLen / 2) dz -= trackLen;
+  while (dz > trackLen / 2) dz -= trackLen;
 
   return dz;
+}
+
+function isPickup(o) {
+  return o?.isCoin || o?.isBooster || o?.isKey;
+}
+
+function resetPickupWhenBehind(o, dz) {
+  if (!o || !o._dead) return;
+
+  // Coins and keys are one-time pickups.
+  // They should NOT return in lap 2.
+  if (o.isCoin || o.isKey) return;
+
+  // Boosters reset after player has passed them,
+  // so they work again on the next lap.
+  if (o.isBooster && dz < -320) {
+    o._dead = false;
+  }
 }
 
 function objCat(o) {
@@ -293,14 +312,16 @@ function clampPlayerX() {
 function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   const px = P.playerX || 0;
 
-  // Tunnel opening in center where player is allowed to pass
-  const openingHalfW = o.openingHalfW ?? 0.62;
+  // Big center opening where car can pass naturally
+  const openingHalfW = o.openingHalfW ?? 0.88;
 
-  // Pillar/body collision area outside opening
-  const tunnelOuterHalfW = o.outerHalfW ?? 1.15;
-  const playerHalfW = 0.26;
+  // Only far left/right wood walls should collide
+  const tunnelOuterHalfW = o.outerHalfW ?? 1.25;
 
-  const zHit = dz > -95 && dz < 115;
+  // Car collision width
+  const playerHalfW = 0.22;
+
+  const zHit = dz > -70 && dz < 85;
   if (!zHit) return;
 
   const dist = Math.abs(px - objX);
@@ -317,29 +338,29 @@ function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
   if (!hitPillar) return;
 
-// Collision with tunnel pillar:
-// do NOT auto-fix player direction.
-// Player must manually reverse + turn.
+  // Collision with tunnel pillar:
+  // do NOT auto-fix player direction.
+  // Player must manually reverse + turn.
 
-const pushDir = px < objX ? 1 : -1;
+  const pushDir = px < objX ? 1 : -1;
 
-// Push player slightly backward in road depth
-P.pos -= 42;
-if (P.pos < 0) P.pos += trackLen;
+  // Push player slightly backward in road depth
+  P.pos -= 42;
+  if (P.pos < 0) P.pos += trackLen;
 
-// Strong speed reduction
-P.speed = Math.min(
-  P.speed * 0.20,
-  C.NORMAL_MAX * 0.18
-);
+  // Strong speed reduction
+  P.speed = Math.min(
+    P.speed * 0.20,
+    C.NORMAL_MAX * 0.18
+  );
 
-// Keep current lane position.
-// No auto side correction.
-clampPlayerX();
+  // Keep current lane position.
+  // No auto side correction.
+  clampPlayerX();
 
-try {
-  applyCollisionImpact('medium', pushDir);
-} catch (e) {}
+  try {
+    applyCollisionImpact('medium', pushDir);
+  } catch (e) { }
 
   if (canFx(o, 450)) {
     spawnSkid(screenAnchorX, screenAnchorY + 20);
@@ -353,7 +374,7 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
   const px = P.playerX || 0;
   const side = o.side || 0;
 
-  const edge = o.small ? 0.93 : 0.96;
+  const edge = o.small ? 0.99 : 1.00;
   const hitLeft = side < 0 && px < -edge;
   const hitRight = side > 0 && px > edge;
 
@@ -362,23 +383,27 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
   const pushDir = hitLeft ? 1 : -1;
 
   // Side collision also pushes back but less than tunnel.
-  P.pos -= cat === 'hardSide' ? 38 : 26;
+  // Almost no hit-back
+  // Almost no backward jump
+  P.pos -= 0.2;
   if (P.pos < 0) P.pos += trackLen;
 
-  P.playerX = px + pushDir * 0.10;
+  // Do not throw car away from pole
+  P.playerX = px + pushDir * 0.001;
   clampPlayerX();
 
+  // Almost no speed loss
   const normalMax = C.NORMAL_MAX || C.MAX_SPEED || 70;
-  P.speed = Math.min(P.speed * 0.55, normalMax * 0.45);
+  P.speed = Math.min(P.speed * 0.98, normalMax);
 
   try {
-    applyCollisionImpact(cat === 'hardSide' ? 'hard' : 'medium', pushDir);
-  } catch (e) {}
+    // applyCollisionImpact(cat === 'hardSide' ? 'hard' : 'medium', pushDir);
+  } catch (e) { }
 
-  if (canFx(o, 500)) {
+  if (canFx(o, 220)) {
     spawnCrash(
-      screenAnchorX + (hitLeft ? -70 : 70),
-      screenAnchorY - 40
+      screenAnchorX + (hitLeft ? -35 : 35),
+      screenAnchorY - 20
     );
     safeSfx('crash');
   }
@@ -407,10 +432,10 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
 // Mirror of SPR.scale from sceneryConfig — kept local so
 // collisionSystem has zero import dependency on sceneryConfig.
 const HURDLE_SPR_SCALE = {
-  gorillaRock : 1.00,
-  woodFence   : 0.65,
-  stoneWall   : 1.00,
-  stoneBlock  : 1.00,
+  gorillaRock: 1.00,
+  woodFence: 0.65,
+  stoneWall: 1.00,
+  stoneBlock: 1.00,
 };
 
 function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
@@ -419,8 +444,8 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   // Z  : depth half-extent in road units, derived from o.size so
   //      smaller hurdles have shallower boxes (gorillaRock ~32,
   //      woodFence ~23, stoneBlock ~37).
-  const sprScale    = HURDLE_SPR_SCALE[o.kind] ?? 1.00;
-  const hurdleSize  = o.size ?? 0.45;
+  const sprScale = HURDLE_SPR_SCALE[o.kind] ?? 1.00;
+  const hurdleSize = o.size ?? 0.45;
   const hurdleHalfW = hurdleSize * sprScale * 0.5 * 0.82;
   const hurdleHalfZ = hurdleSize * sprScale * 80;   // depth half-extent (road units)
 
@@ -429,9 +454,9 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
   // ── 2-D AABB overlap test ─────────────────────────────
   const xOverlap = (P.playerX + playerHalfW) > (objX - hurdleHalfW) &&
-                   (P.playerX - playerHalfW) < (objX + hurdleHalfW);
+    (P.playerX - playerHalfW) < (objX + hurdleHalfW);
   const zOverlap = dz > -(hurdleHalfZ + playerHalfZ) &&
-                   dz <  (hurdleHalfZ + playerHalfZ);
+    dz < (hurdleHalfZ + playerHalfZ);
 
   if (!xOverlap || !zOverlap) return;
 
@@ -459,7 +484,7 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
     const normalMax = C.NORMAL_MAX || 70;
     P.speed = Math.min(P.speed * 0.60, normalMax * 0.50);
 
-    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) {}
+    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) { }
 
     if (canFx(o, 350)) {
       spawnCrash(screenAnchorX + lateralPushDir * 60, screenAnchorY - 30);
@@ -481,7 +506,7 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
     P.playerX += lateralPushDir * 0.04;
     clampPlayerX();
 
-    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) {}
+    try { applyCollisionImpact('medium', lateralPushDir); } catch (e) { }
 
     if (canFx(o, 480)) {
       spawnCrash(screenAnchorX, screenAnchorY - 40);
@@ -499,10 +524,12 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
   const px = P.playerX || 0;
 
   for (const o of sceneryObjs) {
+    const dz = wrapDz(o.z, playerZ);
+
+    resetPickupWhenBehind(o, dz);
+
     const cat = objCat(o);
     if (!cat) continue;
-
-    const dz = wrapDz(o.z, playerZ);
 
     if (dz < HIT.PLAYER_Z_BACK || dz > HIT.PLAYER_Z_AHEAD) continue;
 
@@ -519,19 +546,30 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // COIN
+    // COIN — tighter pickup
     if (cat === 'coin') {
-      if (Math.abs(px - objX) < 0.32 && dz < 80 && dz > -120) {
+      const coinHalfW = 0.10;
+      const coinBackZ = -45;
+      const coinAheadZ = 30;
+
+      if (Math.abs(px - objX) < coinHalfW && dz < coinAheadZ && dz > coinBackZ) {
         o._dead = true;
+
+        addCoins(1); // ← this updates total coins
+
         spawnPickup(screenAnchorX, screenAnchorY - 80);
         safeSfx('coin');
       }
       continue;
     }
 
-    // BOOSTER
+    // BOOSTER — also tighter, but slightly larger than coin
     if (cat === 'booster') {
-      if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
+      const boosterHalfW = 0.14;
+      const boosterBackZ = -50;
+      const boosterAheadZ = 40;
+
+      if (Math.abs(px - objX) < boosterHalfW && dz < boosterAheadZ && dz > boosterBackZ) {
         o._dead = true;
         spawnPickup(screenAnchorX, screenAnchorY - 90, true);
         activateNitro(2.0);
@@ -543,16 +581,16 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     // TUNNEL / ARCH / CENTER HURDLE
     // Important: no o._dead here.
     // This remains solid forever.
-if (cat === 'arch') {
-  resolveTunnelGateCollision(
-    o,
-    dz,
-    objX,
-    screenAnchorX,
-    screenAnchorY
-  );
-  continue;
-}
+    if (cat === 'arch') {
+      resolveTunnelGateCollision(
+        o,
+        dz,
+        objX,
+        screenAnchorX,
+        screenAnchorY
+      );
+      continue;
+    }
 
     // ON-ROAD HURDLE — positional collision only where the sprite sits.
     if (cat === 'hurdle') {
@@ -583,16 +621,16 @@ export function tickEdgeScrape() {
 
   if (isScraping && !_scrapeWasOn) {
     safeSfx('screech', {
-      loop:true,
-      volume:0.35,
-      key:'screech',
+      loop: true,
+      volume: 0.35,
+      key: 'screech',
     });
 
     _scrapeWasOn = true;
   } else if (!isScraping && _scrapeWasOn) {
     safeSfx('screech', {
-      stop:true,
-      key:'screech',
+      stop: true,
+      key: 'screech',
     });
 
     _scrapeWasOn = false;

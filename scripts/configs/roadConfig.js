@@ -118,4 +118,4 @@ export const SEG_TEX_CYCLE = SEG_TEX_CYCLE_ROAD1;
 export const SEG_TEX_RUN   = 6;
 export const ROAD_TEX_FRAC = 0.42;
 
-export const START_PRE_FINISH = 1800;
+export const START_PRE_FINISH = 3000;

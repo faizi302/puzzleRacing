@@ -26,7 +26,7 @@ export const P = {
   roadCurve: 0,
   playerZ: 0,
   cameraTurning: false,
-cameraTurnTime: 0,
+  cameraTurnTime: 0,
 
   nitroTime: 0,
   nitroActive: false,
@@ -96,7 +96,7 @@ export function resetPhys() {
   P.roadCurve = 0;
   P.playerZ = C.CAM_H / C.CAM_DEPTH;
   P.cameraTurning = false;
-P.cameraTurnTime = 0;
+  P.cameraTurnTime = 0;
 
   P.nitroTime = 0;
   P.nitroActive = false;
@@ -150,12 +150,12 @@ export function applyCollisionImpact(type = 'medium', dir = 0) {
 
   const speed01 = clamp(Math.abs(P.speed) / C.NITRO_MAX, 0.15, 1.0);
   const table = {
-    soft:    { keep: 0.88, push: 0.025, dmg: 0,  shake: 0.08, cd: 0.10, nitro: false, min: 0 },
-    medium:  { keep: 0.62, push: 0.090, dmg: 8,  shake: 0.25, cd: 0.35, nitro: false, min: 350 },
-    hard:    { keep: 0.38, push: 0.150, dmg: 18, shake: 0.45, cd: 0.50, nitro: true,  min: 250 },
-    wall:    { keep: 0.28, push: 0.220, dmg: 25, shake: 0.60, cd: 0.65, nitro: true,  min: 120 },
-    traffic: { keep: 0.45, push: 0.170, dmg: 20, shake: 0.50, cd: 0.55, nitro: true,  min: 200 },
-    deadly:  { keep: 0.06, push: 0.260, dmg: 45, shake: 0.85, cd: 0.90, nitro: true,  min: 0 },
+    soft: { keep: 0.88, push: 0.025, dmg: 0, shake: 0.08, cd: 0.10, nitro: false, min: 0 },
+    medium: { keep: 0.62, push: 0.090, dmg: 8, shake: 0.25, cd: 0.35, nitro: false, min: 350 },
+    hard: { keep: 0.38, push: 0.150, dmg: 18, shake: 0.45, cd: 0.50, nitro: true, min: 250 },
+    wall: { keep: 0.28, push: 0.220, dmg: 25, shake: 0.60, cd: 0.65, nitro: true, min: 120 },
+    traffic: { keep: 0.45, push: 0.170, dmg: 20, shake: 0.50, cd: 0.55, nitro: true, min: 200 },
+    deadly: { keep: 0.06, push: 0.260, dmg: 45, shake: 0.85, cd: 0.90, nitro: true, min: 0 },
   };
 
   const r = table[type] || table.medium;
@@ -260,22 +260,22 @@ export function updatePhys(inp, dt, len) {
   tickCollisionState(d);
 
   // Smooth fake 180 camera transition.
-if (P.cameraTurning) {
-  P.cameraTurnTime += d;
-  const t = smooth01(P.cameraTurnTime / C.REVERSE_CAMERA_TIME);
-  P.cameraFlip = t;
+  if (P.cameraTurning) {
+    P.cameraTurnTime += d;
+    const t = smooth01(P.cameraTurnTime / C.REVERSE_CAMERA_TIME);
+    P.cameraFlip = t;
 
-  // During rotation, reduce speed so it feels cinematic, not instant.
-  P.speed *= 0.985;
+    // During rotation, reduce speed so it feels cinematic, not instant.
+    P.speed *= 0.985;
 
-  if (P.cameraTurnTime >= C.REVERSE_CAMERA_TIME) {
-    P.cameraFlip = 1;
-    P.cameraTurning = false;
+    if (P.cameraTurnTime >= C.REVERSE_CAMERA_TIME) {
+      P.cameraFlip = 1;
+      P.cameraTurning = false;
+    }
+  } else {
+    const flipFollow = 1 - Math.pow(0.02, d);
+    P.cameraFlip += (P.cameraFlipTarget - P.cameraFlip) * flipFollow;
   }
-} else {
-  const flipFollow = 1 - Math.pow(0.02, d);
-  P.cameraFlip += (P.cameraFlipTarget - P.cameraFlip) * flipFollow;
-}
 
   if (P.endPhase >= 1) {
     P.endTime += d;
@@ -350,8 +350,17 @@ if (P.cameraTurning) {
   const effSteer = Math.max(speedAbsFrac, C.STEER_MIN_FAC);
   const steerDx = d * C.STEER_SPD * effSteer;
 
-  if (inp.left) P.playerX -= steerDx;
-  if (inp.right) P.playerX += steerDx;
+  // LEFT / RIGHT only change car frame.
+  // They do NOT move car position.
+  // Steering rule:
+  // left/right alone = only visual frame change
+  // up + left/right = car position moves
+  const canMoveSide = inp.up && P.speed > 20;
+
+  if (canMoveSide) {
+    if (inp.left) P.playerX -= steerDx;
+    if (inp.right) P.playerX += steerDx;
+  }
 
   const camFollow = 1 - Math.pow(0.001, d);
   P.cameraX += (P.playerX - P.cameraX) * camFollow;

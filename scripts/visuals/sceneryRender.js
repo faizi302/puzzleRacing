@@ -75,6 +75,7 @@ export function drawScenery() {
   const list = [];
 
   for (const o of sceneryObjs) {
+    if (o._dead && (o.isCoin || o.isBooster || o.isKey)) continue;
     let dz = o.z - P.pos;
     while (dz < 0) dz += trackLen;
     if (dz < 120 || dz > C.DRAW_D * C.SEG_LEN * 0.45) continue;
@@ -123,7 +124,7 @@ export function drawScenery() {
 
       let minSize, maxSize;
       if (it.o.isKey) { minSize = 32 * _res; maxSize = 240 * _res; }
-      else if (it.o.isBooster) { minSize = 14 * _res; maxSize = 70 * _res; }
+      else if (it.o.isBooster) { minSize = 14 * _res; maxSize = 100 * _res; }
       else { minSize = 20 * _res; maxSize = 180 * _res; }
 
       drawW = clamp(drawW, minSize, maxSize);
