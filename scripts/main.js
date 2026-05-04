@@ -1,10 +1,11 @@
-// ═══════════════════════════════════════════════════════
-// MAIN — Boot, scene registration, button wiring.
-// ─────────────────────────────────────────────────────
-// New flow:
-//   Menu → Hub → (Career → Game) | Garage | Settings
-// All progress is stored in localStorage via playerData.
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// MAIN (v2) — Boot, scene registration, global UI wiring
+// ─────────────────────────────────────────────────────────────────
+// Flow:    Menu → Hub → (Career → Game) | Garage | Settings | HowTo
+// Adds:    cinematic background slideshow (always-on)
+//          UI fx helpers (toasts / reward bursts / particle field)
+//          full audio-settings binding (sound, music, volumes)
+// ════════════════════════════════════════════════════════════════
 import { initRenderer, sizeCanvas } from './core/canvas.js';
 import { initInput, bindTouch }     from './core/inputController.js';
 import { SceneManager }             from './core/sceneManager.js';
@@ -19,31 +20,40 @@ import { SettingsScene } from './scenes/SettingsScene.js';
 import { GameScene }     from './scenes/GameScene.js';
 
 import { initGlobalAudioButtons, startMenuMusic } from './core/audio.js';
+import { initBackground } from './ui/background.js';
 
 // ── Levels ─────────────────────────────────────────────
 import level1 from './levels/level1/index.js';
-// import level2 from './levels/level2/index.js';   // ← uncomment when ready
-// import level3 from './levels/level3/index.js';   // ← uncomment when ready
+// import level2 from './levels/level2/index.js';
+// import level3 from './levels/level3/index.js';
 
 // ── Boot ───────────────────────────────────────────────
-loadPlayerData();   // Restore saved progress before anything else
+loadPlayerData();   // restore saved progress before anything reads it
 
 const cv = document.getElementById('gc');
 initRenderer(cv);
 sizeCanvas();
 window.addEventListener('resize', sizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(sizeCanvas, 200));
 
 initInput();
-
 initGlobalAudioButtons();
 startMenuMusic();
+
+// Cinematic always-on background (slideshow + parallax + particles)
+initBackground({
+  basePath:   'assets/fassets/',
+  images:     ['gambg1.jpg', 'gambg2.jpg', 'gambg3.jpg', 'gambg4.png', 'gambg5.jpg'],
+  intervalMs: 7500,
+  parallax:   true,
+});
 
 bindTouch('tc-l', 'left');
 bindTouch('tc-r', 'right');
 bindTouch('tc-a', 'up');
 bindTouch('tc-b', 'down');
 
-// Default level loaded so any pre-game code (HUD, etc.) has a level.
+// Default level so any pre-game code (HUD, etc.) has a level reference.
 setActiveLevel(level1);
 
 // ── Scenes ─────────────────────────────────────────────
@@ -63,13 +73,7 @@ scenes.register('garage',   garageScene);
 scenes.register('settings', settingsScene);
 scenes.register('game',     gameScene);
 
-// ── Buttons ────────────────────────────────────────────
-// Title screen
-document.getElementById('btn-start')?.addEventListener('click', () => scenes.go('hub'));
-document.getElementById('btn-howto')?.addEventListener('click', () => menuScene.showHowTo());
-document.getElementById('btn-back') ?.addEventListener('click', () => menuScene.showMain());
-
-// In-game / pause / win
+// ── Pause / Win modal buttons ──────────────────────────
 document.getElementById('btn-resume')?.addEventListener('click', () => gameScene.resume());
 document.getElementById('btn-quit')  ?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
 document.getElementById('btn-again') ?.addEventListener('click', () => scenes.go('career'));

@@ -1,44 +1,141 @@
 // ═══════════════════════════════════════════════════════
-// PLAYER DATA — localStorage manager for progress, coins,
-// keys, settings, unlocked levels, and selected car.
+// PLAYER DATA — localStorage manager (v2 schema)
+// ─────────────────────────────────────────────────────
+// Backwards-compatible upgrade of the original v1 file:
+//  • Same STORAGE_KEY so existing saves load (no progress wipe)
+//  • Old saves are deep-merged with new defaults on load, so
+//    fields like `gems`, `sfxVolume`, `vibration`, `_missions`
+//    appear automatically without needing a reset.
+//
+// All function signatures used elsewhere are preserved:
+//   loadPlayerData, savePlayerData, getPlayerData, addCoins,
+//   addKeys, spendCoins, isLevelUnlocked, unlockLevel,
+//   completeLevel, selectCar, unlockCar, updateSetting,
+//   getSetting, resetPlayerData
+//
+// New helpers exported for the redesigned scenes:
+//   addGems, claimDaily, hasClaimedDaily, updateMission,
+//   getMissions
 // ═══════════════════════════════════════════════════════
-const STORAGE_KEY = 'racingGame_playerData_v1';
+
+const STORAGE_KEY = 'racingGame_playerData_v1';   // unchanged on purpose
 
 const DEFAULT_DATA = {
-  coins         : 0,
-  keys          : 0,
-  totalRaces    : 0,
-  unlockedLevels: [1],          // Level 1 always unlocked
+  // currencies
+  coins: 0,
+  keys : 0,
+  gems : 0,
+
+  // progression
+  totalRaces     : 0,
+  unlockedLevels : [1],
   completedLevels: [],
-  bestTimes     : {},           // { level1: 45.2, level2: 60.5 }
-  selectedCar   : 'car1',
-  unlockedCars  : ['car1'],
-  settings      : {
-    soundOn   : true,
-    musicOn   : true,
-    fullscreen: false,
+  bestTimes      : {},          // { level1: 45.2, ... }
+
+  // garage
+  selectedCar  : 'car1',
+  unlockedCars : ['car1'],
+  carUpgrades  : {},            // { car1: { speed: 0, grip: 0, nitro: 0, dura: 0 } }
+
+  // profile / meta
+  profileName : 'RACER',
+  loginStreak : 1,
+  lastLoginISO: '',
+  _dailyClaimed: '',            // ISO date string of last claim (yyyy-mm-dd)
+
+  // daily missions (resets when date rolls over)
+  _missions: {
+    date  : '',
+    race1 : { done: false, claimed: false },
+    keys5 : { done: false, claimed: false, progress: 0 },
+    beatBest: { done: false, claimed: false },
+  },
+
+  // settings
+  settings: {
+    soundOn    : true,
+    musicOn    : true,
+    sfxVolume  : 75,            // 0–100
+    musicVolume: 35,            // 0–100
+    fullscreen : false,
+    vibration  : true,
+    graphics   : 'med',         // low | med | high
+    controls   : 'auto',        // auto | kb | touch
   },
 };
 
 let _data = null;
 
-// ── Load / Save ────────────────────────────────────────
+
+// ─── Deep merge helper ────────────────────────────────
+function deepMerge(target, src) {
+  const out = Array.isArray(target) ? target.slice() : { ...target };
+  for (const k of Object.keys(src || {})) {
+    const sv = src[k];
+    const tv = out[k];
+    if (sv && typeof sv === 'object' && !Array.isArray(sv)
+        && tv && typeof tv === 'object' && !Array.isArray(tv)) {
+      out[k] = deepMerge(tv, sv);
+    } else {
+      out[k] = (sv === undefined) ? tv : sv;
+    }
+  }
+  return out;
+}
+
+function todayISO() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function ensureDailyReset(d) {
+  const today = todayISO();
+  if (!d._missions || d._missions.date !== today) {
+    d._missions = {
+      date  : today,
+      race1 : { done: false, claimed: false },
+      keys5 : { done: false, claimed: false, progress: 0 },
+      beatBest: { done: false, claimed: false },
+    };
+  }
+}
+
+
+// ─── Load / Save ──────────────────────────────────────
 export function loadPlayerData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Merge with defaults so missing keys don't break things
-      _data = { ...DEFAULT_DATA, ...parsed,
-        settings: { ...DEFAULT_DATA.settings, ...(parsed.settings || {}) } };
+      // Deep-merge so old saves get new fields without losing data.
+      _data = deepMerge(DEFAULT_DATA, parsed);
     } else {
-      _data = { ...DEFAULT_DATA };
-      savePlayerData();
+      _data = deepMerge({}, DEFAULT_DATA);
     }
   } catch (e) {
     console.warn('[playerData] load failed, using defaults', e);
-    _data = { ...DEFAULT_DATA };
+    _data = deepMerge({}, DEFAULT_DATA);
   }
+
+  ensureDailyReset(_data);
+
+  // Login streak handling — increments at most once per day
+  const today = todayISO();
+  if (_data.lastLoginISO !== today) {
+    if (_data.lastLoginISO) {
+      // Crude streak: if last login was yesterday, +1; else reset
+      const last = new Date(_data.lastLoginISO);
+      const diff = Math.round((Date.now() - last.getTime()) / 86400000);
+      _data.loginStreak = (diff === 1) ? (_data.loginStreak + 1) : 1;
+    } else {
+      _data.loginStreak = 1;
+    }
+    _data.lastLoginISO = today;
+  }
+
+  savePlayerData();
   return _data;
 }
 
@@ -55,7 +152,8 @@ export function getPlayerData() {
   return _data;
 }
 
-// ── Coins / Keys ───────────────────────────────────────
+
+// ─── Currencies ───────────────────────────────────────
 export function addCoins(amount) {
   const d = getPlayerData();
   d.coins = Math.max(0, d.coins + amount);
@@ -65,6 +163,18 @@ export function addCoins(amount) {
 export function addKeys(amount) {
   const d = getPlayerData();
   d.keys = Math.max(0, d.keys + amount);
+  // Daily mission progress
+  if (amount > 0) {
+    ensureDailyReset(d);
+    d._missions.keys5.progress = Math.min(5, d._missions.keys5.progress + amount);
+    if (d._missions.keys5.progress >= 5) d._missions.keys5.done = true;
+  }
+  savePlayerData();
+}
+
+export function addGems(amount) {
+  const d = getPlayerData();
+  d.gems = Math.max(0, d.gems + amount);
   savePlayerData();
 }
 
@@ -76,7 +186,8 @@ export function spendCoins(amount) {
   return true;
 }
 
-// ── Levels ─────────────────────────────────────────────
+
+// ─── Levels ───────────────────────────────────────────
 export function isLevelUnlocked(levelNum) {
   return getPlayerData().unlockedLevels.includes(levelNum);
 }
@@ -91,21 +202,29 @@ export function unlockLevel(levelNum) {
 
 export function completeLevel(levelNum, timeSec) {
   const d = getPlayerData();
+  ensureDailyReset(d);
+
   if (!d.completedLevels.includes(levelNum)) {
     d.completedLevels.push(levelNum);
   }
-  // Save best time
+
   const key = 'level' + levelNum;
-  if (!d.bestTimes[key] || timeSec < d.bestTimes[key]) {
+  const prevBest = d.bestTimes[key];
+  if (!prevBest || timeSec < prevBest) {
+    if (prevBest) d._missions.beatBest.done = true;
     d.bestTimes[key] = timeSec;
   }
-  // Unlock next level
+
+  // Daily missions
+  d._missions.race1.done = true;
+
   unlockLevel(levelNum + 1);
   d.totalRaces++;
   savePlayerData();
 }
 
-// ── Car selection ──────────────────────────────────────
+
+// ─── Garage ───────────────────────────────────────────
 export function selectCar(carId) {
   const d = getPlayerData();
   if (d.unlockedCars.includes(carId)) {
@@ -124,7 +243,8 @@ export function unlockCar(carId) {
   }
 }
 
-// ── Settings ───────────────────────────────────────────
+
+// ─── Settings ─────────────────────────────────────────
 export function updateSetting(key, value) {
   const d = getPlayerData();
   d.settings[key] = value;
@@ -135,8 +255,39 @@ export function getSetting(key) {
   return getPlayerData().settings[key];
 }
 
-// ── Reset (debug) ──────────────────────────────────────
+
+// ─── Daily / Missions ─────────────────────────────────
+export function hasClaimedDaily() {
+  const d = getPlayerData();
+  return d._dailyClaimed === todayISO();
+}
+
+export function claimDaily() {
+  const d = getPlayerData();
+  if (hasClaimedDaily()) return false;
+  d._dailyClaimed = todayISO();
+  d.coins += 100;
+  savePlayerData();
+  return true;
+}
+
+export function getMissions() {
+  const d = getPlayerData();
+  ensureDailyReset(d);
+  return d._missions;
+}
+
+export function updateMission(name, patch) {
+  const d = getPlayerData();
+  ensureDailyReset(d);
+  if (!d._missions[name]) return;
+  d._missions[name] = { ...d._missions[name], ...patch };
+  savePlayerData();
+}
+
+
+// ─── Reset ────────────────────────────────────────────
 export function resetPlayerData() {
-  _data = { ...DEFAULT_DATA };
+  _data = deepMerge({}, DEFAULT_DATA);
   savePlayerData();
 }

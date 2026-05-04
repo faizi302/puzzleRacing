@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════
-// HUB SCENE — Central navigation hub.
-// Shows coins, keys, and 4 main options:
-//   Career, Garage, Settings, How to Play
+// HUB SCENE — Central nav. Shows currencies, mission cards,
+// daily login reward panel, and 4 routes:
+//   Career, Garage, Settings, How-to-play
 // ═══════════════════════════════════════════════════════
-import { show }            from '../systems/gameState.js';
-import { getPlayerData }   from '../player/playerData.js';
+import { show }                               from '../systems/gameState.js';
+import { getPlayerData, getMissions }         from '../player/playerData.js';
+import { tweenNumber }                        from '../ui/uiFX.js';
 
 export class HubScene {
   constructor(sceneManager) {
@@ -14,20 +15,42 @@ export class HubScene {
 
   enter() {
     show('hub');
-    this._refreshStats();
+    this._refresh();
     this._wireOnce();
   }
 
   exit() {}
 
-  _refreshStats() {
+  _refresh() {
     const d = getPlayerData();
-    const coinsEl = document.getElementById('hub-coins');
-    const keysEl  = document.getElementById('hub-keys');
-    const progEl  = document.getElementById('hub-career-progress');
-    if (coinsEl) coinsEl.textContent = d.coins.toLocaleString();
-    if (keysEl)  keysEl.textContent  = d.keys.toLocaleString();
-    if (progEl)  progEl.textContent  = `${d.completedLevels.length} / 3 Levels`;
+
+    tweenNumber('hub-coins', d.coins);
+    tweenNumber('hub-keys',  d.keys);
+    tweenNumber('hub-gems',  d.gems);
+
+    const prog = document.getElementById('hub-career-progress');
+    if (prog) prog.textContent = `${d.completedLevels.length} / 3 LEVELS`;
+
+    const streak = document.getElementById('login-streak');
+    if (streak) streak.textContent = String(d.loginStreak || 1);
+
+    // Daily missions
+    const m = getMissions();
+    this._setMission('mr-1', m.race1.done);
+    this._setMission('mr-2', m.keys5.done, `Collect 5 keys (${m.keys5.progress || 0}/5)`);
+    this._setMission('mr-3', m.beatBest.done);
+  }
+
+  _setMission(rowId, done, overrideLabel) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    const check = row.querySelector('.check');
+    if (check) check.textContent = done ? '✓' : '○';
+    row.classList.toggle('done', !!done);
+    if (overrideLabel) {
+      const span = row.querySelector('span:not(.reward):not(.check)');
+      if (span) span.textContent = overrideLabel;
+    }
   }
 
   _wireOnce() {
@@ -37,7 +60,7 @@ export class HubScene {
     document.getElementById('hub-career')  ?.addEventListener('click', () => this.scenes.go('career'));
     document.getElementById('hub-garage')  ?.addEventListener('click', () => this.scenes.go('garage'));
     document.getElementById('hub-settings')?.addEventListener('click', () => this.scenes.go('settings'));
-    document.getElementById('hub-help')    ?.addEventListener('click', () => this.scenes.go('settings'));
+    document.getElementById('hub-help')    ?.addEventListener('click', () => show('howto'));
     document.getElementById('btn-hub-back')?.addEventListener('click', () => this.scenes.go('menu'));
   }
 }
