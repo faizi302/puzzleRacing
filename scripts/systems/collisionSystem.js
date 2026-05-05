@@ -7,7 +7,8 @@
 //   ✅ if player drives again in same line, collision happens again
 // ═══════════════════════════════════════════════════════
 import { IMG } from '../visuals/objectRender.js';
-import { P, applyCollisionImpact, activateNitro } from './roadSystem.js';
+import { P, applyCollisionImpact } from './roadSystem.js';
+import { addNitroBottle } from '../player/player.js';
 import { C } from '../configs/roadConfig.js';
 import { trackLen } from '../core/roadMap.js';
 import { playSfx } from '../core/audio.js';
@@ -583,19 +584,19 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     }
 
     // BOOSTER — also tighter, but slightly larger than coin
-    if (cat === 'booster') {
-      const boosterHalfW = 0.14;
-      const boosterBackZ = -50;
-      const boosterAheadZ = 40;
+if (cat === 'booster') {
+  if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
+    const stored = addNitroBottle();
 
-      if (Math.abs(px - objX) < boosterHalfW && dz < boosterAheadZ && dz > boosterBackZ) {
-        o._dead = true;
-        spawnPickup(screenAnchorX, screenAnchorY - 90, true);
-        activateNitro(2.0);
-        safeSfx('nitro');
-      }
-      continue;
-    }
+    // If nitro bar is full, do not remove/pick the bottle
+    if (!stored) continue;
+
+    o._dead = true;
+    spawnPickup(screenAnchorX, screenAnchorY - 90, true);
+    safeSfx('nitro');
+  }
+  continue;
+}
 
     // TUNNEL / ARCH / CENTER HURDLE
     // Important: no o._dead here.
