@@ -58,6 +58,25 @@ const CHARGE = [
   { x: 1398, y: 1141, w: 191, h: 196 },
 ];
 
+const COIN_SPARK = [
+  { x: 1139, y: 1340, w: 117, h: 116 },
+  { x: 1925, y: 128,  w: 122, h: 122 },
+  { x: 1925, y: 502,  w: 121, h: 121 },
+  { x: 789,  y: 1171, w: 121, h: 120 },
+  { x: 1,    y: 1330, w: 119, h: 120 },
+  { x: 779,  y: 1292, w: 118, h: 121 },
+  { x: 121,  y: 1438, w: 115, h: 122 },
+  { x: 1,    y: 1451, w: 113, h: 121 },
+  { x: 329,  y: 1393, w: 119, h: 118 },
+  { x: 1147, y: 1460, w: 125, h: 103 },
+  { x: 1141, y: 1565, w: 128, h: 98 },
+  { x: 1402, y: 1529, w: 128, h: 99 },
+  { x: 1273, y: 1529, w: 128, h: 100 },
+  { x: 883,  y: 1478, w: 128, h: 101 },
+  { x: 1012, y: 1565, w: 128, h: 99 },
+  { x: 1531, y: 1556, w: 128, h: 97 },
+];
+
 // ─── Particle pool ─────────────────────────────────────
 export let parts = [];
 
@@ -124,7 +143,7 @@ export function spawnSkid(x, y) {
 export function spawnPickup(x, y, isBooster = false) {
   parts.push({
     type: 'shine',
-    frames: CHARGE,
+    frames: isBooster ? CHARGE : COIN_SPARK,
     frame: 0,
     fps: 30,
     x,
@@ -133,9 +152,9 @@ export function spawnPickup(x, y, isBooster = false) {
     vy: -0.8,
     life: 1.0,
     decay: 0.040,
-    size: isBooster ? 150 : 90,
+    size: isBooster ? 150 : 120,
     growth: 1.6,
-    alpha0: isBooster ? 1.0 : 0.85,
+    alpha0: isBooster ? 1.0 : 0.95,
   });
 }
 
