@@ -206,17 +206,36 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   inset: 0;
   display: none;
   align-items: center;
-  justify-content: center;
+  /* `safe center` = center when content fits, top-align when it overflows
+     so nothing is clipped above the viewport on short landscape screens. */
+  justify-content: safe center;
   flex-direction: column;
   z-index: 10;
   padding: clamp(12px, 2vw, 28px);
   opacity: 0;
+  /* allow vertical scroll when content exceeds short landscape viewport */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* hide scrollbars while keeping scroll */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.scr::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 .scr.on {
   display: flex;
   animation: sceneEnter 620ms var(--ease-out-expo) forwards;
 }
-.scr.ov {                              /* pause / win modal layer */
+
+/* Game scene = full-bleed canvas, no scroll */
+#s-game.scr { overflow: hidden; justify-content: center; }
+
+/* Pause / win overlays — centered modal, no scroll */
+.scr.ov {
+  overflow: hidden;
+  justify-content: center;
   background: radial-gradient(ellipse at center, rgba(5,8,18,0.78), rgba(0,0,0,0.92));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -338,7 +357,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 .btn-icon:hover { transform: translateY(-2px) scale(1.06); box-shadow: var(--sh-lg), var(--sh-glow-cyan); border-color: var(--brand-cyan); }
 .btn-icon:active { transform: scale(0.94); }
 .btn-back-top {
-  position: absolute;
+  position: fixed;
   top: clamp(14px, 2.5vw, 26px);
   left: clamp(14px, 2.5vw, 26px);
   z-index: 20;
@@ -484,7 +503,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   width: 100%;
 }
 #s-menu .menu-top-bar {
-  position: absolute;
+  position: fixed;
   top: clamp(14px, 2.5vw, 26px);
   left: 0;
   right: 0;
@@ -699,7 +718,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   padding: clamp(50px, 6vw, 70px) clamp(16px, 2.5vw, 30px) clamp(24px, 3vw, 40px);
 }
 .top-stats {
-  position: absolute;
+  position: fixed;
   top: clamp(14px, 2.5vw, 26px);
   right: clamp(14px, 2.5vw, 26px);
   display: flex;
@@ -1564,25 +1583,301 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 14 · RESPONSIVE                                               ║
+   ║ 14 · RESPONSIVE — comprehensive multi-device system           ║
+   ║                                                                ║
+   ║   Breakpoints (mobile-first refinements):                     ║
+   ║   • Large desktop          ≥ 1280px  (defaults — no override) ║
+   ║   • Tablet                 ≤ 1100px                            ║
+   ║   • Small tablet           ≤  900px                            ║
+   ║   • Mobile landscape       ≤  820px                            ║
+   ║   • Short landscape (h)    ≤  500px height                     ║
+   ║   • Tiny short landscape   ≤  430px height                     ║
+   ║   • Mobile portrait        ≤  720px width  (rotation hint UI) ║
+   ║   • Ultra-narrow           ≤  380px                            ║
    ╚══════════════════════════════════════════════════════════════╝ */
-@media (max-width: 720px) {
-  .hub-grid { grid-template-columns: 1fr 1fr; }
-  .level-grid { grid-template-columns: 1fr; }
-  .mb-row { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr; }
-  .top-stats { gap: 6px; }
-  .stat-pill { padding: 6px 12px 6px 6px; font-size: 12px; }
-  .stat-pill .ico { width: 22px; height: 22px; font-size: 12px; }
-}
-@media (max-width: 480px) {
-  .hub-grid { grid-template-columns: 1fr; }
+
+/* ─── Tablet (≤ 1100px wide) ─────────────────────────────────── */
+@media (max-width: 1100px) {
+  .hub-wrap   { max-width: 960px; }
+  .hub-grid,
+  .hub-panels { max-width: 680px; }
+  .garage-wrap, .settings-wrap { max-width: 820px; }
 }
 
-/* Reduced motion */
+/* ─── Small tablet / large phone landscape (≤ 900px wide) ────── */
+@media (max-width: 900px) {
+  /* Top stats sit nicely without crowding back button */
+  .top-stats { gap: 8px; }
+  .btn-back-top { width: 42px; height: 42px; font-size: 18px; }
+
+  /* Menu hero a touch tighter */
+  .t1 { font-size: clamp(48px, 8.5vw, 88px); }
+  .t2 { letter-spacing: 0.5em; margin-bottom: clamp(14px, 2.4vw, 26px); }
+
+  /* Hub cards still 2x2, just slightly tighter */
+  .hub-card  { padding: clamp(18px, 2.6vw, 28px); gap: 6px; }
+  .hub-card .ico { font-size: clamp(34px, 4.4vw, 48px); }
+  .hub-card .lbl { font-size: clamp(15px, 1.9vw, 20px); }
+
+  .hub-panels { grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Garage layout becomes single-column earlier */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px 16px; }
+
+  /* Settings stacks at narrower point */
+  .settings-wrap { grid-template-columns: 1fr; gap: 14px; }
+}
+
+/* ─── Mobile landscape (≤ 820px wide) ────────────────────────── */
+@media (max-width: 820px) {
+  /* Tighten outer screen padding to reclaim space */
+  .scr { padding: 10px 12px; }
+
+  /* Page titles & subtitles slimmer */
+  .page-title    { font-size: clamp(24px, 4.2vw, 38px); }
+  .page-subtitle { font-size: 11px; letter-spacing: 0.32em; margin-bottom: 14px; }
+
+  /* Hub wrap top padding lighter so cards rise into view */
+  .hub-wrap { padding: 56px 14px 22px; }
+
+  /* Stat pills compact */
+  .top-stats { gap: 6px; }
+  .stat-pill {
+    padding: 5px 10px 5px 5px;
+    font-size: 12px;
+    gap: 6px;
+  }
+  .stat-pill .ico { width: 22px; height: 22px; font-size: 12px; }
+
+  /* Buttons */
+  .mb { min-width: 0; padding: 12px 20px; font-size: 13px; letter-spacing: 0.14em; }
+  .mb.pr { font-size: 14px; }
+
+  /* Career level grid: 2 columns instead of 3 */
+  .level-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Garage controls wrap nicely */
+  .garage-controls .mb { min-width: 110px; padding: 10px 14px; font-size: 12px; }
+  .garage-stage { height: 160px; }
+  .garage-car-icon { font-size: clamp(90px, 12vw, 130px); }
+
+  /* Menu top bar tighter */
+  #s-menu .menu-top-bar { padding: 0 14px; top: 12px; }
+  #s-menu .profile-chip { padding: 4px 12px 4px 4px; gap: 8px; }
+  #s-menu .avatar { width: 32px; height: 32px; font-size: 12px; }
+  #s-menu .pname  { font-size: 12px; }
+  #s-menu .plevel { font-size: 10px; }
+
+  /* Quick tiles smaller */
+  .q-tile { width: 68px; height: 68px; }
+  .q-tile .qi { font-size: 22px; }
+  .q-tile { font-size: 8.5px; }
+}
+
+/* ─── SHORT-LANDSCAPE PHONES (≤ 500px height) ──────────────────
+   This is the critical case the screenshots show: e.g. 915×412.
+   We must compress vertical rhythm aggressively so the whole
+   layout fits or scrolls cleanly.
+   ────────────────────────────────────────────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* MENU — collapse vertical rhythm dramatically */
+  #s-menu .mc {
+    padding: 8px 10px;
+    /* push content down past absolute top bar so it doesn't clash */
+    padding-top: 56px;
+    padding-bottom: 14px;
+    max-width: 640px;
+    justify-content: flex-start;
+  }
+  .t1 {
+    font-size: clamp(36px, 7vh, 58px);
+    line-height: 0.9;
+    animation: none;            /* no float — it pushes layout */
+    text-shadow: 0 0 30px rgba(0,232,255,0.35);
+  }
+  .t1 span { display: inline; margin-left: 8px; }   /* OLC inline next to FORMULA */
+  .t2 {
+    font-size: 11px;
+    letter-spacing: 0.45em;
+    margin-top: 2px;
+    margin-bottom: 10px;
+  }
+  .mbtns       { gap: 8px; max-width: 360px; margin-top: 4px; }
+  .mb-row      { gap: 8px; }
+  .mbtns .mb   { padding: 10px 14px; font-size: 12px; }
+  .mbtns .mb.pr { padding: 12px 18px; font-size: 13px; }
+
+  .menu-quick { gap: 8px; margin-top: 10px; flex-wrap: nowrap; }
+  .q-tile     { width: 58px; height: 58px; font-size: 8px; gap: 2px; }
+  .q-tile .qi { font-size: 18px; }
+  .q-tile .badge { width: 18px; height: 18px; font-size: 9px; top: -4px; right: -4px; }
+
+  .mhint { display: none; }     /* keyboard hints not needed on touch */
+
+  /* HUB — tighten everything so cards + panels both visible/scroll */
+  .hub-wrap   { padding: 50px 12px 16px; gap: 0; }
+  .page-title    { font-size: clamp(20px, 4.5vh, 30px); }
+  .page-subtitle { font-size: 10px; letter-spacing: 0.28em; margin-bottom: 10px; }
+
+  .hub-grid {
+    grid-template-columns: repeat(4, 1fr);   /* ALL FOUR cards in one row */
+    gap: 10px;
+    margin-top: 6px;
+    max-width: 100%;
+  }
+  .hub-card {
+    padding: 12px 10px;
+    gap: 4px;
+    border-radius: var(--r-md);
+  }
+  .hub-card .ico {
+    font-size: 28px;
+    animation: none;            /* stop bobbing on tight screens */
+    filter: drop-shadow(0 2px 8px rgba(0,232,255,0.35));
+  }
+  .hub-card .lbl { font-size: 13px; letter-spacing: 0.06em; }
+  .hub-card .sub { font-size: 9px; letter-spacing: 0.12em; }
+  .hub-card::after { width: 70px; height: 70px; top: -28px; right: -28px; }
+
+  .hub-panels {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .hub-panel       { padding: 10px 12px; }
+  .hub-panel h3    { font-size: 11px; margin-bottom: 6px; letter-spacing: 0.2em; }
+  .mission-row     { padding: 5px 0; font-size: 11.5px; gap: 8px; }
+  .mission-row .reward {
+    padding: 3px 8px; font-size: 10px; min-width: 0;
+  }
+  .mission-row .check { width: 18px; height: 18px; font-size: 11px; }
+
+  /* Top bar / back button on short screens */
+  .btn-back-top { width: 38px; height: 38px; top: 10px; left: 10px; font-size: 16px; }
+  .top-stats    { top: 10px; right: 10px; gap: 6px; }
+
+  /* CAREER */
+  .level-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+  /* GARAGE — keep car visible, controls compact */
+  .garage-wrap     { gap: 12px; margin-top: 0; }
+  .garage-display  { padding: 14px 18px; }
+  .garage-stage    { height: 110px; }
+  .garage-car-icon { font-size: 80px; }
+  .garage-car-name { font-size: 18px; margin-top: 6px; }
+  .garage-car-class{ font-size: 10px; margin-top: 2px; }
+  .stats-grid      { grid-template-columns: repeat(4, 1fr); gap: 6px 12px; margin-top: 12px; }
+  .stat-bar .lbl   { font-size: 10px; letter-spacing: 0.1em; }
+  .stat-bar .track { height: 6px; }
+  .garage-controls { margin-top: 12px; gap: 8px; }
+  .garage-controls .mb { min-width: 90px; padding: 8px 12px; font-size: 11px; }
+  .btn-icon { width: 38px; height: 38px; font-size: 16px; }
+
+  /* SETTINGS */
+  .settings-wrap   { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .settings-panel,
+  .help-card       { padding: 12px 14px; }
+  .settings-panel h3,
+  .help-card h3    { font-size: 11px; margin-bottom: 8px; padding-bottom: 6px; }
+  .setting-row     { padding: 6px 0; }
+  .setting-row .label { font-size: 11px; }
+  .setting-row .desc  { font-size: 10px; }
+  .slider          { width: 100px; }
+
+  /* HOW TO */
+  .hbox  { padding: 18px 22px; }
+  .hbox h2 { font-size: 22px; margin-bottom: 10px; }
+  .hg     { gap: 6px; }
+  .hr     { padding: 6px 10px; font-size: 12px; }
+}
+
+/* ─── TINY SHORT-LANDSCAPE (≤ 430px height) ──────────────────
+   Smallest landscape phones / split-screen.
+   ────────────────────────────────────────────────────────── */
+@media (max-height: 430px) and (orientation: landscape) {
+  .t1 { font-size: clamp(30px, 6.5vh, 46px); }
+  .menu-quick { display: none; }     /* sacrifice quick tiles to keep core CTAs visible */
+
+  .hub-card .ico { font-size: 22px; }
+  .hub-card .lbl { font-size: 11px; }
+  .hub-card .sub { font-size: 8.5px; }
+  .hub-card { padding: 8px 6px; }
+
+  .hub-panels { grid-template-columns: 1fr; gap: 8px; }   /* stack panels (scroll reaches them) */
+
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .garage-stage { height: 90px; }
+  .garage-car-icon { font-size: 64px; }
+}
+
+/* ─── PORTRAIT MOBILE (≤ 720px wide) ──────────────────────────
+   The game shows a "rotate to landscape" overlay below 920px in
+   portrait, but we still style the underlying screens cleanly
+   in case the user dismisses it / the overlay loads late.
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 720px) and (orientation: portrait) {
+  .hub-grid    { grid-template-columns: 1fr 1fr; }
+  .level-grid  { grid-template-columns: 1fr; }
+  .mb-row      { grid-template-columns: 1fr; }
+  .stats-grid  { grid-template-columns: 1fr; }
+  .hub-panels  { grid-template-columns: 1fr; }
+  .settings-wrap { grid-template-columns: 1fr; }
+  .top-stats   { gap: 6px; }
+  .stat-pill   { padding: 6px 12px 6px 6px; font-size: 12px; }
+  .stat-pill .ico { width: 22px; height: 22px; font-size: 12px; }
+}
+
+/* ─── Ultra-narrow phones (≤ 380px) ───────────────────────── */
+@media (max-width: 380px) {
+  .hub-grid    { grid-template-columns: 1fr; }
+  .menu-quick  { gap: 8px; }
+  .q-tile      { width: 60px; height: 60px; }
+  .mb          { padding: 10px 16px; font-size: 12px; }
+  .page-title  { font-size: 22px; }
+  .page-subtitle { font-size: 10px; }
+}
+
+/* ─── Touch-only refinements (no hover) ──────────────────── */
+@media (hover: none) {
+  .hub-card:hover     { transform: none; }
+  .q-tile:hover       { transform: none; }
+  .mb:hover           { transform: none; }
+  .btn-icon:hover     { transform: none; }
+  .profile-chip:hover { transform: none; }
+
+  /* Add a press feedback instead */
+  .hub-card:active   { transform: scale(0.97); }
+  .q-tile:active     { transform: scale(0.94); }
+  .mb:active         { transform: scale(0.96); }
+  .btn-icon:active   { transform: scale(0.92); }
+}
+
+/* ─── High-DPI / retina ──────────────────────────────────── */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .t1, .page-title { -webkit-font-smoothing: antialiased; }
+}
+
+/* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Safe-area insets (iOS notch / Android gesture bar) ─── */
+@supports (padding: env(safe-area-inset-top)) {
+  .scr {
+    padding-top:    max(clamp(12px, 2vw, 28px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(12px, 2vw, 28px), env(safe-area-inset-bottom));
+    padding-left:   max(clamp(12px, 2vw, 28px), env(safe-area-inset-left));
+    padding-right:  max(clamp(12px, 2vw, 28px), env(safe-area-inset-right));
+  }
+  .menu-top-bar,
+  .top-stats,
+  .btn-back-top {
+    padding-top: env(safe-area-inset-top, 0);
   }
 }
