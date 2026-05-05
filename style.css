@@ -1428,7 +1428,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   transform: scale(0.5);
   transition: all var(--d-base) var(--ease-out-back);
 }
-#cdn.on { opacity: 1; transform: scale(1); }
+#cdn.pop { opacity: 1; transform: scale(1); }
 
 #pbtn {
   position: fixed;

@@ -273,8 +273,8 @@ export function updatePhys(inp, dt, len) {
       P.cameraTurning = false;
     }
   } else {
-    const flipFollow = 1 - Math.pow(0.02, d);
-    P.cameraFlip += (P.cameraFlipTarget - P.cameraFlip) * flipFollow;
+    const camFollow = 1 - Math.pow(0.35, d);
+    P.cameraX += (P.playerX - P.cameraX) * camFollow;
   }
 
   if (P.endPhase >= 1) {
@@ -342,7 +342,7 @@ export function updatePhys(inp, dt, len) {
 
   P.roadCurve += (curveNow - P.roadCurve) * 0.10;
 
-  const CENTRIFUGAL_STRENGTH = 0.85;
+  const CENTRIFUGAL_STRENGTH = 3.2;
   const curvePush = P.roadCurve * Math.min(Math.abs(speedFrac), 1) * CENTRIFUGAL_STRENGTH * d;
   P.playerX -= curvePush;
 
@@ -381,7 +381,7 @@ export function updatePhys(inp, dt, len) {
       P.speed += C.OFFRD_DC * d * (0.28 + outside * 0.5);
     }
 
-    if (Math.abs(P.playerX) > 1.12 && P.hitCooldown <= 0) {
+   if (Math.abs(P.playerX) > 1.02 && P.hitCooldown <= 0) {
       applyCollisionImpact('wall', dirBack);
     }
   }

@@ -30,27 +30,27 @@ import { consumeNitroPress, K } from '../core/inputController.js';
 import * as Audio from '../core/audio.js';
 
 const sfx = (name, opts) => {
-  try { Audio.playSfx?.(name, opts); } catch (_) {}
+  try { Audio.playSfx?.(name, opts); } catch (_) { }
 };
 const sfxLoopStart = (name, opts) => {
   try {
-    if (Audio.playLoop)        return Audio.playLoop(name, opts);
-    if (Audio.startLoop)       return Audio.startLoop(name, opts);
-    if (Audio.playSfx)         return Audio.playSfx(name, { ...(opts||{}), loop: true });
-  } catch (_) {}
+    if (Audio.playLoop) return Audio.playLoop(name, opts);
+    if (Audio.startLoop) return Audio.startLoop(name, opts);
+    if (Audio.playSfx) return Audio.playSfx(name, { ...(opts || {}), loop: true });
+  } catch (_) { }
 };
 const sfxLoopStop = (name) => {
   try {
-    if (Audio.stopLoop)        return Audio.stopLoop(name);
-    if (Audio.fadeOut)         return Audio.fadeOut(name, 0.25);
-    if (Audio.stopSfx)         return Audio.stopSfx(name);
-  } catch (_) {}
+    if (Audio.stopLoop) return Audio.stopLoop(name);
+    if (Audio.fadeOut) return Audio.fadeOut(name, 0.25);
+    if (Audio.stopSfx) return Audio.stopSfx(name);
+  } catch (_) { }
 };
 
 // ═══════════════════════════════════════════════════════
 // CAMERA INTRO/OUTRO (untouched)
 // ═══════════════════════════════════════════════════════
-export const camAnim = { intro:false, t:1.0, outro:false, outroT:0 };
+export const camAnim = { intro: false, t: 1.0, outro: false, outroT: 0 };
 
 export function startIntroAnim() {
   camAnim.intro = true;
@@ -73,35 +73,31 @@ export function tickCamAnim(dt) {
 }
 
 export function getCamCarScale() {
-  let s = 1;
-  if (camAnim.intro) s = 0.55 + 0.45 * camAnim.t;
-  if (camAnim.outro) s = Math.max(0.40, 1 - camAnim.outroT * 0.20);
-  return s;
+  return 1;
 }
 
 export function getCamCarYOff() {
-  return camAnim.intro ? (1 - camAnim.t) * -120 : 0;
+  return 0;
 }
-
 export function getFadeAlpha() {
   return camAnim.intro ? Math.max(0, 1 - camAnim.t * 1.4) : 0;
 }
 
-// ═══════════════════════════════════════════════════════
-// CAR SPRITE FRAMES
-// ═══════════════════════════════════════════════════════
+// * ═══════════════════════════════════════════════════════
+// * CAR SPRITE FRAMES
+// * ═══════════════════════════════════════════════════════
 const FRAMES_A = [
-  { x:1,y:1,w:119,h:101,sx:17,sy:40 }, { x:1,y:104,w:117,h:101,sx:19,sy:40 },
-  { x:1,y:308,w:115,h:100,sx:20,sy:40 }, { x:1,y:410,w:114,h:100,sx:21,sy:40 },
-  { x:475,y:1,w:111,h:99,sx:23,sy:40 }, { x:1490,y:1,w:109,h:97,sx:24,sy:41 },
-  { x:1712,y:1,w:108,h:97,sx:24,sy:41 }, { x:1042,y:1,w:110,h:96,sx:21,sy:41 },
-  { x:1154,y:1,w:110,h:96,sx:19,sy:41 }, { x:701,y:1,w:112,h:95,sx:16,sy:41 },
-  { x:815,y:1,w:112,h:94,sx:14,sy:41 }, { x:929,y:1,w:111,h:95,sx:12,sy:41 },
-  { x:1266,y:1,w:110,h:96,sx:11,sy:41 }, { x:1378,y:1,w:110,h:96,sx:9,sy:41 },
-  { x:701,y:98,w:108,h:97,sx:8,sy:41 }, { x:1601,y:1,w:109,h:97,sx:7,sy:42 },
-  { x:588,y:1,w:111,h:97,sx:6,sy:42 }, { x:360,y:1,w:113,h:98,sx:5,sy:42 },
-  { x:243,y:1,w:115,h:98,sx:5,sy:42 }, { x:1,y:207,w:117,h:99,sx:4,sy:42 },
-  { x:122,y:1,w:119,h:99,sx:4,sy:42 },
+  { x: 1, y: 1, w: 119, h: 101, sx: 17, sy: 40 }, { x: 1, y: 104, w: 117, h: 101, sx: 19, sy: 40 },
+  { x: 1, y: 308, w: 115, h: 100, sx: 20, sy: 40 }, { x: 1, y: 410, w: 114, h: 100, sx: 21, sy: 40 },
+  { x: 475, y: 1, w: 111, h: 99, sx: 23, sy: 40 }, { x: 1490, y: 1, w: 109, h: 97, sx: 24, sy: 41 },
+  { x: 1712, y: 1, w: 108, h: 97, sx: 24, sy: 41 }, { x: 1042, y: 1, w: 110, h: 96, sx: 21, sy: 41 },
+  { x: 1154, y: 1, w: 110, h: 96, sx: 19, sy: 41 }, { x: 701, y: 1, w: 112, h: 95, sx: 16, sy: 41 },
+  { x: 815, y: 1, w: 112, h: 94, sx: 14, sy: 41 }, { x: 929, y: 1, w: 111, h: 95, sx: 12, sy: 41 },
+  { x: 1266, y: 1, w: 110, h: 96, sx: 11, sy: 41 }, { x: 1378, y: 1, w: 110, h: 96, sx: 9, sy: 41 },
+  { x: 701, y: 98, w: 108, h: 97, sx: 8, sy: 41 }, { x: 1601, y: 1, w: 109, h: 97, sx: 7, sy: 42 },
+  { x: 588, y: 1, w: 111, h: 97, sx: 6, sy: 42 }, { x: 360, y: 1, w: 113, h: 98, sx: 5, sy: 42 },
+  { x: 243, y: 1, w: 115, h: 98, sx: 5, sy: 42 }, { x: 1, y: 207, w: 117, h: 99, sx: 4, sy: 42 },
+  { x: 122, y: 1, w: 119, h: 99, sx: 4, sy: 42 },
 ];
 
 const SRC_W = 140;
@@ -116,7 +112,7 @@ let _frameTarget = STRAIGHT;
 
 const _sheet = new Image();
 _sheet.ready = false;
-_sheet.onload  = () => { _sheet.ready = true; };
+_sheet.onload = () => { _sheet.ready = true; };
 _sheet.onerror = () => console.warn('[player] UnitsTeamB.png not found');
 _sheet.src = 'assets/player/UnitsTeamB.png';
 
@@ -145,15 +141,15 @@ function loadEffectsJsonOnce() {
         FX_ATLAS = await r.json();
         FX_READY = true;
         return;
-      } catch {}
+      } catch { }
     }
     console.warn('[player] Effects.json not found');
   })();
 }
 loadEffectsJsonOnce();
 
-function fxAnim(name)   { return FX_ATLAS?.animations?.[name] || []; }
-function fxFrame(id)    { return FX_ATLAS?.frames?.[id]      || null; }
+function fxAnim(name) { return FX_ATLAS?.animations?.[name] || []; }
+function fxFrame(id) { return FX_ATLAS?.frames?.[id] || null; }
 
 function drawFxFrame(ctx, animName, frameIndex, cx, cy, size, opt = {}) {
   if (!FX_READY || !IMG.effects?.ready) return;
@@ -165,10 +161,10 @@ function drawFxFrame(ctx, animName, frameIndex, cx, cy, size, opt = {}) {
   const data = fxFrame(id);
   if (!data || data.rotated) return;
 
-  const fr  = data.frame;
-  const ss  = data.spriteSourceSize;
+  const fr = data.frame;
+  const ss = data.spriteSourceSize;
   const src = data.sourceSize;
-  const anchor = data.anchor || { x:0.5, y:0.5 };
+  const anchor = data.anchor || { x: 0.5, y: 0.5 };
 
   const scale = size / Math.max(src.w, src.h);
   const dw = fr.w * scale;
@@ -228,22 +224,22 @@ function drawOneShots(ctx) {
 // ═══════════════════════════════════════════════════════
 // NITRO STATE MACHINE
 // ═══════════════════════════════════════════════════════
-const NITRO_MAX_SECONDS    = 3;
-const NITRO_PER_BOTTLE     = 1;
-const NITRO_DRAIN_PER_SEC  = 1;
-const PICKUP_FX_DURATION   = 0.70;
-const ACTIVATION_GRACE     = 0.08;
+const NITRO_MAX_SECONDS = 3;
+const NITRO_PER_BOTTLE = 1;
+const NITRO_DRAIN_PER_SEC = 1;
+const PICKUP_FX_DURATION = 0.70;
+const ACTIVATION_GRACE = 0.08;
 
 function ensureNitroState() {
   if (P._nitroInit) return;
-  P._nitroInit          = true;
-  P.nitroMax            = NITRO_MAX_SECONDS;
-  P.nitroStored         = P.nitroStored ?? 0;
-  P.nitroActive         = false;
-  P.nitroPickupFxTime   = 0;
-  P._nitroActivationT   = 0;
-  P._lastDownForCancel  = false;
-  P._nitroLoopOn        = false;
+  P._nitroInit = true;
+  P.nitroMax = NITRO_MAX_SECONDS;
+  P.nitroStored = P.nitroStored ?? 0;
+  P.nitroActive = false;
+  P.nitroPickupFxTime = 0;
+  P._nitroActivationT = 0;
+  P._lastDownForCancel = false;
+  P._nitroLoopOn = false;
   P.nitroBottlePickedUp = false; // collision systems can flip true
 }
 
@@ -274,10 +270,10 @@ if (typeof window !== 'undefined') {
 
 function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
   ensureNitroState();
-  if (P.nitroActive)        return false;
-  if (P.nitroStored <= 0)   return false;
+  if (P.nitroActive) return false;
+  if (P.nitroStored <= 0) return false;
 
-  P.nitroActive       = true;
+  P.nitroActive = true;
   P._nitroActivationT = 0;
 
   spawnFx('Boost', anchorX, anchorY + drawH * 0.05, drawW * 1.9, 32, 0.95, 'lighter');
@@ -421,14 +417,14 @@ function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
 }
 
 function drawNitroBar(ctx, W, H, res) {
-  const max    = P.nitroMax || NITRO_MAX_SECONDS;
+  const max = P.nitroMax || NITRO_MAX_SECONDS;
   const stored = Math.max(0, Math.min(max, P.nitroStored || 0));
 
   const x = W - 250 * res;
-  const y = 32  * res;
+  const y = 32 * res;
   const w = 190 * res;
-  const h = 18  * res;
-  const gap  = 6 * res;
+  const h = 18 * res;
+  const gap = 6 * res;
   const segW = (w - gap * 2) / 3;
 
   ctx.save();
@@ -554,15 +550,16 @@ export function drawCar(steerVisual = 0) {
   const idx = Math.max(0, Math.min(TOTAL - 1, Math.round(_frameFloat)));
 
   const ctx = getCtx();
-  const W   = getW();
-  const H   = getH();
+  const W = getW();
+  const H = getH();
   const res = getRes();
 
   const SCALE = 1.5 * getCamCarScale();
   const drawH = (SRC_H * res * SCALE) | 0;
   const drawW = (SRC_W * res * SCALE) | 0;
 
-  const anchorX = W / 2;
+  const roadOffsetX = (P.playerX - P.cameraX) * W * 0.42;
+  const anchorX = W / 2 + roadOffsetX;
   const anchorY = ((H * 0.89) + getCamCarYOff() * res) | 0;
 
   if ((P.impactFlash || 0) > 0.15 && _lastImpact <= 0.15) {
@@ -628,14 +625,19 @@ export function getCarAnchor() {
   const drawW = (SRC_W * res * SCALE) | 0;
   const drawH = (SRC_H * res * SCALE) | 0;
 
+  const W = getW();
+  const H = getH();
+
+  // Show real car position relative to camera
+  const roadOffsetX = (P.playerX - P.cameraX) * W * 0.42;
+
   return {
-    anchorX: getW() / 2,
-    anchorY: ((getH() * 0.89) + getCamCarYOff() * res) | 0,
+    anchorX: W / 2 + roadOffsetX,
+    anchorY: ((H * 0.89) + getCamCarYOff() * res) | 0,
     drawW,
     drawH,
   };
 }
-
 export function getPlayerCollisionInfo() {
   const car = getCarAnchor();
 
