@@ -3,11 +3,11 @@
 // Ready Player One style reverse-road puzzle
 // ═══════════════════════════════════════════════════════
 export const C = {
-  ROAD_W    : 2100,
-  SEG_LEN   : 200,
-  RUMBLE    : 3,
+  ROAD_W    : 1200,
+  SEG_LEN   : 240,
+  RUMBLE    : 0.2,
   LANES     : 3,
-  DRAW_D    : 620,
+  DRAW_D    : 720,
   CAM_H     : 980,
   FOV       : 88,
   TOTAL_LAPS: 1,
@@ -130,17 +130,10 @@ export const SEG_TEX = {
 
 export const SEG_TEX_CYCLE_ROAD1 = [
   SEG_TEX.Segment_1,
-  SEG_TEX.Segment_2,
-  SEG_TEX.Segment_3,
-  SEG_TEX.Segment_4,
 ];
 
 export const SEG_TEX_CYCLE_ROAD2 = [
   SEG_TEX.Segment_5,
-  SEG_TEX.Segment_6,
-  SEG_TEX.Segment_7,
-  SEG_TEX.Segment_8,
-  SEG_TEX.Segment_9,
 ];
 
 export const SEG_TEX_CYCLE = SEG_TEX_CYCLE_ROAD1;

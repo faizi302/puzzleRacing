@@ -43,12 +43,30 @@ export function buildSceneryObjects() {
     }
   }
 
+<<<<<<< HEAD
   addBoundaryPoles(6, total - 25, 2, 1.10);
+=======
+  // Boundary poles for Road1 fake road and Road2 winning road
+  addBoundaryPoles(-25, total - 80, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
+
+  // ── START BANNER exactly above starting line ─────────────
+  if (!onRoad2) {
+    objs.push({
+      kind: 'startBanner',
+      z: 0,              // exact start line position
+      side: 0,
+      offset: 0,
+      overhead: true,
+      noCollision: true,
+      size: 1.15,
+    });
+  }
+>>>>>>> b4bee9a22aa310ae3d9e9c539f702d132b88eef8
 
   const trees = ['pineTall', 'tallTree', 'pineBig', 'pineSmall'];
 
   // Trees on both sides
-  for (let i = 30; i < total - 30; i += 20) {
+  for (let i = 10; i < total - 30; i += 10) {
     const z = i * C.SEG_LEN;
     objs.push({
       kind: trees[(i * 3) % trees.length],

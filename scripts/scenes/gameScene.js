@@ -81,13 +81,6 @@ export class GameScene {
         }
       }
     });
-
-    window.addEventListener('blur', () => {
-      if (this.running && !this.paused) {
-        this._autoPausedByTab = true;
-        this.pause();
-      }
-    });
   }
 
   isPaused() { return this.paused; }
