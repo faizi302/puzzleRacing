@@ -1,15 +1,36 @@
 // ═══════════════════════════════════════════════════════
 // OBJECT RENDER — Image loader (effects + scenery + horizon)
 // ═══════════════════════════════════════════════════════
-function loadImage(src) {
-  const img  = new Image();
-  img.ready  = false;
+export function loadImage(src) {
+  const img = new Image();
+  img.ready = false;
+
   const list = Array.isArray(src) ? src : [src];
   let i = 0;
-  const tryLoad = () => { img.src = list[i]; };
-  img.onload  = () => { img.ready = true; };
-  img.onerror = () => { i++; if (i < list.length) tryLoad(); else console.warn('Image not loaded:', list); };
-  tryLoad();
+
+  img.promise = new Promise((resolve) => {
+    const tryLoad = () => {
+      img.src = list[i];
+    };
+
+    img.onload = () => {
+      img.ready = true;
+      resolve(img);
+    };
+
+    img.onerror = () => {
+      i++;
+      if (i < list.length) {
+        tryLoad();
+      } else {
+        console.warn('Image not loaded:', list);
+        resolve(img);
+      }
+    };
+
+    tryLoad();
+  });
+
   return img;
 }
 
@@ -20,15 +41,15 @@ export const IMG = {
     'Horizons.jpg',
   ]),
   segments: loadImage([
-    'assets/road/LocationESegments.png',
-    'assets/road/LocationESegments.jpg',
-    'assets/LocationESegments.png',
+    'assets/level/level1/LocationESegments.jpg',
+    'assets/level/level1/LocationESegments.jpg',
     'assets/LocationESegments.jpg',
-    'LocationESegments.png',
+    'assets/LocationESegments.jpg',
+    'LocationESegments.jpg',
     'LocationESegments.jpg',
   ]),
   scenery: loadImage([
-    'assets/road/LocationEScenery.png',
+    'assets/level/level1/LocationEScenery.png',
     'assets/LocationEScenery.png',
     'LocationEScenery.png',
   ]),
@@ -38,3 +59,19 @@ export const IMG = {
   'Effects.png'
 ]),
 };
+
+export function setLevelImages(levelMeta) {
+  const waits = [];
+
+  if (levelMeta?.segmentsImage) {
+    IMG.segments = loadImage(levelMeta.segmentsImage);
+    waits.push(IMG.segments.promise);
+  }
+
+  if (levelMeta?.sceneryImage) {
+    IMG.scenery = loadImage(levelMeta.sceneryImage);
+    waits.push(IMG.scenery.promise);
+  }
+
+  return Promise.all(waits);
+}
