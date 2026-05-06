@@ -6,13 +6,13 @@
 //   • Mission line + 3-star rating + best time
 //   • Locked overlay with shake feedback
 // ═══════════════════════════════════════════════════════
-import { show }                                from '../systems/gameState.js';
-import { getPlayerData, isLevelUnlocked }      from '../player/playerData.js';
-import { renderLevelPreview }                  from '../ui/levelPreview.js';
-import { toast, shake, tweenNumber }           from '../ui/uiFX.js';
+import { show } from '../systems/gameState.js';
+import { getPlayerData, isLevelUnlocked } from '../player/playerData.js';
+import { renderLevelPreview } from '../ui/levelPreview.js';
+import { toast, shake, tweenNumber } from '../ui/uiFX.js';
 
 import level1 from '../levels/level1/index.js';
-// import level2 from '../levels/level2/index.js';
+import level2 from '../levels/level2/index.js';
 // import level3 from '../levels/level3/index.js';
 
 const LEVELS = [
@@ -20,38 +20,38 @@ const LEVELS = [
     num: 1, name: 'Forest Fork', biome: 'forest',
     module: level1,
     difficulty: 'EASY',
-    mission   : 'Reach the finish line — find the secret fork',
-    reward    : '+150 🪙',
-    gold      : 60,        // ★★★ best time threshold (s)
-    silver    : 80,        // ★★ threshold
+    mission: 'Reach the finish line — find the secret fork',
+    reward: '+150 🪙',
+    gold: 60,        // ★★★ best time threshold (s)
+    silver: 80,        // ★★ threshold
   },
   {
-    num: 2, name: 'Desert Drift', biome: 'desert',
-    module: null,
+    num: 2, name: 'Canada Rally', biome: 'city',
+    module: level2,
     difficulty: 'MEDIUM',
-    mission   : 'Drift through the dunes without crashing',
-    reward    : '+250 🪙 + 1 💎',
+    mission: 'Drift through the dunes without crashing',
+    reward: '+250 🪙 + 1 💎',
     gold: 75, silver: 95,
   },
   {
     num: 3, name: 'Ice Canyon', biome: 'ice',
     module: null,
     difficulty: 'HARD',
-    mission   : 'Master traction on the frozen pass',
-    reward    : '+400 🪙 + 2 💎',
+    mission: 'Master traction on the frozen pass',
+    reward: '+400 🪙 + 2 💎',
     gold: 90, silver: 110,
   },
 ];
 
 function diffClass(d) {
-  if (d === 'EASY')   return 'diff-easy';
+  if (d === 'EASY') return 'diff-easy';
   if (d === 'MEDIUM') return 'diff-medium';
   return 'diff-hard';
 }
 
 function starsForTime(t, level) {
   if (!t) return 0;
-  if (t <= level.gold)   return 3;
+  if (t <= level.gold) return 3;
   if (t <= level.silver) return 2;
   return 1;
 }
@@ -69,12 +69,12 @@ export class CareerScene {
     this._wireOnce();
   }
 
-  exit() {}
+  exit() { }
 
   _refreshStats() {
     const d = getPlayerData();
     tweenNumber('career-coins', d.coins);
-    tweenNumber('career-keys',  d.keys);
+    tweenNumber('career-keys', d.keys);
   }
 
   _buildGrid() {
@@ -88,10 +88,10 @@ export class CareerScene {
       const card = document.createElement('div');
       card.className = 'level-card';
 
-      const unlocked  = isLevelUnlocked(lvl.num) && lvl.module !== null;
+      const unlocked = isLevelUnlocked(lvl.num) && lvl.module !== null;
       const completed = data.completedLevels.includes(lvl.num);
-      const best      = data.bestTimes['level' + lvl.num];
-      const stars     = starsForTime(best, lvl);
+      const best = data.bestTimes['level' + lvl.num];
+      const stars = starsForTime(best, lvl);
 
       if (completed) card.classList.add('completed');
 
@@ -127,8 +127,8 @@ export class CareerScene {
       // Render the procedural mini-map
       const mount = card.querySelector('.lc-preview');
       renderLevelPreview(mount, {
-        seed    : lvl.num * 17 + 3,
-        biome   : lvl.biome,
+        seed: lvl.num * 17 + 3,
+        biome: lvl.biome,
         levelNum: lvl.num,
       });
 

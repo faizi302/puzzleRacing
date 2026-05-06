@@ -2,91 +2,92 @@
 // GAME SCENE — Race loop. Now saves progress on completion
 // and tracks coins/keys collected during the race.
 // ═══════════════════════════════════════════════════════
-import { sizeCanvas }                   from '../core/canvas.js';
-import { readInput, lockInput, K }      from '../core/inputController.js';
+import { sizeCanvas } from '../core/canvas.js';
+import { readInput, lockInput, K } from '../core/inputController.js';
 import {
- P, resetPhys, updatePhys, best, setReverseHintCallback, setReverseUnlockCallback,
+  P, resetPhys, updatePhys, best, setReverseHintCallback, setReverseUnlockCallback,
 } from '../systems/roadSystem.js';
-import { buildTrack, trackLen }         from '../core/roadMap.js';
-import { setActiveLevel }               from '../core/activeLevel.js';
-import { buildScenery, sceneryObjs }    from '../visuals/sceneryRender.js';
+import { buildTrack, trackLen } from '../core/roadMap.js';
+import { setActiveLevel } from '../core/activeLevel.js';
+import { buildScenery, sceneryObjs } from '../visuals/sceneryRender.js';
 import {
   resetParts, tickParts, checkSceneryCollisions, tickEdgeScrape, spawnSkid,
 } from '../systems/collisionSystem.js';
-import { renderFrame }                  from '../visuals/render.js';
-import { updHUD, updLaps, fmtT }        from '../visuals/playerRender.js';
-import { show }                         from '../systems/gameState.js';
+import { renderFrame } from '../visuals/render.js';
+import { updHUD, updLaps, fmtT } from '../visuals/playerRender.js';
+import { show } from '../systems/gameState.js';
 import {
   notify, countdown, playIntro, playOutro, tickCamAnim,
 } from '../player/playerAnimation.js';
-import { getCarAnchor }                 from '../player/player.js';
+import { getCarAnchor } from '../player/player.js';
 import {
   unlockAudio, playSfx, stopAll, startMusic, stopMusic, setEngineSpeed,
 } from '../core/audio.js';
-import { C }                            from '../configs/roadConfig.js';
+import { C } from '../configs/roadConfig.js';
 import {
   addCoins, addKeys, completeLevel, getSetting,
 } from '../player/playerData.js';
+import { setLevelImages } from '../visuals/objectRender.js';
 
 export class GameScene {
   constructor(sceneManager) {
-    this.scenes   = sceneManager;
-    this.running  = false;
-    this.paused   = false;
-    this.last     = 0;
-    this.accum    = 0;
-    this.fps      = 60;
-    this.fpsT     = 0;
-    this.fpsN     = 0;
+    this.scenes = sceneManager;
+    this.running = false;
+    this.paused = false;
+    this.last = 0;
+    this.accum = 0;
+    this.fps = 60;
+    this.fpsT = 0;
+    this.fpsN = 0;
     this.winShown = false;
-    this.level    = null;
+    this.level = null;
 
     // Track stats for THIS race only — committed on win.
     this._raceCoins = 0;
-    this._raceKeys  = 0;
-    this._lastKeyCount  = 0;
+    this._raceKeys = 0;
+    this._lastKeyCount = 0;
     this._lastCoinCount = 0;
 
-setReverseHintCallback(() => {
-  try {
-    notify(this.level?.hintMessage || 'Sometimes the only way forward is backward.');
-  } catch (e) {}
-  try {
-    if (getSetting('soundOn')) playSfx('coin');
-  } catch (e) {}
-});
+    setReverseHintCallback(() => {
+      try {
+        notify(this.level?.hintMessage || 'Sometimes the only way forward is backward.');
+      } catch (e) { }
+      try {
+        if (getSetting('soundOn')) playSfx('coin');
+      } catch (e) { }
+    });
 
-setReverseUnlockCallback(() => {
-  try {
-    notify(this.level?.reverseMessage || 'SECRET ROAD DISCOVERED!');
-  } catch (e) {}
-  try {
-    if (getSetting('soundOn')) playSfx('nitro');
-  } catch (e) {}
-});
+    setReverseUnlockCallback(() => {
+      try {
+        notify(this.level?.reverseMessage || 'SECRET ROAD DISCOVERED!');
+      } catch (e) { }
+      try {
+        if (getSetting('soundOn')) playSfx('nitro');
+      } catch (e) { }
+    });
 
     this._autoPausedByTab = false;
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    if (this.running && !this.paused) {
-      this._autoPausedByTab = true;
-      this.pause();
-    }
-  } else {
-    if (this.running && this._autoPausedByTab) {
-      this._autoPausedByTab = false;
-      this.resume();
-    }
-  }
-});
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (this.running && !this.paused) {
+          this._autoPausedByTab = true;
+          this.pause();
+        }
+      } else {
+        if (this.running && this._autoPausedByTab) {
+          this._autoPausedByTab = false;
+          this.resume();
+        }
+      }
+    });
 
-window.addEventListener('blur', () => {
-  if (this.running && !this.paused) {
-    this._autoPausedByTab = true;
-    this.pause();
-  }
-});
+    window.addEventListener('blur', () => {
+      if (this.running && !this.paused) {
+        this._autoPausedByTab = true;
+        this.pause();
+      }
+    });
   }
 
   isPaused() { return this.paused; }
@@ -95,17 +96,18 @@ window.addEventListener('blur', () => {
     if (level) {
       this.level = level;
       setActiveLevel(level);
+      await setLevelImages(level);
     }
     if (!this.level) return;
 
     unlockAudio();
     this.winShown = false;
     this._raceCoins = 0;
-    this._raceKeys  = 0;
-    this._lastKeyCount  = 0;
+    this._raceKeys = 0;
+    this._lastKeyCount = 0;
     this._lastCoinCount = 0;
 
-    document.getElementById('s-win')  ?.classList.remove('on');
+    document.getElementById('s-win')?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
 
     buildTrack(buildScenery);
@@ -127,13 +129,13 @@ window.addEventListener('blur', () => {
     notify(this.level.startMessage || 'LAP 1');
 
     this.running = true;
-    this.paused  = false;
-    this.last    = performance.now();
-    this.accum   = 0;
+    this.paused = false;
+    this.last = performance.now();
+    this.accum = 0;
     requestAnimationFrame(this.loop);
   }
 
-  exit() {}
+  exit() { }
 
   pause() {
     if (!this.running) return;
@@ -153,7 +155,7 @@ window.addEventListener('blur', () => {
 
   quit() {
     this.running = false;
-    this.paused  = false;
+    this.paused = false;
     stopAll();
   }
 
@@ -165,7 +167,7 @@ window.addEventListener('blur', () => {
 
     // ── Persist to player data ──
     if (this._raceCoins > 0) addCoins(this._raceCoins);
-    if (this._raceKeys  > 0) addKeys(this._raceKeys);
+    if (this._raceKeys > 0) addKeys(this._raceKeys);
 
     const levelNum = parseInt((this.level?.id || 'level1').replace('level', ''), 10) || 1;
     completeLevel(levelNum, P.raceTime);
@@ -199,11 +201,11 @@ window.addEventListener('blur', () => {
     if (!this.running || this.paused) return;
 
     const dtRaw = Math.min(0.05, (now - this.last) / 1000);
-    this.last   = now;
+    this.last = now;
 
     this.accum += dtRaw;
-    const STEP  = C.STEP;
-    const inp   = readInput();
+    const STEP = C.STEP;
+    const inp = readInput();
 
     while (this.accum >= STEP) {
       updatePhys(inp, STEP, trackLen);
@@ -226,8 +228,8 @@ window.addEventListener('blur', () => {
     if (P._needsTrackSwitch) {
       P._needsTrackSwitch = false;
       buildScenery();
-      try { notify(this.level.forkMessage || 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!'); } catch (e) {}
-      try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) {}
+      try { notify(this.level.forkMessage || 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!'); } catch (e) { }
+      try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) { }
     }
 
     tickParts(dtRaw);

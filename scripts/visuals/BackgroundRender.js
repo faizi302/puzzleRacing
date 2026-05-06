@@ -6,6 +6,7 @@ import { getCtx, getW, getH } from '../core/canvas.js';
 import { clamp, P } from '../systems/roadSystem.js';
 import { C, HORIZON_FRAMES } from '../configs/roadConfig.js';
 import { IMG } from './objectRender.js';
+import { getActiveLevel } from '../core/activeLevel.js';
 
 let _panE = 0;
 let _panC = 0;
@@ -53,7 +54,14 @@ function drawGroundBase(secretT) {
 
   const g = ctx.createLinearGradient(0, horizonY, 0, H);
 
-  if (secretT > 0.55) {
+  const lvl = getActiveLevel();
+  const isLevel2 = lvl?.id === 'level2';
+
+  if (isLevel2) {
+    g.addColorStop(0, '#c8c5bb');
+    g.addColorStop(0.45, '#9c9991');
+    g.addColorStop(1, '#676767');
+  } else if (secretT > 0.55) {
     g.addColorStop(0, '#25472f');
     g.addColorStop(0.5, '#1f3928');
     g.addColorStop(1, '#172b20');
@@ -112,13 +120,19 @@ export function drawBG() {
 
   const turnT = easeInOut(P.cameraFlip || 0);
 
-  // HorizonE = forward. HorizonC = backward.
   _panE += -curve * W * 0.0035 * speed01;
-  _panC +=  curve * W * 0.0035 * speed01;
+  _panC += curve * W * 0.0035 * speed01;
 
-  // During rotation, crossfade E → C.
-  drawCoverFrame(ctx, IMG.horizon, HORIZON_FRAMES.E, 0, 0, W, skyH, _panE, 1 - turnT);
-  drawCoverFrame(ctx, IMG.horizon, HORIZON_FRAMES.C, 0, 0, W, skyH, _panC, turnT);
+  const lvl = getActiveLevel();
+
+  const forwardKey = lvl?.horizonForward || 'E';
+  const backwardKey = lvl?.horizonBackward || 'C';
+
+  const forwardFrame = HORIZON_FRAMES[forwardKey] || HORIZON_FRAMES.E;
+  const backwardFrame = HORIZON_FRAMES[backwardKey] || HORIZON_FRAMES.C;
+
+  drawCoverFrame(ctx, IMG.horizon, forwardFrame, 0, 0, W, skyH, _panE, 1 - turnT);
+  drawCoverFrame(ctx, IMG.horizon, backwardFrame, 0, 0, W, skyH, _panC, turnT);
 
   drawGroundBase(turnT);
   drawCameraTurnOverlay(turnT);
