@@ -53,6 +53,35 @@ C.STEER_MIN_FAC = 0.35;
 
 C.FORK_Z = C.FORK_SEG * C.SEG_LEN;
 
+// ═══════════════════════════════════════════════════════
+// JUMP PHYSICS — tune these to change how jumping feels.
+// ─────────────────────────────────────────────────────
+// JUMP_BASE_VY        : minimum upward velocity when player just
+//                       barely rolls over a ramp at low speed.
+// JUMP_SPEED_VY       : extra upward velocity at full normal speed.
+//                       Total takeoff Vy = BASE + (speed01 * SPEED) * liftFactor
+// JUMP_GRAVITY        : pulls car back down. Bigger = shorter air time.
+// JUMP_MIN_SPEED_FRAC : fraction of NORMAL_MAX below which the ramp
+//                       is treated as a small bump (no real launch).
+// JUMP_AIR_STEER      : how much the player can steer mid-air (0..1).
+// JUMP_AIR_DRAG       : forward speed loss per second while airborne.
+// JUMP_LANDING_BOUNCE : bounce ratio on first landing.
+// BOOSTPAD_KICK       : multiplier on speed when crossing a boost
+//                       arrow pad (no jump, just nitro-style kick).
+// ═══════════════════════════════════════════════════════
+C.JUMP_BASE_VY        = 320;
+C.JUMP_SPEED_VY       = 420;
+C.JUMP_GRAVITY        = 1550;
+C.JUMP_MIN_SPEED_FRAC = 0.15;
+C.JUMP_AIR_STEER      = 0.40;
+C.JUMP_AIR_DRAG       = 0.06;
+C.JUMP_LANDING_BOUNCE = 0.18;
+C.BOOSTPAD_KICK       = 5.18;
+
+// Visual scale: airborne Y in pixels = P.airY * JUMP_VISUAL_SCALE.
+// The renderer multiplies by getRes() automatically.
+C.JUMP_VISUAL_SCALE   = 1.20;
+
 export const COL = {
   SKY0:'#040810', SKY1:'#091428', SKY2:'#0b1a0a',
   HILL_A:'#1a5c12', HILL_B:'#0f3a0a',

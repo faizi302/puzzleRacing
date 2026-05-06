@@ -535,6 +535,8 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   }
 }
 
+import { JUMP_SPR } from '../configs/sceneryConfig.js';
+import { launchPlayerJump } from '../player/player.js';
 
 export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY) {
   if (!sceneryObjs || !sceneryObjs.length) return;
@@ -611,6 +613,32 @@ if (cat === 'booster') {
       );
       continue;
     }
+
+    // JUMP RAMP COLLISION
+if (o.isJump) {
+  const jumpDz = wrapDz(o.z, playerZ);
+
+  // player reaches ramp front area
+  if (jumpDz > -80 && jumpDz < 180) {
+    const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+
+    // must be in same lane as ramp
+    if (
+      laneDiff < 0.45 &&
+      !P.isAirborne &&
+      (P._jumpCooldown || 0) <= 0
+    ) {
+      const spr = JUMP_SPR[o.kind] || {};
+
+      launchPlayerJump(o, spr);
+
+      // prevent repeated trigger while touching same ramp
+      // o._usedJump = true;
+    }
+  }
+
+  continue;
+}
 
     // ON-ROAD HURDLE — positional collision only where the sprite sits.
     if (cat === 'hurdle') {

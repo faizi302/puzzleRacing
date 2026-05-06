@@ -1,8 +1,12 @@
 // ═══════════════════════════════════════════════════════
 // SCENERY RENDER — Drawing only. Building delegated to active level.
+// ─────────────────────────────────────────────────────
+// Now also renders JUMP RAMPS using IMG.jumps + JUMP_SPR atlas.
+// No new render hook needed — everything goes through this one
+// drawScenery() pass.
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
-import { SPR } from '../configs/sceneryConfig.js';
+import { SPR, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
 import { segs, trackLen, getActiveTrack } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
@@ -61,9 +65,27 @@ function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
-// ── Main scenery draw (UNCHANGED from original) ────────
+// ── Look up sprite metadata + atlas image for any kind ─
+// Returns { spr, atlas } or null. JUMP_SPR uses IMG.jumps,
+// regular SPR uses IMG.scenery.
+function resolveSprite(kind) {
+  if (JUMP_KINDS.has(kind)) {
+    const spr = JUMP_SPR[kind];
+    if (!spr) return null;
+    return { spr, atlas: IMG.jumps };
+  }
+  const spr = SPR[kind];
+  if (!spr) return null;
+  return { spr, atlas: IMG.scenery };
+}
+
+// ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
-  if (!IMG.scenery.ready || !_visibleSegs.length) return;
+  // We need at least one atlas to draw anything — but jumps and
+  // regular scenery can render independently as soon as their
+  // image is ready.
+  if (!_visibleSegs.length) return;
+  if (!IMG.scenery.ready && !IMG.jumps.ready) return;
 
   const ctx = getCtx();
   const _W = getW();
@@ -88,11 +110,12 @@ export function drawScenery() {
     const cx = v.x1 + (v.x2 - v.x1) * pct;
     const rw = v.w1 + (v.w2 - v.w1) * pct;
 
-    if (!o.isCoin && !o.isBooster && !o.isKey && !o.isHurdle &&
+    if (!o.isCoin && !o.isBooster && !o.isKey && !o.isHurdle && !o.isJump &&
       (y < horizonY - 4 || y > _H * 0.98)) continue;
     if ((o.isCoin || o.isBooster || o.isKey) &&
       (y < horizonY * 0.5 || y > _H * 0.98)) continue;
-    if (o.isHurdle && y > _H * 1.10) continue;   // only cull if completely off-bottom
+    if (o.isHurdle && y > _H * 1.10) continue;
+    if (o.isJump && y > _H * 1.10) continue;
 
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
@@ -101,12 +124,46 @@ export function drawScenery() {
   list.sort((a, b) => b.dz - a.dz);
 
   for (const it of list) {
-    const s = SPR[it.o.kind];
-    if (!s) continue;
+    const resolved = resolveSprite(it.o.kind);
+    if (!resolved) continue;
+    const { spr: s, atlas } = resolved;
+    if (!atlas || !atlas.ready) continue;
 
     let drawW, drawH, x, y;
 
-    if (it.o.overhead) {
+    if (it.o.isJump) {
+      // ── JUMP RAMP — physical-size projection ────────────
+      // Each ramp's WORLD width is set as a fraction of ROAD_W so it
+      // visually spans the road. spr.scale + per-instance size let
+      // you fine-tune. Same projection math as hurdles, which we know
+      // works correctly in your screenshot.
+      const jumpSize = it.o.size ?? 1.00;
+
+      // Ramps span the FULL road width by default (0.95 ≈ road).
+      // halfPipe and boostPad use a slightly smaller world width to
+      // fit on the road without visual overflow.
+      let worldFrac = 0.95;
+      if (it.o.kind === 'boostPad') worldFrac = 0.55;
+      if (it.o.kind === 'halfPipe') worldFrac = 0.95;
+      if (it.o.kind === 'rockArch') worldFrac = 1.20;
+      if (it.o.kind === 'megaRamp') worldFrac = 1.05;
+
+      const JUMP_WORLD_W = C.ROAD_W * worldFrac * jumpSize * (s.scale ?? 1.0);
+      drawW = JUMP_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
+
+      // Sane min/max so it never blows out at extreme distances.
+      drawW = clamp(drawW, 60 * _res, 1.50 * _W);
+      drawH = drawW * (s.sh / s.sw);
+
+      const groundX = it.cx + (it.o.offset || 0) * it.rw;
+      x = groundX - drawW / 2;
+      const anchor = s.anchorY ?? 1.0;
+      y = it.y - drawH * anchor;
+
+      if (y > _H || x > _W + drawW || x < -drawW) continue;
+      if (y + drawH < horizonY) continue;
+
+    } else if (it.o.overhead) {
       drawW = it.rw * 2.6 * s.scale;
       drawH = drawW * (s.sh / s.sw);
       x = it.cx - drawW / 2;
@@ -137,20 +194,10 @@ export function drawScenery() {
       if (y > _H || x > _W + drawW || x < -drawW) continue;
 
     } else if (it.o.isHurdle) {
-      // ── On-road hurdle — FIXED physical size ────────────
-      // We define the hurdle's real-world width in road units
-      // and project it at the hurdle's ACTUAL distance (dz).
-      // Because both numerator and the sprite stay in the same
-      // coordinate space, the object grows correctly as you
-      // approach and never pops or shrinks unexpectedly.
-      //
-      // HURDLE_WORLD_W controls how wide each hurdle type is
-      // in "road half-widths".  Tune per-sprite via s.scale.
       const hurdleSize = it.o.size ?? 0.45;
       const HURDLE_WORLD_W = C.ROAD_W * hurdleSize * s.scale;
       drawW = HURDLE_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
 
-      // Clamp only to stop extreme near/far edge cases.
       drawW = clamp(drawW, 40 * _res, 0.80 * _W);
       drawH = drawW * (s.sh / s.sw);
 
@@ -199,7 +246,7 @@ export function drawScenery() {
     if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
       ctx.shadowBlur = 0;
-      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = (0.20 + fade * 0.80) * 0.45 * pulse;
       ctx.fillStyle = 'rgba(255, 200, 50, 1)';
@@ -208,7 +255,7 @@ export function drawScenery() {
       ctx.fill();
 
     } else if (it.o.isForkGate) {
-      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
       const pulse = 0.80 + 0.20 * Math.sin(now * 0.0035);
       const tintClr = it.o.forkTint === 'road2'
         ? `rgba(255, 210, 50, ${0.30 * pulse})`
@@ -219,7 +266,7 @@ export function drawScenery() {
       ctx.fillRect(x, y, drawW, drawH);
 
     } else if (it.o.isForkMarker) {
-      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
       const pulse = 0.75 + 0.25 * Math.sin(now * 0.004 + it.o.z * 0.001);
       const tintClr = (getActiveTrack() === 2)
         ? `rgba(255, 220, 60, 0.4)`
@@ -229,11 +276,24 @@ export function drawScenery() {
       ctx.fillStyle = tintClr;
       ctx.fillRect(x, y, drawW, drawH);
 
+    } else if (it.o.isJump) {
+      // Optional pulse glow so ramps catch the eye.
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+
+      // Subtle pink/yellow bloom on the chevron strip — pulses gently.
+      if (it.o.kind !== 'rockArch') {
+        const pulse = 0.55 + 0.45 * Math.sin(now * 0.005 + it.o.z * 0.0007);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.10 * fade * pulse;
+        ctx.fillStyle = 'rgba(255, 200, 240, 1)';
+        ctx.fillRect(x, y + drawH * 0.85, drawW, drawH * 0.15);
+      }
+
     } else if (it.o.isHurdle) {
-      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
     } else {
-      drawSprite(ctx, IMG.scenery, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
     }
 
     ctx.restore();

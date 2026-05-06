@@ -362,6 +362,50 @@ export function updateNitro(dt) {
     P._lastDownForCancel = !!K.down;
   }
 }
+export function launchPlayerJump(jumpObj, jumpSpr = {}) {
+  if (P.isAirborne) return false;
+
+  const speed01 = Math.max(0, Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX));
+  if (speed01 < C.JUMP_MIN_SPEED_FRAC) return false;
+
+  const lift = jumpSpr.liftFactor ?? jumpObj.liftFactor ?? 1;
+
+  // boostPad = speed only, no air jump
+  if (lift <= 0) {
+    P.speed = Math.min(C.NITRO_MAX, P.speed * C.BOOSTPAD_KICK);
+    return true;
+  }
+
+  P.isAirborne = true;
+  P.airY = 0;
+  P.airVy = (C.JUMP_BASE_VY + speed01 * C.JUMP_SPEED_VY) * lift;
+  P.jumpPitch = 0;
+  P._jumpCooldown = 0.45;
+
+  return true;
+}
+
+export function updateJumpPhysics(dt) {
+  if (P._jumpCooldown > 0) {
+    P._jumpCooldown = Math.max(0, P._jumpCooldown - dt);
+  }
+
+  if (!P.isAirborne) return;
+
+  P.airY += P.airVy * dt;
+  P.airVy -= C.JUMP_GRAVITY * dt;
+
+  // little speed loss in air
+  P.speed *= Math.max(0.96, 1 - C.JUMP_AIR_DRAG * dt);
+
+  // landing
+  if (P.airY <= 0 && P.airVy < 0) {
+    P.airY = 0;
+    P.airVy = 0;
+    P.isAirborne = false;
+    P.jumpPitch = 0;
+  }
+}
 
 // ═══════════════════════════════════════════════════════
 // VISUAL HELPERS
@@ -541,6 +585,7 @@ export function drawCar(steerVisual = 0) {
 
   updateNitro(dt);
   updateOneShots(dt);
+  updateJumpPhysics(dt);
 
   const visual = Math.max(-1, Math.min(1, steerVisual || 0));
   _frameTarget = STRAIGHT + visual * STRAIGHT;
@@ -560,7 +605,8 @@ export function drawCar(steerVisual = 0) {
 
   const roadOffsetX = (P.playerX - P.cameraX) * W * 0.42;
   const anchorX = W / 2 + roadOffsetX;
-  const anchorY = ((H * 0.89) + getCamCarYOff() * res) | 0;
+const airOffset = (P.airY || 0) * (C.JUMP_VISUAL_SCALE || 1) * res;
+const anchorY = (((H * 0.89) + getCamCarYOff() * res) - airOffset) | 0;
 
   if ((P.impactFlash || 0) > 0.15 && _lastImpact <= 0.15) {
     spawnFx('Burst', anchorX, anchorY - drawH * 0.28, drawW * 1.1, 34, 0.75, 'lighter');
@@ -628,12 +674,12 @@ export function getCarAnchor() {
   const W = getW();
   const H = getH();
 
-  // Show real car position relative to camera
   const roadOffsetX = (P.playerX - P.cameraX) * W * 0.42;
+  const airOffset = (P.airY || 0) * (C.JUMP_VISUAL_SCALE || 1) * res;
 
   return {
     anchorX: W / 2 + roadOffsetX,
-    anchorY: ((H * 0.89) + getCamCarYOff() * res) | 0,
+    anchorY: (((H * 0.89) + getCamCarYOff() * res) - airOffset) | 0,
     drawW,
     drawH,
   };

@@ -33,8 +33,59 @@ export const SPR = {
   coin:      {sx:1680, sy: 760, sw: 128, sh: 128, scale: 1, anchorY: 1},
   booster: {sx: 368, sy: 1090, sw: 210, sh: 260, scale: 1, anchorY: 1},
   // ── KEY pickup ───────────────────────────────────────
-  // Reuses the coin source rect, but is rendered LARGER and with
-  // a gold glow in sceneryRender so the player can see the
-  // difference between a regular coin and a critical key.
   key:  {sx:1680, sy: 760, sw: 128, sh: 128, scale: 1, anchorY: 1},
 };
+
+// ═══════════════════════════════════════════════════════
+// JUMP RAMP ATLAS — uses IMG.jumps (loaded by objectRender.js)
+// Source image: 1536 × 1024
+// ─────────────────────────────────────────────────────────
+// Each ramp has:
+//   sx, sy, sw, sh   → source rect inside jumps.png
+//   scale            → world-render scale multiplier (per kind)
+//   anchorY          → fraction from top where the BASE sits.
+//                      MUST be 1.00 for ramps because the yellow
+//                      chevron strip is at the bottom edge.
+//   liftFactor       → vertical launch strength (0 = no jump, 1 = normal,
+//                      >1 = bigger launch).
+//   rampLengthZ      → ramp length along the road in world units.
+//
+// Rendering: handled by sceneryRender.js's drawScenery() — a
+// jump branch detects o.isJump and uses IMG.jumps + JUMP_SPR.
+// ═══════════════════════════════════════════════════════
+export const JUMP_SPR = {
+  // Row 1 — small to extra-large flat-top launch ramps.
+  rampSmall: { sx: 160,  sy: 220, sw: 331, sh: 124, scale: 0.45, anchorY: 1.00, liftFactor: 0.85, rampLengthZ: 320 },
+  rampMed:   { sx: 535,  sy: 157, sw: 272, sh: 181, scale: 0.55, anchorY: 1.00, liftFactor: 1.00, rampLengthZ: 360 },
+  rampLarge: { sx: 844,  sy: 111, sw: 278, sh: 227, scale: 0.65, anchorY: 1.00, liftFactor: 1.20, rampLengthZ: 400 },
+  rampXL:    { sx: 1160, sy:  58, sw: 290, sh: 280, scale: 0.75, anchorY: 1.00, liftFactor: 1.45, rampLengthZ: 440 },
+
+  // Row 2 — special ramps.
+  halfPipe:  { sx: 166,  sy: 441, sw: 357, sh: 152, scale: 0.55, anchorY: 1.00, liftFactor: 0.55, rampLengthZ: 380 },
+boostPad: {
+  sx: 582,
+  sy: 490,
+  sw: 379,
+  sh: 102,
+  scale: 0.80,
+  anchorY: 1.00,
+  liftFactor: 1.35,
+  rampLengthZ: 420
+},
+  megaRamp:  { sx: 924,  sy: 414, sw: 580, sh: 501, scale: 0.85, anchorY: 1.00, liftFactor: 1.85, rampLengthZ: 520 },
+
+  // Row 3 — decorative rock arch (overhead, no launch).
+  rockArch:  { sx: 95,   sy: 803, sw: 481, sh: 108, scale: 0.85, anchorY: 0.95, liftFactor: 0.00, rampLengthZ: 0 },
+};
+
+// Convenient set used by collision/render code to know which kinds
+// belong to the jump atlas (different image source than SPR).
+export const JUMP_KINDS = new Set(Object.keys(JUMP_SPR));
+
+// Path the renderer uses (must match objectRender.js's IMG.jumps path).
+// objectRender.js currently tries:
+//   'assets/level/level2/jumps.png'
+//   'assets/jumps.png'
+//   'jumps.png'
+// — so put your jumps.png at any of these paths.
+export const JUMP_ATLAS_PATH = 'assets/level/level2/jumps.png';

@@ -40,24 +40,30 @@ export const IMG = {
     'assets/Horizons.jpg',
     'Horizons.jpg',
   ]),
+
   segments: loadImage([
     'assets/level/level1/LocationESegments.jpg',
-    'assets/level/level1/LocationESegments.jpg',
     'assets/LocationESegments.jpg',
-    'assets/LocationESegments.jpg',
-    'LocationESegments.jpg',
     'LocationESegments.jpg',
   ]),
+
   scenery: loadImage([
     'assets/level/level1/LocationEScenery.png',
     'assets/LocationEScenery.png',
     'LocationEScenery.png',
   ]),
+
+  jumps: loadImage([
+    'assets/level/level2/jumps.png',
+    'assets/jumps.png',
+    'jumps.png',
+  ]),
+
   effects: loadImage([
-  'assets/player/Effects.png',
-  'assets/Effects.png',
-  'Effects.png'
-]),
+    'assets/player/Effects.png',
+    'assets/Effects.png',
+    'Effects.png'
+  ]),
 };
 
 export function setLevelImages(levelMeta) {
@@ -71,6 +77,11 @@ export function setLevelImages(levelMeta) {
   if (levelMeta?.sceneryImage) {
     IMG.scenery = loadImage(levelMeta.sceneryImage);
     waits.push(IMG.scenery.promise);
+  }
+
+  if (levelMeta?.jumpsImage) {
+    IMG.jumps = loadImage(levelMeta.jumpsImage);
+    waits.push(IMG.jumps.promise);
   }
 
   return Promise.all(waits);
