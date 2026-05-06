@@ -26,7 +26,7 @@ export const SPR = {
   poleStump:   { sx: 1560, sy: 1017, sw: 95,  sh: 250, scale: 0.22, anchorY: 1.00 },
 
   // ── START BANNER — yellow marked assets ───────────────
-  startBanner: { sx: 0, sy: 1450, sw: 800, sh: 300, scale: 1.0, anchorY: 0.95},
+  startBanner: { sx: 0, sy: 800, sw: 640, sh: 300, scale: 1.0, anchorY: 0.95},
 
   // ── Separate totem render-only entity ───────────────
   totemOnly:   { sx: 1325, sy: 12, sw: 500, sh: 525, scale: .60, anchorY: 1.00 },
