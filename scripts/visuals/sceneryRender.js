@@ -4,6 +4,10 @@
 // Now also renders JUMP RAMPS using IMG.jumps + JUMP_SPR atlas.
 // No new render hook needed — everything goes through this one
 // drawScenery() pass.
+//
+// DEBUG: open browser console and run:
+//   window.DEBUG_JUMPS = true
+// You'll see one log per second telling you exactly what's happening.
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { SPR, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
@@ -15,19 +19,18 @@ import { _visibleSegs } from './roadRender.js';
 import { getActiveLevel } from '../core/activeLevel.js';
 
 // Live binding — re-assigned by buildScenery() to whatever the
-// active level returns. Importers (collisionSystem, GameScene)
-// continue to see the latest array automatically.
+// active level returns.
 export let sceneryObjs = [];
 
-/**
- * Re-builds scenery for the currently active level + currently
- * active track. Called once at start, and again whenever the
- * track hot-swaps (Road1 → Road2).
- */
 export function buildScenery() {
   const lvl = getActiveLevel();
   if (lvl && typeof lvl.buildSceneryObjects === 'function') {
     sceneryObjs = lvl.buildSceneryObjects();
+    if (typeof window !== 'undefined' && window.DEBUG_JUMPS) {
+      const jumps = sceneryObjs.filter(o => o.isJump);
+      console.log(`[scenery] built ${sceneryObjs.length} objs, ${jumps.length} jumps`);
+      jumps.slice(0, 5).forEach(j => console.log('  jump:', j.kind, 'z=', j.z));
+    }
   } else {
     sceneryObjs = [];
   }
@@ -60,32 +63,49 @@ function visibleForZ(z) {
   return null;
 }
 
-// ── Sprite draw helper ─────────────────────────────────
 function drawSprite(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
-// ── Look up sprite metadata + atlas image for any kind ─
-// Returns { spr, atlas } or null. JUMP_SPR uses IMG.jumps,
-// regular SPR uses IMG.scenery.
 function resolveSprite(kind) {
   if (JUMP_KINDS.has(kind)) {
     const spr = JUMP_SPR[kind];
     if (!spr) return null;
-    return { spr, atlas: IMG.jumps };
+    return { spr, atlas: IMG.jumps, isJumpAtlas: true };
   }
   const spr = SPR[kind];
   if (!spr) return null;
-  return { spr, atlas: IMG.scenery };
+  return { spr, atlas: IMG.scenery, isJumpAtlas: false };
+}
+
+// ── Debug helpers ──────────────────────────────────────
+let _debugFrame = 0;
+let _debugReportedAtlasLoaded = false;
+
+function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
+  if (typeof window === 'undefined' || !window.DEBUG_JUMPS) return;
+  _debugFrame++;
+  if (_debugFrame % 60 !== 0) return;
+  console.log(
+    `[scenery] sceneryObjs:${sceneryObjs.length} | ` +
+    `jumps total:${jumpsTotal} visible:${jumpsVisible} culled:${jumpsCulled} | ` +
+    `IMG.jumps.ready:${atlasReady} | P.pos:${(P.pos | 0)}`
+  );
 }
 
 // ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
-  // We need at least one atlas to draw anything — but jumps and
-  // regular scenery can render independently as soon as their
-  // image is ready.
   if (!_visibleSegs.length) return;
   if (!IMG.scenery.ready && !IMG.jumps.ready) return;
+
+  // One-shot atlas-loaded log
+  if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
+      IMG.jumps.ready && !_debugReportedAtlasLoaded) {
+    console.log('[scenery] IMG.jumps loaded:',
+      IMG.jumps.naturalWidth + 'x' + IMG.jumps.naturalHeight,
+      'src:', IMG.jumps.src);
+    _debugReportedAtlasLoaded = true;
+  }
 
   const ctx = getCtx();
   const _W = getW();
@@ -95,15 +115,26 @@ export function drawScenery() {
   const now = performance.now();
 
   const list = [];
+  let jumpsTotal = 0;
+  let jumpsCulled = 0;
 
   for (const o of sceneryObjs) {
     if (o._dead && (o.isCoin || o.isBooster || o.isKey)) continue;
+
+    if (o.isJump) jumpsTotal++;
+
     let dz = o.z - P.pos;
     while (dz < 0) dz += trackLen;
-    if (dz < 120 || dz > C.DRAW_D * C.SEG_LEN * 0.45) continue;
+    if (dz < 120 || dz > C.DRAW_D * C.SEG_LEN * 0.45) {
+      if (o.isJump) jumpsCulled++;
+      continue;
+    }
 
     const hit = visibleForZ(o.z);
-    if (!hit) continue;
+    if (!hit) {
+      if (o.isJump) jumpsCulled++;
+      continue;
+    }
 
     const { v, pct } = hit;
     const y = v.y1 + (v.y2 - v.y1) * pct;
@@ -115,11 +146,17 @@ export function drawScenery() {
     if ((o.isCoin || o.isBooster || o.isKey) &&
       (y < horizonY * 0.5 || y > _H * 0.98)) continue;
     if (o.isHurdle && y > _H * 1.10) continue;
-    if (o.isJump && y > _H * 1.10) continue;
+    if (o.isJump && y > _H * 1.10) {
+      jumpsCulled++;
+      continue;
+    }
 
     const scale = C.CAM_DEPTH / dz;
     list.push({ o, y, cx, rw, scale, dz });
   }
+
+  const jumpsVisible = list.filter(it => it.o.isJump).length;
+  debugTick(jumpsTotal, jumpsVisible, jumpsCulled, IMG.jumps.ready);
 
   list.sort((a, b) => b.dz - a.dz);
 
@@ -132,36 +169,29 @@ export function drawScenery() {
     let drawW, drawH, x, y;
 
     if (it.o.isJump) {
-      // ── JUMP RAMP — physical-size projection ────────────
-      // Each ramp's WORLD width is set as a fraction of ROAD_W so it
-      // visually spans the road. spr.scale + per-instance size let
-      // you fine-tune. Same projection math as hurdles, which we know
-      // works correctly in your screenshot.
-      const jumpSize = it.o.size ?? 1.00;
+      // ═══════════════════════════════════════════════════
+      // JUMP RAMP — physical-size projection (BIGGER & BOLDER)
+      // ═══════════════════════════════════════════════════
 
-      // Ramps span the FULL road width by default (0.95 ≈ road).
-      // halfPipe and boostPad use a slightly smaller world width to
-      // fit on the road without visual overflow.
-      let worldFrac = 0.95;
-      if (it.o.kind === 'boostPad') worldFrac = 0.55;
-      if (it.o.kind === 'halfPipe') worldFrac = 0.95;
-      if (it.o.kind === 'rockArch') worldFrac = 1.20;
-      if (it.o.kind === 'megaRamp') worldFrac = 1.05;
+const jumpSize = it.o.size ?? 1.00;
 
-      const JUMP_WORLD_W = C.ROAD_W * worldFrac * jumpSize * (s.scale ?? 1.0);
-      drawW = JUMP_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
+// width relative to road width at that exact depth
+const roadFrac = it.o.roadFrac ?? s.roadFrac ?? 0.78;
 
-      // Sane min/max so it never blows out at extreme distances.
-      drawW = clamp(drawW, 60 * _res, 1.50 * _W);
-      drawH = drawW * (s.sh / s.sw);
+// manual height multiplier
+const heightMul = it.o.heightMul ?? s.heightMul ?? 0.85;
 
-      const groundX = it.cx + (it.o.offset || 0) * it.rw;
-      x = groundX - drawW / 2;
-      const anchor = s.anchorY ?? 1.0;
-      y = it.y - drawH * anchor;
+drawW = it.rw * roadFrac * jumpSize;
+drawH = drawW * (s.sh / s.sw) * heightMul;
+
+const groundX = it.cx + (it.o.offset || 0) * it.rw;
+x = groundX - drawW / 2;
+
+const anchor = s.anchorY ?? 1.0;
+y = it.y - drawH * anchor;
 
       if (y > _H || x > _W + drawW || x < -drawW) continue;
-      if (y + drawH < horizonY) continue;
+      if (y + drawH < horizonY - 50) continue;
 
     } else if (it.o.overhead) {
       drawW = it.rw * 2.6 * s.scale;
@@ -277,16 +307,19 @@ export function drawScenery() {
       ctx.fillRect(x, y, drawW, drawH);
 
     } else if (it.o.isJump) {
-      // Optional pulse glow so ramps catch the eye.
+      // Fully opaque on the close-up — fade only kicks in at distance.
+      ctx.globalAlpha = 0.55 + fade * 0.45;
+
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
-      // Subtle pink/yellow bloom on the chevron strip — pulses gently.
+      // Pulsing pink bloom on the chevron strip — makes ramps catch
+      // the eye even at speed.
       if (it.o.kind !== 'rockArch') {
         const pulse = 0.55 + 0.45 * Math.sin(now * 0.005 + it.o.z * 0.0007);
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.10 * fade * pulse;
-        ctx.fillStyle = 'rgba(255, 200, 240, 1)';
-        ctx.fillRect(x, y + drawH * 0.85, drawW, drawH * 0.15);
+        ctx.globalAlpha = 0.18 * fade * pulse;
+        ctx.fillStyle = 'rgba(255, 150, 220, 1)';
+        ctx.fillRect(x + drawW * 0.05, y + drawH * 0.78, drawW * 0.90, drawH * 0.20);
       }
 
     } else if (it.o.isHurdle) {

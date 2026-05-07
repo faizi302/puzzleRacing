@@ -1,9 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// OBJECT RENDER — Image loader with level-safe switching
-// FIX: every level always gets its own segments/scenery.
-// No old Level 2 image can remain when going back to Level 1.
+// OBJECT RENDER — Image loader (effects + scenery + horizon)
 // ═══════════════════════════════════════════════════════
-
 export function loadImage(src) {
   const img = new Image();
   img.ready = false;
@@ -13,7 +10,6 @@ export function loadImage(src) {
 
   img.promise = new Promise((resolve) => {
     const tryLoad = () => {
-      img.ready = false;
       img.src = list[i];
     };
 
@@ -38,18 +34,6 @@ export function loadImage(src) {
   return img;
 }
 
-const LEVEL1_SEGMENTS = [
-  'assets/level/level1/LocationESegments.jpg',
-  'assets/LocationESegments.jpg',
-  'LocationESegments.jpg',
-];
-
-const LEVEL1_SCENERY = [
-  'assets/level/level1/LocationEScenery.png',
-  'assets/LocationEScenery.png',
-  'LocationEScenery.png',
-];
-
 export const IMG = {
   horizon: loadImage([
     'assets/backgrounds/Horizons.jpg',
@@ -57,8 +41,27 @@ export const IMG = {
     'Horizons.jpg',
   ]),
 
-  segments: loadImage(LEVEL1_SEGMENTS),
-  scenery: loadImage(LEVEL1_SCENERY),
+  segments: loadImage([
+    'assets/level/level1/LocationESegments.jpg',
+    'assets/LocationESegments.jpg',
+    'LocationESegments.jpg',
+  ]),
+
+  scenery: loadImage([
+    'assets/level/level1/LocationEScenery.png',
+    'assets/LocationEScenery.png',
+    'LocationEScenery.png',
+  ]),
+
+  // ── Jumps atlas — try several locations so it works no matter
+  //    where you put jumps.png in the project.
+  jumps: loadImage([
+    'assets/level/level1/jumps.png',
+    'assets/level/level2/jumps.png',
+    'assets/scenery/jumps.png',
+    'assets/jumps.png',
+    'jumps.png',
+  ]),
 
   effects: loadImage([
     'assets/player/Effects.png',
@@ -67,37 +70,23 @@ export const IMG = {
   ]),
 };
 
-let imageLoadToken = 0;
-let activeLevelId = 'level1';
+export function setLevelImages(levelMeta) {
+  const waits = [];
 
-export function getActiveLevelImageId() {
-  return activeLevelId;
-}
+  if (levelMeta?.segmentsImage) {
+    IMG.segments = loadImage(levelMeta.segmentsImage);
+    waits.push(IMG.segments.promise);
+  }
 
-export async function setLevelImages(levelMeta) {
-  const token = ++imageLoadToken;
+  if (levelMeta?.sceneryImage) {
+    IMG.scenery = loadImage(levelMeta.sceneryImage);
+    waits.push(IMG.scenery.promise);
+  }
 
-  activeLevelId = levelMeta?.id || levelMeta?.key || 'level1';
+  if (levelMeta?.jumpsImage) {
+    IMG.jumps = loadImage(levelMeta.jumpsImage);
+    waits.push(IMG.jumps.promise);
+  }
 
-  // IMPORTANT:
-  // If current level has no custom image paths, use Level 1 defaults.
-  // This prevents Level 2 image from staying active.
-  const segmentPaths = levelMeta?.segmentsImage || LEVEL1_SEGMENTS;
-  const sceneryPaths = levelMeta?.sceneryImage || LEVEL1_SCENERY;
-
-  const nextSegments = loadImage(segmentPaths);
-  const nextScenery = loadImage(sceneryPaths);
-
-  await Promise.all([
-    nextSegments.promise,
-    nextScenery.promise,
-  ]);
-
-  // If another level started loading meanwhile, ignore this result.
-  if (token !== imageLoadToken) return false;
-
-  IMG.segments = nextSegments;
-  IMG.scenery = nextScenery;
-
-  return true;
+  return Promise.all(waits);
 }

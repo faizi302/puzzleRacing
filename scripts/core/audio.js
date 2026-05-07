@@ -1,6 +1,17 @@
 // ═══════════════════════════════════════════════════════
 // AUDIO MANAGER — Background music + SFX + engine loops
 // Path: assets/fassets/audio/
+// ─────────────────────────────────────────────────────────
+// FIX (Asphalt-Legends nitro):
+//   • Loops are now keyed strictly. Calling playSfx with the
+//     same key while a loop is already playing does NOT spawn
+//     a second clone — it just updates volume / rate.
+//   • New `_isLoopPlaying(key)` helper for callers that want
+//     to know if a key is already live.
+//   • Engine loop logic unchanged (it already keys on 'engine').
+//   • Nitro pickup is still NEVER played by this module — the
+//     caller (player.js) is the only thing that plays nitro,
+//     and only on an actual Spacebar press.
 // ═══════════════════════════════════════════════════════
 
 const BASE = 'assets/fassets/audio/';
@@ -105,12 +116,19 @@ export function setSfxVolume(v) {
   _sfxVolume = Math.max(0, Math.min(1, v));
 }
 
+// Public: is the loop tagged with this key currently playing?
+export function isLoopPlaying(key) {
+  const a = _loops.get(key);
+  return !!(a && !a.paused && !a.ended);
+}
+
 export function playSfx(name, opts = {}) {
   if (_muted) return;
   if (!_unlocked && !opts.force) return;
 
   const key = opts.key || name;
 
+  // ── Stop branch: hard-kill the named loop ──
   if (opts.stop) {
     const loop = _loops.get(key);
     if (loop) {
@@ -126,6 +144,11 @@ export function playSfx(name, opts = {}) {
   const base = getBaseAudio(name);
   if (!base) return;
 
+  // ── Loop branch ──
+  // CRITICAL: if a loop with this key already exists, we DO NOT
+  // create a second clone. We just update volume / rate. This is
+  // what prevents the nitro loop (and engine loop) from stacking
+  // on top of itself when callers ping the same key every frame.
   if (opts.loop) {
     let loop = _loops.get(key);
 
@@ -137,8 +160,8 @@ export function playSfx(name, opts = {}) {
       _loops.set(key, loop);
     }
 
-    loop.volume = opts.volume ?? loop.volume;
-    if (opts.rate) loop.playbackRate = opts.rate;
+    if (opts.volume !== undefined) loop.volume = opts.volume;
+    if (opts.rate)                 loop.playbackRate = opts.rate;
 
     if (loop.paused) {
       loop.play().catch(() => {});
@@ -147,6 +170,7 @@ export function playSfx(name, opts = {}) {
     return loop;
   }
 
+  // ── One-shot branch ──
   const inst = base.cloneNode(true);
   inst.volume = opts.volume ?? _sfxVolume;
   inst.playbackRate = opts.rate ?? 1;
@@ -189,6 +213,11 @@ export function stopAll() {
   _loops.clear();
 }
 
+// ─── Engine loop: speed-driven ───────────────────────────
+// Below the dead-zone, the engine sound is fully stopped so it
+// can never run silently in the background. Above the dead-zone
+// the existing loop just has its volume/rate updated — we never
+// spawn a second engine source.
 export function setEngineSpeed(speed01) {
   if (_muted || !_unlocked) return;
 
@@ -236,6 +265,9 @@ export function initGlobalAudioButtons() {
     if (document.hidden) {
       setBrakeLoop(false);
       setEngineSpeed(0);
+      // Also kill the nitro loop if the tab is hidden mid-burn —
+      // otherwise it would keep playing while hidden.
+      playSfx('nitro', { stop: true, key: 'nitroLoop' });
     }
   });
 }

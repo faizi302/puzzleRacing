@@ -57,8 +57,10 @@ export function drawRoad() {
     const seg = segs[(base.index + n) % segs.length];
     const camZ = P.pos - (seg.p1.world.z < P.pos ? trackLen : 0);
 
-    project(seg.p1, P.cameraX * C.ROAD_W, C.CAM_H, camZ, W, H);
-    project(seg.p2, P.cameraX * C.ROAD_W, C.CAM_H, camZ, W, H);
+const camY = C.CAM_H + (P.cameraAirY || 0);
+
+project(seg.p1, P.cameraX * C.ROAD_W, camY, camZ, W, H);
+project(seg.p2, P.cameraX * C.ROAD_W, camY, camZ, W, H);
 
     xOff += dx;
     dx += seg.curve;

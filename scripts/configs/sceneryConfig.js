@@ -67,10 +67,27 @@ boostPad: {
   sy: 490,
   sw: 379,
   sh: 102,
+
   scale: 0.80,
+
+  // best controls
+  roadFrac: 0.78,    // width relative to current road width
+  heightMul: 0.85,   // height control
+
+  hitHalfW: 0.42,
+  hitBackZ: -70,
+  hitFrontZ: 160,
+
+  liftFactor: 1.15,
+  speedKickKmh: 30,
+  jumpBaseVy: 380,
+  jumpSpeedVy: 420,
+  forwardKick: 1.12,
+  airForwardBoost: 1.45,
+airHoldTime: 1.35,
+
   anchorY: 1.00,
-  liftFactor: 1.35,
-  rampLengthZ: 420
+  rampLengthZ: 420,
 },
   megaRamp:  { sx: 924,  sy: 414, sw: 580, sh: 501, scale: 0.85, anchorY: 1.00, liftFactor: 1.85, rampLengthZ: 520 },
 

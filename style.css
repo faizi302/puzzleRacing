@@ -1355,56 +1355,16 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 /* ╔══════════════════════════════════════════════════════════════╗
    ║ 11 · GAME HUD (in-race overlay)                               ║
+   ║                                                                ║
+   ║ NOTE: The old strip HUD (#hud / .hb / .hl / .hv / #hc / #pw /  ║
+   ║ #pf / #pl) and the old "TIMES" panel (#lp / .lpt) and the      ║
+   ║ old corner pause (#pbtn) have all been REMOVED — both their    ║
+   ║ DOM nodes and their styles. The Asphalt-Legends-style HUD      ║
+   ║ defined in section "RACE HUD (Asphalt Legends)" below is now   ║
+   ║ the single source of truth.                                    ║
    ╚══════════════════════════════════════════════════════════════╝ */
 #s-game canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
-#hud {
-  position: fixed;
-  top: clamp(8px, 1.5vw, 14px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--sh-md), var(--sh-inset-hi);
-  backdrop-filter: blur(10px);
-  z-index: 30;
-  font-family: var(--font-mono);
-}
-.hb {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 12px;
-  border-right: 1px solid var(--surface-border);
-}
-.hb:last-child { border-right: none; }
-.hl { font-size: 9px; letter-spacing: 0.25em; color: var(--text-lo); text-transform: uppercase; }
-.hv { font-family: var(--font-display); font-size: 18px; font-weight: 900; color: var(--brand-cyan); text-shadow: 0 0 12px rgba(0,232,255,0.4); }
-.hu { font-size: 9px; color: var(--text-lo); letter-spacing: 0.1em; }
-#hc { display: flex; align-items: center; gap: 6px; padding: 0 10px; }
-#pw { width: 80px; height: 6px; background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
-#pf { height: 100%; background: var(--grad-cta); width: 0%; box-shadow: var(--sh-glow-amber); transition: width var(--d-base); }
-#pl { font-size: 11px; color: var(--brand-amber); font-family: var(--font-display); }
 
-#lp {
-  position: fixed;
-  top: 80px;
-  left: 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--r-md);
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-md);
-  z-index: 30;
-  backdrop-filter: blur(10px);
-  box-shadow: var(--sh-md);
-}
-.lpt { font-family: var(--font-display); font-size: 9px; color: var(--brand-cyan); letter-spacing: 0.25em; margin-bottom: 4px; }
 #ow { position: fixed; inset: 0; pointer-events: none; z-index: 25; }
 #cd {
   position: fixed;
@@ -1429,22 +1389,6 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   transition: all var(--d-base) var(--ease-out-back);
 }
 #cdn.pop { opacity: 1; transform: scale(1); }
-
-#pbtn {
-  position: fixed;
-  top: 14px; right: 14px;
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  border: 1px solid var(--surface-border-hi);
-  color: var(--text-hi);
-  font-size: 18px;
-  z-index: 35;
-  box-shadow: var(--sh-md), var(--sh-inset-hi);
-  backdrop-filter: blur(10px);
-  transition: transform var(--d-fast);
-}
-#pbtn:hover { transform: scale(1.08); border-color: var(--brand-cyan); }
 
 /* Touch controls */
 #tc { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
@@ -1880,4 +1824,474 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   .btn-back-top {
     padding-top: env(safe-area-inset-top, 0);
   }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   RACE HUD — ASPHALT LEGENDS STYLE
+   ──────────────────────────────────────────────────────────────────
+   Built dynamically by uiRender.js → buildRaceHUD().
+
+   Layout (matches reference screenshot 1:1):
+
+     ┌─ TOP-LEFT (one panel) ────────┐    ╲    ┌─ TOP-RIGHT (one panel) ─┐
+     │  ⏸ │ POS. 1/6                  │    ╲   │  KM/H            109     │
+     │     │ DIST. 28%                │  bar   │  ⏱ 00:21.104             │
+     └───────────────────────────────┘    ╱    │  NITRO ▮▮▯               │
+                                         ╱     │  BEST 01:58.933          │
+                                        ╱      └──────────────────────────┘
+
+   Design rules:
+     • Single rounded panel per cluster (no overlapping mini-pills).
+     • Safe-area aware (notch / dynamic island / home indicator).
+     • Fully responsive: tablet → phone landscape → phone portrait.
+     • Pointer-events: only the pause button accepts clicks; the rest
+       of the HUD is click-through so the player can still steer
+       under it on mobile.
+     • All sizes use clamp() so the HUD scales smoothly between
+       360px-wide phones and 4K monitors.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Root: full-screen click-through overlay ───────────────────── */
+.race-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  font-family: 'Rajdhani', 'Oswald', system-ui, Arial, sans-serif;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.race-hud.on { opacity: 1; }
+
+/* Re-enable pointer events ONLY on interactive bits */
+.race-hud .hud-pause { pointer-events: auto; }
+
+/* ── Shared panel skin ─────────────────────────────────────────── */
+.race-hud .hud-tl,
+.race-hud .hud-tr {
+  background: linear-gradient(180deg, rgba(8,12,22,.78), rgba(4,6,14,.92));
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 8px 22px rgba(0,0,0,.50);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TOP-LEFT cluster — pause button + POS/DIST grid in ONE panel
+   ════════════════════════════════════════════════════════════════ */
+.race-hud .hud-tl {
+  position: absolute;
+  top:  max(14px, env(safe-area-inset-top, 0));
+  left: max(14px, env(safe-area-inset-left, 0));
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.race-hud .hud-pause {
+  flex: 0 0 auto;
+  width: 52px;
+  height: auto;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid rgba(255,255,255,.10);
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .12s ease, transform .12s ease;
+  padding: 0;
+}
+.race-hud .hud-pause:hover  { background: rgba(255,45,138,.10); }
+.race-hud .hud-pause:active { transform: scale(.96); }
+.race-hud .hud-pause .bar {
+  width: 5px;
+  height: 20px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+.race-hud .hud-tl-info {
+  padding: 8px 14px 8px 12px;
+  min-width: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.race-hud .hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  letter-spacing: .04em;
+}
+.race-hud .hud-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cfd6e0;
+  letter-spacing: .14em;
+}
+.race-hud .hud-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #ff2d8a;
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.race-hud .hud-value.hud-dist { color: #ffd84a; }
+.race-hud .hud-sep { opacity: .55; padding: 0 1px; }
+
+/* ════════════════════════════════════════════════════════════════
+   TOP-CENTER — skewed distance bar + lap label
+   ════════════════════════════════════════════════════════════════ */
+.race-hud .hud-tc {
+  position: absolute;
+  top: max(26px, env(safe-area-inset-top, 0));
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(220px, 38vw, 540px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.race-hud .hud-bar-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background: linear-gradient(180deg, rgba(8,12,22,.75), rgba(4,6,14,.90));
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 2px;
+  overflow: visible;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);
+  transform: skewX(-18deg);
+}
+.race-hud .hud-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ffd84a 0%, #ffae1f 60%, #ff8a00 100%);
+  box-shadow: 0 0 12px rgba(255,184,32,.65);
+  transition: width .15s linear;
+}
+.race-hud .hud-bar-tip {
+  position: absolute;
+  top: -2px;
+  left: 0%;
+  width: 0;
+  height: calc(100% + 4px);
+  border-left: 5px solid #fff;
+  filter: drop-shadow(0 0 5px rgba(255,255,255,.6));
+  transition: left .15s linear;
+}
+
+.race-hud .hud-lap {
+  background: linear-gradient(180deg, rgba(8,12,22,.78), rgba(4,6,14,.92));
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: #fff;
+  opacity: .92;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TOP-RIGHT cluster — speed + timer + nitro + best, ONE panel
+   ════════════════════════════════════════════════════════════════ */
+.race-hud .hud-tr {
+  position: absolute;
+  top:   max(14px, env(safe-area-inset-top, 0));
+  right: max(14px, env(safe-area-inset-right, 0));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 8px 10px 8px 12px;
+  min-width: 200px;
+}
+
+/* SPEED row — unit small top-left, big number right */
+.race-hud .hud-speed-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0 0 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.race-hud .hud-speed-unit {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: #cfd6e0;
+  margin-top: 4px;
+}
+.race-hud .hud-speed-val {
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.01em;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 6px rgba(0,0,0,.55);
+}
+
+/* TIMER row — Asphalt-style red pill */
+.race-hud .hud-time-box {
+  margin-top: 8px;
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  background: linear-gradient(180deg, #d11e2f, #8a1320);
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 4px 14px rgba(180,30,50,.45);
+  align-self: stretch;
+}
+.race-hud .hud-time-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.race-hud .hud-time-val {
+  font-size: clamp(13px, 1.5vw, 17px);
+  font-weight: 800;
+  letter-spacing: .03em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* NITRO row */
+.race-hud .hud-nitro {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.race-hud .hud-nitro-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  color: #cfd6e0;
+}
+.race-hud .hud-nitro-bar {
+  display: flex;
+  gap: 4px;
+  height: 12px;
+}
+.race-hud .hud-nitro-seg {
+  --fill: 0%;
+  flex: 1;
+  position: relative;
+  background: rgba(255,255,255,.10);
+  border-radius: 2px;
+  overflow: hidden;
+  transform: skewX(-18deg);
+}
+.race-hud .hud-nitro-seg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: var(--fill);
+  background: linear-gradient(90deg, #3cd2ff, #1a9fff);
+  box-shadow: 0 0 8px rgba(60,210,255,.65);
+  transition: width .2s ease;
+}
+.race-hud .hud-nitro-seg.active::after {
+  background: linear-gradient(90deg, #ffd84a, #ff8a00);
+  box-shadow: 0 0 10px rgba(255,184,32,.85);
+  animation: hud-nitro-pulse .35s ease-in-out infinite alternate;
+}
+@keyframes hud-nitro-pulse {
+  from { filter: brightness(1);    }
+  to   { filter: brightness(1.35); }
+}
+
+/* BEST chip */
+.race-hud .hud-best {
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: #cfd6e0;
+  text-align: right;
+  opacity: .82;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RACE-START HINT BANNER (auto-hides after a few seconds)
+   ────────────────────────────────────────────────────────────────
+   The big orange "THE FINISH IS A TRAP" card shown at race start.
+   Built dynamically by uiRender.js → buildRaceHUD() and toggled
+   on/off by showRaceHint() / hideRaceHint().
+   ════════════════════════════════════════════════════════════════ */
+.race-hud .race-hint {
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  padding: 16px 32px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(20,12,40,.88), rgba(8,4,20,.94));
+  border: 1px solid rgba(255,180,80,.35);
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.55),
+    0 0 24px rgba(255,140,40,.18) inset;
+  text-align: center;
+  min-width: 260px;
+  max-width: min(80vw, 720px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+}
+.race-hud .race-hint.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  animation: hud-hint-glow 2.6s ease-in-out infinite;
+}
+@keyframes hud-hint-glow {
+  0%, 100% { box-shadow: 0 14px 40px rgba(0,0,0,.55), 0 0 24px rgba(255,140,40,.18) inset; }
+  50%      { box-shadow: 0 14px 40px rgba(0,0,0,.55), 0 0 36px rgba(255,180,80,.45) inset; }
+}
+.race-hud .race-hint-title {
+  font-size: clamp(20px, 3.2vw, 32px);
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(255,140,40,.55);
+  line-height: 1.1;
+}
+.race-hud .race-hint-sub {
+  margin-top: 6px;
+  font-size: clamp(12px, 1.4vw, 16px);
+  font-weight: 600;
+  color: #ffd9a0;
+  opacity: .92;
+  letter-spacing: .02em;
+  line-height: 1.3;
+}
+
+/* Reuse existing .fx-shake animation if you have one; otherwise: */
+@keyframes fx-shake-kf {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-4px); }
+  40%     { transform: translateX(4px); }
+  60%     { transform: translateX(-3px); }
+  80%     { transform: translateX(3px); }
+}
+.fx-shake { animation: fx-shake-kf .35s ease; }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   ──────────────────────────────────────────────────────────────────
+   ≤ 920px   tablet / large phone landscape
+   ≤ 720px   phone landscape / small tablet
+   ≤ 480px   phone portrait
+   ≤ 380px   tiny phone portrait (iPhone SE 1st gen, etc.)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Tablet & large phone landscape ───────────────────────────────── */
+@media (max-width: 920px) {
+  .race-hud .hud-tl-info  { min-width: 116px; padding: 7px 12px; }
+  .race-hud .hud-pause    { width: 48px; }
+  .race-hud .hud-tr       { min-width: 184px; padding: 7px 9px; }
+  .race-hud .hud-speed-val{ font-size: clamp(26px, 3.6vw, 34px); }
+  .race-hud .hud-tc       { width: clamp(180px, 36vw, 480px); }
+}
+
+/* Phone landscape / small tablet ───────────────────────────────── */
+@media (max-width: 720px) {
+  .race-hud .hud-tl       { top: 10px; left: 10px; border-radius: 8px; }
+  .race-hud .hud-pause    { width: 42px; }
+  .race-hud .hud-pause .bar { width: 4px; height: 16px; }
+  .race-hud .hud-tl-info  { min-width: 100px; padding: 6px 10px; gap: 2px; }
+  .race-hud .hud-label    { font-size: 10px; letter-spacing: .12em; }
+  .race-hud .hud-value    { font-size: 14px; }
+
+  .race-hud .hud-tc       { top: 12px; width: clamp(140px, 36vw, 360px); }
+  .race-hud .hud-bar-track{ height: 10px; }
+  .race-hud .hud-lap      { font-size: 10px; padding: 2px 8px; }
+
+  .race-hud .hud-tr       { top: 10px; right: 10px; min-width: 160px; padding: 6px 8px; border-radius: 8px; }
+  .race-hud .hud-speed-unit { font-size: 10px; margin-top: 3px; }
+  .race-hud .hud-speed-val  { font-size: 26px; }
+  .race-hud .hud-time-box   { padding: 3px 8px; margin-top: 6px; }
+  .race-hud .hud-time-val   { font-size: 13px; }
+  .race-hud .hud-nitro      { margin-top: 6px; }
+  .race-hud .hud-nitro-label{ font-size: 10px; }
+  .race-hud .hud-nitro-bar  { height: 10px; }
+  .race-hud .hud-best       { font-size: 9.5px; margin-top: 4px; }
+
+  .race-hud .race-hint      { padding: 12px 22px; min-width: 220px; top: 22%; }
+}
+
+/* Phone portrait — re-arrange so HUD doesn't crowd the canvas ───── */
+@media (max-width: 480px) {
+  /* Smaller, single-line POS/DIST stack stays at top-left */
+  .race-hud .hud-tl       { top: 8px; left: 8px; }
+  .race-hud .hud-pause    { width: 38px; }
+  .race-hud .hud-pause .bar { width: 4px; height: 14px; }
+  .race-hud .hud-tl-info  { min-width: 88px; padding: 5px 9px; }
+  .race-hud .hud-label    { font-size: 9px; }
+  .race-hud .hud-value    { font-size: 13px; }
+
+  /* Hide the big center distance bar on tiny screens — DIST.% in
+     the top-left already conveys progress. */
+  .race-hud .hud-tc       { display: none; }
+
+  /* Compact right panel */
+  .race-hud .hud-tr       { top: 8px; right: 8px; min-width: 130px; padding: 5px 7px; }
+  .race-hud .hud-speed-unit { font-size: 9px; letter-spacing: .12em; }
+  .race-hud .hud-speed-val  { font-size: 22px; }
+  .race-hud .hud-time-box   { margin-top: 5px; padding: 3px 7px; gap: 5px; }
+  .race-hud .hud-time-val   { font-size: 12px; }
+  .race-hud .hud-time-ico svg { width: 12px; height: 12px; }
+  .race-hud .hud-nitro      { margin-top: 5px; }
+  .race-hud .hud-nitro-label{ font-size: 9px; letter-spacing: .12em; }
+  .race-hud .hud-nitro-bar  { height: 8px; gap: 3px; }
+  .race-hud .hud-best       { font-size: 9px; margin-top: 3px; letter-spacing: .10em; }
+
+  .race-hud .race-hint      { padding: 10px 18px; min-width: 200px; max-width: 86vw; top: 18%; }
+  .race-hud .race-hint-title{ font-size: 18px; }
+  .race-hud .race-hint-sub  { font-size: 11px; }
+}
+
+/* Tiny phones (iPhone SE / 4-inch range) ────────────────────────── */
+@media (max-width: 380px) {
+  .race-hud .hud-tl-info  { min-width: 78px; padding: 4px 8px; }
+  .race-hud .hud-value    { font-size: 12px; }
+  .race-hud .hud-tr       { min-width: 116px; padding: 4px 6px; }
+  .race-hud .hud-speed-val{ font-size: 20px; }
+  .race-hud .hud-time-val { font-size: 11px; }
+  .race-hud .hud-nitro-bar{ height: 7px; }
+}
+
+/* Landscape phones — keep HUD slim so it doesn't eat vertical space */
+@media (max-height: 480px) and (orientation: landscape) {
+  .race-hud .hud-tl       { top: 6px; left: 6px; }
+  .race-hud .hud-tr       { top: 6px; right: 6px; }
+  .race-hud .hud-tc       { top: 6px; }
+  .race-hud .race-hint    { top: 14%; padding: 10px 22px; }
+  .race-hud .race-hint-title { font-size: clamp(16px, 3vw, 22px); }
+  .race-hud .race-hint-sub   { font-size: clamp(10px, 1.3vw, 13px); }
+}
+
+/* Hover-capable devices: subtle hover affordance on pause */
+@media (hover: hover) {
+  .race-hud .hud-pause:hover { background: rgba(255,45,138,.15); }
 }

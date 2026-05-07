@@ -356,17 +356,14 @@
        ════════════════════════════════════════════════════════ -->
   <div id="s-game" class="scr">
     <canvas id="gc"></canvas>
-    <div id="hud">
-      <div class="hb"><span class="hl">SPEED</span><span class="hv" id="h-spd">0</span><span class="hu">km/h</span></div>
-      <div class="hb"><span class="hl">LAP</span><span class="hv" id="h-lap">0:00.000</span></div>
-      <div id="hc"><div id="pw"><div id="pf"></div></div><span id="pl">0%</span></div>
-      <div class="hb"><span class="hl">BEST</span><span class="hv" id="h-best">--:--</span></div>
-      <div class="hb"><span class="hl">FPS</span><span class="hv" id="h-fps">60</span></div>
-    </div>
-    <div id="lp"><div class="lpt">TIMES</div><div id="ll"></div></div>
+    <!-- ────────────────────────────────────────────────────────
+         The Asphalt-style race HUD (.race-hud) is now built
+         dynamically by uiRender.js (buildRaceHUD).
+         The old #hud strip, #lp "TIMES" panel and #pbtn pause
+         button have been removed — the new HUD owns all of that.
+         ──────────────────────────────────────────────────────── -->
     <div id="ow"></div>
     <div id="cd"><span id="cdn"></span></div>
-    <button id="pbtn">⏸</button>
 
     <div id="tc">
       <div id="tcl">

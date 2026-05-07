@@ -15,6 +15,7 @@ export const P = {
   speed: 0,
   playerX: 0,
   cameraX: 0,
+  cameraAirY: 0,
   cameraCurve: 0,
   lapTime: 0,
   lapTimes: [],
@@ -85,6 +86,7 @@ export function resetPhys() {
   P.speed = 0;
   P.playerX = 0;
   P.cameraX = 0;
+  P.cameraAirY = 0;
   P.cameraCurve = 0;
   P.lapTime = 0;
   P.lapTimes = [];
@@ -258,6 +260,13 @@ function tickReversePuzzle(d) {
 export function updatePhys(inp, dt, len) {
   const d = Math.min(dt, 0.05);
   tickCollisionState(d);
+
+  // Smooth camera Y follow when car jumps
+const jumpCamFollow = C.JUMP_CAMERA_FOLLOW ?? 0.45;
+const jumpCamTarget = (P.airY || 0) * jumpCamFollow;
+
+const jumpCamSmooth = 1 - Math.pow(0.001, d * 4.5);
+P.cameraAirY += (jumpCamTarget - P.cameraAirY) * jumpCamSmooth;
 
   // Smooth fake 180 camera transition.
   if (P.cameraTurning) {

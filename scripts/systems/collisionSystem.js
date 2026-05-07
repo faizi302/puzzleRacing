@@ -1,10 +1,22 @@
 // ═══════════════════════════════════════════════════════
 // COLLISION SYSTEM — Pickups + solid scenery collision
-// Tunnel / arch now works as REAL BLOCKER:
+// ─────────────────────────────────────────────────────────
+// NITRO PICKUP RULE (Asphalt-Legends behaviour):
+//   • Touching a booster bottle ONLY fills the nitro bar
+//     (+25% per bottle). It does NOT play any nitro sound,
+//     does NOT spawn a flame, does NOT boost speed.
+//   • If the bar is already full, the bottle is left alive
+//     (not consumed) and the next pass the player can still
+//     see/collect it.
+//   • The actual nitro burst (sound + flame + speed bonus)
+//     is fired EXCLUSIVELY by Spacebar, handled in
+//     player.js → tryActivateNitro().
+// ─────────────────────────────────────────────────────────
+// Tunnel / arch behaviour unchanged:
 //   ✅ tunnel never disappears
-//   ✅ player cannot pass through center line
+//   ✅ player cannot pass through center pillar line
 //   ✅ player is pushed back + sideways
-//   ✅ if player drives again in same line, collision happens again
+//   ✅ if player drives again into same line, collision happens again
 // ═══════════════════════════════════════════════════════
 import { IMG } from '../visuals/objectRender.js';
 import { P, applyCollisionImpact } from './roadSystem.js';
@@ -433,24 +445,8 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
 // HURDLE COLLISION — positional, only blocks where the
 // hurdle physically sits. Player can freely pass any
 // clear gap beside or between hurdles.
-//
-// CRITICAL: hurdleHalfW MUST match the renderer formula
-// exactly: C.ROAD_W * o.size * s.scale  (full width).
-// Half of that = o.size * s.scale * 0.5 in road-X units
-// (road half-width = 1.0 by convention).
-//
-// Per-sprite scale values mirror sceneryConfig.js SPR:
-//   gorillaRock: scale 1.00
-//   woodFence:   scale 0.65   ← wide sprite, small scale
-//   stoneWall:   scale 1.00
-//   stoneBlock:  scale 1.00
-// Without per-sprite scale the fence hitbox was 2× too
-// wide, making the center gap impassable even though the
-// visual showed clear space.
+// (Logic unchanged — see original comments.)
 // ═══════════════════════════════════════════════════════
-
-// Mirror of SPR.scale from sceneryConfig — kept local so
-// collisionSystem has zero import dependency on sceneryConfig.
 const HURDLE_SPR_SCALE = {
   gorillaRock: 1.00,
   woodFence: 0.65,
@@ -459,20 +455,21 @@ const HURDLE_SPR_SCALE = {
 };
 
 function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
-  // ── Hitbox dimensions ──────────────────────────────────
-  // X  : match renderer (o.size * sprScale * 0.5) × tightening 0.82
-  // Z  : depth half-extent in road units, derived from o.size so
-  //      smaller hurdles have shallower boxes (gorillaRock ~32,
-  //      woodFence ~23, stoneBlock ~37).
   const sprScale = HURDLE_SPR_SCALE[o.kind] ?? 1.00;
   const hurdleSize = o.size ?? 0.45;
   const hurdleHalfW = hurdleSize * sprScale * 0.5 * 0.82;
-  const hurdleHalfZ = hurdleSize * sprScale * 80;   // depth half-extent (road units)
+  const hurdleHalfZ = hurdleSize * sprScale * 80;
+
+  const airY = P.airY || 0;
+  const clearAirHeight = o.clearAirHeight ?? 55;
+
+  if (P.isAirborne && airY > clearAirHeight) {
+    return;
+  }
 
   const playerHalfW = 0.28;
-  const playerHalfZ = 80;   // matches getPlayerCollisionInfo().halfZ
+  const playerHalfZ = 80;
 
-  // ── 2-D AABB overlap test ─────────────────────────────
   const xOverlap = (P.playerX + playerHalfW) > (objX - hurdleHalfW) &&
     (P.playerX - playerHalfW) < (objX + hurdleHalfW);
   const zOverlap = dz > -(hurdleHalfZ + playerHalfZ) &&
@@ -480,24 +477,17 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
   if (!xOverlap || !zOverlap) return;
 
-  // ── Minimum Separation Vector ─────────────────────────
-  // Penetration depths are in different units (X: road fractions 0-1,
-  // Z: world units ~0-3200). Normalize each to 0-1 relative to the
-  // combined half-extents so the axis comparison is scale-independent.
   const penXraw = (playerHalfW + hurdleHalfW) - Math.abs(P.playerX - objX);
   const penZraw = (playerHalfZ + hurdleHalfZ) - Math.abs(dz);
 
-  // Normalized penetration: 1.0 = fully inside, 0 = just touching edge.
   const penXnorm = penXraw / (playerHalfW + hurdleHalfW);
   const penZnorm = penZraw / (playerHalfZ + hurdleHalfZ);
 
   const lateralPushDir = P.playerX < objX ? -1 : 1;
-  // dz > 0 → hurdle is ahead → push player backward (pos--)
-  // dz < 0 → hurdle is behind → push player forward  (pos++)
   const zPushSign = dz > 0 ? -1 : 1;
 
   if (penXnorm <= penZnorm) {
-    // ── Side hit (left or right face of hurdle) ──────────
+    // Side hit
     P.playerX += lateralPushDir * (penXraw + 0.02);
     clampPlayerX();
 
@@ -510,15 +500,13 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
       spawnCrash(screenAnchorX + lateralPushDir * 60, screenAnchorY - 30);
       safeSfx('crash');
     }
-
   } else {
-    // ── Front / back hit ─────────────────────────────────
+    // Front / back hit
     const posDelta = (penZraw + C.SEG_LEN * 0.18) * zPushSign;
     P.pos += posDelta;
     if (P.pos < 0) P.pos += trackLen;
     while (P.pos >= trackLen) P.pos -= trackLen;
 
-    // Preserve speed direction (reversers stay reversing, just slower).
     const normalMax = C.NORMAL_MAX || 70;
     const sign = P.speed < 0 ? -1 : 1;
     P.speed = sign * Math.min(Math.abs(P.speed) * 0.45, normalMax * 0.38);
@@ -557,7 +545,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
     const objX = objLateralX(o);
 
-    // KEY
+    // ── KEY ──
     if (cat === 'key') {
       if (Math.abs(px - objX) < 0.42 && dz < 100 && dz > -120) {
         o._dead = true;
@@ -568,7 +556,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // COIN — tighter pickup
+    // ── COIN — tighter pickup ──
     if (cat === 'coin') {
       const coinHalfW = 0.10;
       const coinBackZ = -45;
@@ -577,7 +565,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       if (Math.abs(px - objX) < coinHalfW && dz < coinAheadZ && dz > coinBackZ) {
         o._dead = true;
 
-        addCoins(1); // ← this updates total coins
+        addCoins(1);
 
         spawnPickup(screenAnchorX, screenAnchorY - 80);
         safeSfx('coin');
@@ -585,24 +573,44 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // BOOSTER — also tighter, but slightly larger than coin
-if (cat === 'booster') {
-  if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
-    const stored = addNitroBottle();
+    // ═══════════════════════════════════════════════════
+    // BOOSTER (NITRO BOTTLE) — STORAGE-ONLY PICKUP
+    // ─────────────────────────────────────────────────────
+    // Behaviour (Asphalt Legends):
+    //   • Try to add +25% to the bar via addNitroBottle().
+    //   • If the bar was already FULL, addNitroBottle() returns
+    //     false → we DO NOT mark the bottle dead, DO NOT spawn
+    //     the visual, DO NOT play any sound. Player can come back
+    //     and pick it up after they've burned some nitro.
+    //   • If it was stored, mark dead + spawn the soft "Charge"
+    //     glow. NO nitro sound is played here — the activation
+    //     SFX only plays when the player presses Spacebar in
+    //     player.js → tryActivateNitro().
+    // ═══════════════════════════════════════════════════
+    if (cat === 'booster') {
+      if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
+        const stored = addNitroBottle();   // +25%, returns false if bar is full
+        if (!stored) continue;             // bar full → leave the bottle alive
 
-    // If nitro bar is full, do not remove/pick the bottle
-    if (!stored) continue;
+        o._dead = true;
+        spawnPickup(screenAnchorX, screenAnchorY - 90, true);
 
-    o._dead = true;
-    spawnPickup(screenAnchorX, screenAnchorY - 90, true);
-    safeSfx('nitro');
-  }
-  continue;
-}
+        // ⚠️  DO NOT play 'nitro' SFX here. Pickup is silent.
+        //     The nitro activation sound is fired ONLY by Spacebar
+        //     inside player.js. Playing it here would cause the
+        //     "nitro sound auto plays randomly" bug.
+        //
+        //     If you want a soft *bottle-collected* feedback ping
+        //     (NOT the nitro burn sound), use 'coin' at low volume:
+        //
+        //       safeSfx('coin', { volume: 0.35 });
+        //
+        //     This is OFF by default to match the spec exactly.
+      }
+      continue;
+    }
 
-    // TUNNEL / ARCH / CENTER HURDLE
-    // Important: no o._dead here.
-    // This remains solid forever.
+    // ── TUNNEL / ARCH / CENTER HURDLE ──
     if (cat === 'arch') {
       resolveTunnelGateCollision(
         o,
@@ -614,39 +622,37 @@ if (cat === 'booster') {
       continue;
     }
 
-    // JUMP RAMP COLLISION
-if (o.isJump) {
-  const jumpDz = wrapDz(o.z, playerZ);
-
-  // player reaches ramp front area
-  if (jumpDz > -80 && jumpDz < 180) {
-    const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
-
-    // must be in same lane as ramp
-    if (
-      laneDiff < 0.45 &&
-      !P.isAirborne &&
-      (P._jumpCooldown || 0) <= 0
-    ) {
+    // ── JUMP RAMP ──
+    if (o.isJump) {
       const spr = JUMP_SPR[o.kind] || {};
+      const jumpDz = wrapDz(o.z, playerZ);
 
-      launchPlayerJump(o, spr);
+      const hitBackZ = o.hitBackZ ?? spr.hitBackZ ?? -70;
+      const hitFrontZ = o.hitFrontZ ?? spr.hitFrontZ ?? 160;
+      const hitHalfW = o.hitHalfW ?? spr.hitHalfW ?? 0.42;
 
-      // prevent repeated trigger while touching same ramp
-      // o._usedJump = true;
+      const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+
+      if (
+        jumpDz > hitBackZ &&
+        jumpDz < hitFrontZ &&
+        laneDiff < hitHalfW &&
+        !P.isAirborne &&
+        (P._jumpCooldown || 0) <= 0
+      ) {
+        launchPlayerJump(o, spr);
+      }
+
+      continue;
     }
-  }
 
-  continue;
-}
-
-    // ON-ROAD HURDLE — positional collision only where the sprite sits.
+    // ── ON-ROAD HURDLE ──
     if (cat === 'hurdle') {
       resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);
       continue;
     }
 
-    // SIDE OBJECTS
+    // ── SIDE OBJECTS ──
     if (cat === 'sideScenery' || cat === 'hardSide') {
       resolveSideSceneryCollision(
         o,

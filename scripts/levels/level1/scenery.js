@@ -43,14 +43,13 @@ export function buildSceneryObjects() {
     }
   }
 
-  // Boundary poles for Road1 fake road and Road2 winning road
-  addBoundaryPoles(-25, total - 80, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
+  addBoundaryPoles(-25, total - 80, 1, 1.10);
 
   // ── START BANNER exactly above starting line ─────────────
   if (!onRoad2) {
     objs.push({
       kind: 'startBanner',
-      z: 0,              // exact start line position
+      z: 0,
       side: 0,
       offset: 0,
       overhead: true,
@@ -152,28 +151,26 @@ export function buildSceneryObjects() {
 
   // ── ON-ROAD HURDLES ──────────────────────────────────
   const HURDLES = [
-    { kind: 'gorillaRock', seg: 55,   offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 400,  offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1080, offset:  0.00, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1260, offset:  0.00, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1760, offset:  0.00, size: 0.40 },
-    { kind: 'stoneWall',   seg: 170,  offset:  0.00, size: 0.40 },
-    { kind: 'stoneWall',   seg: 700,  offset:  0.70, size: 0.40 },
-    { kind: 'stoneWall',   seg: 840,  offset:  0.00, size: 0.40 },
-    { kind: 'stoneWall',   seg: 930,  offset:  0.00, size: 0.40 },
-    { kind: 'woodFence',   seg: 95,   offset:  0.70, size: 0.70 },
-    { kind: 'woodFence',   seg: 365,  offset:  0.70, size: 0.70 },
-    { kind: 'woodFence',   seg: 600,  offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset:  0.70, size: 0.70 },
-    { kind: 'woodFence',   seg: 1520, offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1520, offset:  0.70, size: 0.70 },
-    { kind: 'stoneBlock',  seg: 320,  offset:  0.00, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 670,  offset:  0.70, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 760,  offset: -0.58, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 970,  offset: -0.58, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 1390, offset:  0.00, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 1560, offset:  0.00, size: 0.45 },
+    { kind: 'gorillaRock', seg: 55,   offset: -0.58, size: 0.40,clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 400,  offset: -0.58, size: 0.40,clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1080, offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1260, offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1760, offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'stoneWall',   seg: 170,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'stoneWall',   seg: 700,  offset:  0.70, size: 0.40,clearAirHeight: 10 },
+    { kind: 'stoneWall',   seg: 840,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'stoneWall',   seg: 930,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
+    { kind: 'woodFence',   seg: 95,   offset:  0.70, size: 0.70,clearAirHeight: 10 },
+    { kind: 'woodFence',   seg: 365,  offset:  0.70, size: 0.70,clearAirHeight: 10 },
+    { kind: 'woodFence',   seg: 600,  offset: -0.58, size: 0.70,clearAirHeight: 10 },
+    { kind: 'woodFence',   seg: 1190, offset: -0.58, size: 0.70,clearAirHeight: 10 },
+    { kind: 'woodFence',   seg: 1190, offset:  0.70, size: 0.70,clearAirHeight: 10 }, 
+    { kind: 'woodFence',   seg: 1520, offset:  0.70, size: 0.70,clearAirHeight: 10 },
+    { kind: 'stoneBlock',  seg: 320,  offset:  0.00, size: 0.45,clearAirHeight: 10 },
+    { kind: 'stoneBlock',  seg: 670,  offset:  0.70, size: 0.45,clearAirHeight: 10 },
+    { kind: 'stoneBlock',  seg: 970,  offset: -0.58, size:	 0.45,clearAirHeight: 10 },
+    { kind: 'stoneBlock',  seg: 1390, offset:  0.00, size: 0.45,clearAirHeight: 10 },
+    { kind: 'stoneBlock',  seg: 1560, offset:  0.00, size: 0.45,clearAirHeight: 10 },
   ];
 
   for (const h of HURDLES) {
@@ -188,37 +185,34 @@ export function buildSceneryObjects() {
     });
   }
 
-  // ── ON-ROAD JUMPS — ONE OF EACH KIND, SPREAD ALONG TRACK
+  // ═════════════════════════════════════════════════════
+  // ON-ROAD JUMPS — boostPad ONLY, evenly spread
   // ─────────────────────────────────────────────────────
-  // Every jump kind appears exactly ONCE in this list. As you
-  // drive forward you encounter them in order, evenly spaced so
-  // you see one, drive past it, then meet the next.
-  //
-  // Add more entries (or duplicate kinds at different segs) to
-  // place additional jumps — same format as HURDLES above.
-  // ─────────────────────────────────────────────────────
-const JUMPS = [
-  { kind: 'boostPad', seg: 120,  offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 260,  offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 420,  offset: 0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 590,  offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 750,  offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 940,  offset: 0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 1130, offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 1320, offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 1510, offset: 0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 1720,  offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 2060,  offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 2220,  offset: 0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 2700,  offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 3000,  offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 3340,  offset: 0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 3730, offset: 0.00, size: 1.10 },
-  { kind: 'boostPad', seg: 4000, offset: -0.55, size: 1.10 },
-  { kind: 'boostPad', seg: 4200, offset: 0.55, size: 1.10 },
-];
+  // ONLY boostPad is used (per request). One every ~70 segments.
+  // Lanes alternate: center → left → right → center, so the
+  // player must steer to take them.
+  // ═════════════════════════════════════════════════════
+  const BOOSTPAD_SPACING = 70;     // segments between pads
+  const BOOSTPAD_FIRST   = 100;    // first pad position
+  const BOOSTPAD_LAST    = total - 30;
+
+  const lanePattern = [0.00, -0.55, 0.55];   // center, left, right (loops)
+
+  const JUMPS = [];
+  let padIdx = 0;
+  for (let s = BOOSTPAD_FIRST; s < BOOSTPAD_LAST; s += BOOSTPAD_SPACING) {
+    JUMPS.push({
+      kind: 'boostPad',
+      seg: s,
+      offset: lanePattern[padIdx % lanePattern.length],
+      size: 1.10,
+    });
+    padIdx++;
+  }
+
   for (const j of JUMPS) {
     if (j.seg >= total - 8) continue;
+    if (j.seg < 5) continue;
     objs.push({
       kind: j.kind,
       z: j.seg * C.SEG_LEN,

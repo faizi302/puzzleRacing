@@ -69,9 +69,9 @@ C.FORK_Z = C.FORK_SEG * C.SEG_LEN;
 // BOOSTPAD_KICK       : multiplier on speed when crossing a boost
 //                       arrow pad (no jump, just nitro-style kick).
 // ═══════════════════════════════════════════════════════
-C.JUMP_BASE_VY        = 320;
+C.JUMP_BASE_VY        = 50;
 C.JUMP_SPEED_VY       = 420;
-C.JUMP_GRAVITY        = 1550;
+C.JUMP_GRAVITY        = 1750;
 C.JUMP_MIN_SPEED_FRAC = 0.15;
 C.JUMP_AIR_STEER      = 0.40;
 C.JUMP_AIR_DRAG       = 0.06;
@@ -80,7 +80,7 @@ C.BOOSTPAD_KICK       = 5.18;
 
 // Visual scale: airborne Y in pixels = P.airY * JUMP_VISUAL_SCALE.
 // The renderer multiplies by getRes() automatically.
-C.JUMP_VISUAL_SCALE   = 1.20;
+C.JUMP_VISUAL_SCALE   = 0.90;
 
 export const COL = {
   SKY0:'#040810', SKY1:'#091428', SKY2:'#0b1a0a',
