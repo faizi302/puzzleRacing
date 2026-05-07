@@ -58,8 +58,8 @@ function drawGroundBase(secretT) {
   const isLevel2 = lvl?.id === 'level2';
 
   if (isLevel2) {
-    g.addColorStop(0, '#c8c5bb');
-    g.addColorStop(0.45, '#9c9991');
+    g.addColorStop(0, '#BAB7B4');
+    g.addColorStop(0.45, '#C6C3BE');
     g.addColorStop(1, '#676767');
   } else if (secretT > 0.55) {
     g.addColorStop(0, '#25472f');

@@ -6,13 +6,20 @@
 // drawScenery() pass.
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
-import { SPR, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
 import { segs, trackLen, getActiveTrack } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from './objectRender.js';
 import { _visibleSegs } from './roadRender.js';
+// import { getActiveLevel } from '../core/activeLevel.js';
+
+import { SPR, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
+import { SPR_L2 } from '../configs/sceneryConfigLevel2.js';
 import { getActiveLevel } from '../core/activeLevel.js';
+
+function getScenerySPR() {
+  return getActiveLevel?.() === 'level2' ? SPR_L2 : SPR;
+}
 
 // Live binding — re-assigned by buildScenery() to whatever the
 // active level returns. Importers (collisionSystem, GameScene)
@@ -74,7 +81,7 @@ function resolveSprite(kind) {
     if (!spr) return null;
     return { spr, atlas: IMG.jumps };
   }
-  const spr = SPR[kind];
+  const spr = getScenerySPR()[kind];
   if (!spr) return null;
   return { spr, atlas: IMG.scenery };
 }
