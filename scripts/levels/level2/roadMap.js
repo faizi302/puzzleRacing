@@ -5,7 +5,7 @@ const eIO = (a, b, p) =>
 
 function addSegTo(target, curve, hill) {
   const n = target.length;
-  const isS = n < C.RUMBLE * 2;
+  const isStart = n < C.RUMBLE * 2;
 
   target.push({
     index: n,
@@ -13,7 +13,7 @@ function addSegTo(target, curve, hill) {
     p2: { world: { x: 0, y: 0, z: (n + 1) * C.SEG_LEN }, cam: {}, scr: {} },
     curve,
     hill,
-    col: isS
+    col: isStart
       ? LCOL.START
       : Math.floor(n / C.RUMBLE) % 2
         ? LCOL.DARK
@@ -22,69 +22,82 @@ function addSegTo(target, curve, hill) {
 }
 
 function makeBuilder(target) {
-  const addStretch = (nE, nH, nL, cv, hl) => {
-    for (let i = 0; i < nE; i++) addSegTo(target, eIO(0, cv, i / nE), eIO(0, hl, i / nE));
-    for (let i = 0; i < nH; i++) addSegTo(target, cv, hl);
-    for (let i = 0; i < nL; i++) addSegTo(target, eIO(cv, 0, i / nL), eIO(hl, 0, i / nL));
+  const addStretch = (enter, hold, leave, curveValue, hillValue = 0) => {
+    for (let i = 0; i < enter; i++) {
+      addSegTo(target, eIO(0, curveValue, i / Math.max(1, enter)), eIO(0, hillValue, i / Math.max(1, enter)));
+    }
+
+    for (let i = 0; i < hold; i++) {
+      addSegTo(target, curveValue, hillValue);
+    }
+
+    for (let i = 0; i < leave; i++) {
+      addSegTo(target, eIO(curveValue, 0, i / Math.max(1, leave)), eIO(hillValue, 0, i / Math.max(1, leave)));
+    }
   };
 
   return {
-    straight: (n = 40) => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, 0, 0),
-    curve: (n = 60, cv = 1, hl = 0) => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, cv, hl),
-    addStretch,
+    straight(n = 80, hill = 0) {
+      addStretch(Math.floor(n * 0.20), Math.floor(n * 0.60), Math.floor(n * 0.20), 0, hill);
+    },
+
+    curve(n = 100, curveValue = 1, hill = 0) {
+      addStretch(Math.floor(n * 0.25), Math.floor(n * 0.50), Math.floor(n * 0.25), curveValue, hill);
+    },
+
+    sCurve(n = 180, left = -0.8, right = 0.8) {
+      this.curve(Math.floor(n * 0.50), left, 0);
+      this.curve(Math.floor(n * 0.50), right, 0);
+    },
   };
 }
 
-function buildRoad1() {
+function buildLevel2MainRoad() {
   const out = [];
-  const { straight, curve, addStretch } = makeBuilder(out);
+  const b = makeBuilder(out);
 
-  addStretch(1, C.RUMBLE * 2, 1, 0, 0);
+  // start area
+  for (let i = 0; i < C.RUMBLE * 2; i++) addSegTo(out, 0, 0);
 
-  straight(90);
-  curve(120, 0.45, 0);
-  straight(150);
-  curve(140, -0.75, 0);
-  straight(180);
-  curve(100, 0.95, 0);
-  straight(220);
-  curve(160, -0.45, 0);
-  straight(200);
-  curve(120, 0.35, 0);
-  straight(260);
-  curve(180, -0.65, 0);
-  straight(300);
+  // LEVEL 2: long city road with different rhythm from Level 1
+  b.straight(160);
+  b.curve(170, 0.95);
+  b.straight(120);
 
-  return out;
-}
+  b.sCurve(260, -1.10, 1.05);
+  b.straight(190);
 
-function buildRoad2() {
-  const out = [];
-  const { straight, curve, addStretch } = makeBuilder(out);
+  b.curve(220, -0.85);
+  b.straight(140);
 
-  addStretch(1, C.RUMBLE * 2, 1, 0, 0);
+  b.curve(260, 1.25);
+  b.straight(220);
 
-  straight(100);
-  curve(130, -0.60, 0);
-  straight(220);
-  curve(160, 0.85, 0);
-  straight(260);
-  curve(190, -0.90, 0);
-  straight(300);
-  curve(150, 0.55, 0);
-  straight(280);
-  curve(170, -0.40, 0);
-  straight(360);
+  b.sCurve(300, 0.80, -1.20);
+  b.straight(180);
+
+  b.curve(240, -1.35);
+  b.straight(260);
+
+  b.curve(210, 0.70);
+  b.straight(340);
 
   return out;
 }
 
 export function buildRoads() {
-  const r1 = buildRoad1();
-  const r2 = buildRoad2();
+  const road = buildLevel2MainRoad();
 
   return {
-    road1: { segs: r1, len: r1.length * C.SEG_LEN },
-    road2: { segs: r2, len: r2.length * C.SEG_LEN },
+    road1: {
+      segs: road,
+      len: road.length * C.SEG_LEN,
+    },
+
+    // no back road / no secret road in Level 2
+    road2: {
+      segs: road,
+      len: road.length * C.SEG_LEN,
+    },
   };
 }
