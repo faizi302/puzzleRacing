@@ -15,14 +15,13 @@ import { P, clamp } from '../systems/roadSystem.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from './objectRender.js';
 import { _visibleSegs } from './roadRender.js';
-// import { getActiveLevel } from '../core/activeLevel.js';
-
-import { SPR, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
-import { SPR_L2 } from '../configs/sceneryConfigLevel2.js';
 import { getActiveLevel } from '../core/activeLevel.js';
 
+import { SPR, SPR_BY_LEVEL, JUMP_SPR, JUMP_KINDS } from '../configs/sceneryConfig.js';
+
 function getScenerySPR() {
-  return getActiveLevel?.() === 'level2' ? SPR_L2 : SPR;
+  const levelId = getActiveLevel?.()?.id || 'level1';
+  return SPR_BY_LEVEL[levelId] || SPR;
 }
 
 // Live binding — re-assigned by buildScenery() to whatever the
@@ -80,6 +79,7 @@ function resolveSprite(kind) {
     if (!spr) return null;
     return { spr, atlas: IMG.jumps, isJumpAtlas: true };
   }
+
   const spr = getScenerySPR()[kind];
   if (!spr) return null;
   return { spr, atlas: IMG.scenery, isJumpAtlas: false };
@@ -103,7 +103,7 @@ function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
 // ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
   if (!_visibleSegs.length) return;
-  if (!IMG.scenery.ready && !IMG.jumps.ready) return;
+  if (!IMG.scenery?.ready && !IMG.jumps?.ready) return
 
   // One-shot atlas-loaded log
   if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
@@ -250,17 +250,30 @@ y = it.y - drawH * anchor;
       const side = it.o.side || 1;
       let worldR;
 
-      if (it.o.isBoundaryPole) {
-        worldR = C.ROAD_W * 0.11 * s.scale;
+      if (it.o.isBoundaryPole && it.o.fixedSize) {
+        const poleSize = it.o.screenSize ?? 70;
+
+        drawW = poleSize * _res * (it.o.size ?? 1);
+        drawH = drawW * (s.sh / s.sw);
+
+        const groundX = it.cx + side * it.rw * it.o.offset;
+        x = groundX - drawW / 2;
+        y = it.y - drawH * s.anchorY;
+
+        if (y > _H || x > _W + drawW || x < -drawW) continue;
+        if (y + drawH < horizonY) continue;
+
       } else {
+        const objSize = it.o.size ?? 1;
+
         worldR = it.o.small
-          ? C.ROAD_W * 0.28 * s.scale
-          : C.ROAD_W * 0.82 * s.scale;
+          ? C.ROAD_W * 0.28 * s.scale * objSize
+          : C.ROAD_W * 0.82 * s.scale * objSize;
       }
 
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
-      const minW = it.o.isBoundaryPole ? 4 * _res : (it.o.small ? 16 * _res : 48 * _res);
-      const maxW = it.o.isBoundaryPole ? 42 * _res : (it.o.small ? 0.20 * _W : 0.55 * _W);
+      const minW = it.o.isBoundaryPole ? 8 * _res  : (it.o.small ? 16 * _res : 48 * _res);
+      const maxW = it.o.isBoundaryPole ? 0.18 * _W : (it.o.small ? 0.20 * _W : 0.55 * _W);
       drawW = clamp(drawW, minW, maxW);
       drawH = drawW * (s.sh / s.sw);
 
