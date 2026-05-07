@@ -44,7 +44,7 @@ export function buildSceneryObjects() {
   }
 
   // Boundary poles for Road1 fake road and Road2 winning road
-  addBoundaryPoles(-25, total - 80, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
+  addBoundaryPoles(-25, total - 25, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
 
   // ── START BANNER exactly above starting line ─────────────
   if (!onRoad2) {
