@@ -43,9 +43,6 @@ export function buildSceneryObjects() {
     }
   }
 
-<<<<<<< HEAD
-  addBoundaryPoles(6, total - 25, 2, 1.10);
-=======
   // Boundary poles for Road1 fake road and Road2 winning road
   addBoundaryPoles(-25, total - 80, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
 
@@ -61,7 +58,6 @@ export function buildSceneryObjects() {
       size: 1.15,
     });
   }
->>>>>>> b4bee9a22aa310ae3d9e9c539f702d132b88eef8
 
   const trees = ['pineTall', 'tallTree', 'pineBig', 'pineSmall'];
 
