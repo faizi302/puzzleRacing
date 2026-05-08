@@ -70,6 +70,14 @@ export const findSeg = (z) => {
   return segs[((i % segs.length) + segs.length) % segs.length];
 };
 
+export const findSegOnTrack = (z, track = 1) => {
+  const arr = track === 2 ? _t2Segs : _t1Segs;
+  if (!arr.length) return null;
+
+  const i = Math.floor(z / C.SEG_LEN);
+  return arr[((i % arr.length) + arr.length) % arr.length];
+};
+
 export const project = (p, camX, camY, camZ, W, H) => {
   p.cam.x = (p.world.x || 0) - camX;
   p.cam.y = (p.world.y || 0) - camY;

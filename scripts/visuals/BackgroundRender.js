@@ -113,7 +113,8 @@ export function drawBG() {
   const ctx = getCtx();
   const W = getW();
   const H = getH();
-  const skyH = (H * 0.43) | 0;
+const jumpShift = Math.min(42, (P.cameraAirY || 0) * 0.06);
+const skyH = ((H * 0.43) + jumpShift) | 0;
 
   const speed01 = clamp(Math.abs(P.speed) / C.NORMAL_MAX, 0, 1.2);
   const curve = P.cameraCurve ?? P.roadCurve;
@@ -131,8 +132,8 @@ export function drawBG() {
   const forwardFrame = HORIZON_FRAMES[forwardKey] || HORIZON_FRAMES.E;
   const backwardFrame = HORIZON_FRAMES[backwardKey] || HORIZON_FRAMES.C;
 
-  drawCoverFrame(ctx, IMG.horizon, forwardFrame, 0, 0, W, skyH, _panE, 1 - turnT);
-  drawCoverFrame(ctx, IMG.horizon, backwardFrame, 0, 0, W, skyH, _panC, turnT);
+drawCoverFrame(ctx, IMG.horizon, forwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panE, 1 - turnT);
+drawCoverFrame(ctx, IMG.horizon, backwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panC, turnT);
 
   drawGroundBase(turnT);
   drawCameraTurnOverlay(turnT);

@@ -82,6 +82,13 @@ C.BOOSTPAD_KICK       = 5.18;
 // The renderer multiplies by getRes() automatically.
 C.JUMP_VISUAL_SCALE   = 0.90;
 
+// ═══════════════════════════════════════════════════════
+// JUMP CAMERA FOLLOW (AAA camera jump system)
+// ═══════════════════════════════════════════════════════
+
+C.JUMP_CAMERA_FOLLOW = 7.15;
+C.JUMP_CAMERA_VISUAL_SCALE = 0.10;
+
 export const COL = {
   SKY0:'#040810', SKY1:'#091428', SKY2:'#0b1a0a',
   HILL_A:'#1a5c12', HILL_B:'#0f3a0a',

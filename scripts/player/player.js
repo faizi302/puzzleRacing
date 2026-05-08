@@ -1,58 +1,24 @@
 // ═══════════════════════════════════════════════════════
-// PLAYER — Car renderer + Asphalt-LEGENDS style Nitro System
+// PLAYER — JSON car renderer + Asphalt-LEGENDS Nitro System
 // ═══════════════════════════════════════════════════════
-// NITRO RULES (matches Asphalt Legends behaviour 1:1):
-//
-//   1. Booster bottle pickup is STORAGE ONLY:
-//        • Fill bar (+25% per bottle).
-//        • NO flame, NO speed boost, NO nitro sound.
-//        • If bar already 100%  →  pickup is rejected (return false),
-//          collisionSystem keeps the bottle alive.
-//
-//   2. SPACEBAR is the ONLY way to start nitro.
-//        • Edge-triggered (one press = one activation).
-//        • If stored > 0  →  activate.
-//        • If stored == 0 →  do nothing. No sound. No flame.
-//
-//   3. ONE press uses ALL stored nitro.
-//        • Drain rate is constant (20% per second).
-//        • 100% bar  → 5.0s burn.
-//        • 50%  bar  → 2.5s burn.
-//        • 25%  bar  → 1.25s burn.
-//        • Formula: burnTimeMs = (storedPercent / 100) * 5000
-//
-//   4. While nitro is active:
-//        • Rear flame ON.
-//        • Looping nitro SFX ON (one source, never doubled).
-//        • Speed clamped above (current + 30km/h) target.
-//        • Bar drains continuously.
-//
-//   5. When bar reaches 0:
-//        • Flame OFF.
-//        • Loop SFX OFF.
-//        • Speed target released (engine returns to normal).
-//
-//   6. Down-arrow during active burn cancels the burn early.
-//        Remaining stored % stays in the bar for next press.
-//        (Keeps the original Asphalt-9 "tap-to-cancel" feel.)
-// ═══════════════════════════════════════════════════════
+
 import { P } from '../systems/roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from '../visuals/objectRender.js';
 import { consumeNitroPress, K } from '../core/inputController.js';
 
-// Audio — defensive: missing helpers become no-ops.
+import {
+  loadPlayerCarSprites,
+  getSelectedPlayerSprite,
+} from '../visuals/playerCarSprites.js';
+
 import * as Audio from '../core/audio.js';
 
 const sfx = (name, opts) => {
   try { Audio.playSfx?.(name, opts); } catch (_) { }
 };
 
-// ─── Nitro loop helpers ──────────────────────────────────
-// We always use a UNIQUE key ('nitroLoop') so the looping
-// activation sound can never collide with a one-shot 'nitro'
-// SFX or with the engine loop.
 const NITRO_LOOP_KEY = 'nitroLoop';
 
 function nitroLoopStart(volume = 0.85) {
@@ -68,7 +34,20 @@ function nitroLoopStop() {
 }
 
 // ═══════════════════════════════════════════════════════
-// CAMERA INTRO/OUTRO (untouched)
+// LOAD PLAYER JSON SPRITES
+// ═══════════════════════════════════════════════════════
+let _playerSpritesStarted = false;
+
+export function ensurePlayerSpritesLoaded() {
+  if (_playerSpritesStarted) return;
+  _playerSpritesStarted = true;
+  loadPlayerCarSprites();
+}
+
+ensurePlayerSpritesLoaded();
+
+// ═══════════════════════════════════════════════════════
+// CAMERA INTRO/OUTRO
 // ═══════════════════════════════════════════════════════
 export const camAnim = { intro: false, t: 1.0, outro: false, outroT: 0 };
 
@@ -99,45 +78,37 @@ export function getCamCarScale() {
 export function getCamCarYOff() {
   return 0;
 }
+
 export function getFadeAlpha() {
   return camAnim.intro ? Math.max(0, 1 - camAnim.t * 1.4) : 0;
 }
 
-// * ═══════════════════════════════════════════════════════
-// * CAR SPRITE FRAMES
-// * ═══════════════════════════════════════════════════════
-const FRAMES_A = [
-  { x: 1, y: 1, w: 119, h: 101, sx: 17, sy: 40 }, { x: 1, y: 104, w: 117, h: 101, sx: 19, sy: 40 },
-  { x: 1, y: 308, w: 115, h: 100, sx: 20, sy: 40 }, { x: 1, y: 410, w: 114, h: 100, sx: 21, sy: 40 },
-  { x: 475, y: 1, w: 111, h: 99, sx: 23, sy: 40 }, { x: 1490, y: 1, w: 109, h: 97, sx: 24, sy: 41 },
-  { x: 1712, y: 1, w: 108, h: 97, sx: 24, sy: 41 }, { x: 1042, y: 1, w: 110, h: 96, sx: 21, sy: 41 },
-  { x: 1154, y: 1, w: 110, h: 96, sx: 19, sy: 41 }, { x: 701, y: 1, w: 112, h: 95, sx: 16, sy: 41 },
-  { x: 815, y: 1, w: 112, h: 94, sx: 14, sy: 41 }, { x: 929, y: 1, w: 111, h: 95, sx: 12, sy: 41 },
-  { x: 1266, y: 1, w: 110, h: 96, sx: 11, sy: 41 }, { x: 1378, y: 1, w: 110, h: 96, sx: 9, sy: 41 },
-  { x: 701, y: 98, w: 108, h: 97, sx: 8, sy: 41 }, { x: 1601, y: 1, w: 109, h: 97, sx: 7, sy: 42 },
-  { x: 588, y: 1, w: 111, h: 97, sx: 6, sy: 42 }, { x: 360, y: 1, w: 113, h: 98, sx: 5, sy: 42 },
-  { x: 243, y: 1, w: 115, h: 98, sx: 5, sy: 42 }, { x: 1, y: 207, w: 117, h: 99, sx: 4, sy: 42 },
-  { x: 122, y: 1, w: 119, h: 99, sx: 4, sy: 42 },
-];
+// ═══════════════════════════════════════════════════════
+// JSON CAR FRAME STATE
+// ═══════════════════════════════════════════════════════
+let _frameFloat = 9;
+let _frameTarget = 9;
 
-const SRC_W = 140;
-const SRC_H = 173;
-const ANCHOR_X = 0.5;
-const ANCHOR_Y = 0.65;
-const STRAIGHT = 9;
-const TOTAL = FRAMES_A.length;
+function getPlayerSpriteSafe() {
+  ensurePlayerSpritesLoaded();
+  return getSelectedPlayerSprite();
+}
 
-let _frameFloat = STRAIGHT;
-let _frameTarget = STRAIGHT;
+function getBaseCarSize() {
+  const sprite = getPlayerSpriteSafe();
+  return {
+    srcW: sprite?.srcW || 140,
+    srcH: sprite?.srcH || 173,
+  };
+}
 
-const _sheet = new Image();
-_sheet.ready = false;
-_sheet.onload = () => { _sheet.ready = true; };
-_sheet.onerror = () => console.warn('[player] UnitsTeamB.png not found');
-_sheet.src = 'assets/player/UnitsTeamB.png';
+function getStraightIndex(sprite) {
+  if (!sprite?.frames?.length) return 9;
+  return sprite.straightIndex ?? Math.floor(sprite.frames.length / 2);
+}
 
 // ═══════════════════════════════════════════════════════
-// EFFECTS.JSON ATLAS — load exactly once
+// EFFECTS.JSON ATLAS
 // ═══════════════════════════════════════════════════════
 let FX_ATLAS = null;
 let FX_READY = false;
@@ -211,6 +182,7 @@ function drawFxFrame(ctx, animName, frameIndex, cx, cy, size, opt = {}) {
   } else {
     ctx.drawImage(IMG.effects, fr.x, fr.y, fr.w, fr.h, dx, dy, dw, dh);
   }
+
   ctx.restore();
 }
 
@@ -242,27 +214,22 @@ function drawOneShots(ctx) {
 }
 
 // ═══════════════════════════════════════════════════════
-// NITRO STATE MACHINE — strict Asphalt Legends behaviour
-// ─────────────────────────────────────────────────────────
-//   Storage  : 0..100  (percent)
-//   Per pick : +25%
-//   Burn time: storedPercent / 100 * 5000ms  (constant 20%/s)
-//   Boost    : +30 km/h while active
+// NITRO STATE MACHINE
 // ═══════════════════════════════════════════════════════
 const NITRO_MAX_PERCENT     = 100;
-const NITRO_PER_BOTTLE      = 25;            // +25% per bottle
-const NITRO_FULL_BURN_TIME  = 5.0;           // seconds for 100%
-const NITRO_DRAIN_PER_SEC   = NITRO_MAX_PERCENT / NITRO_FULL_BURN_TIME; // = 20% / s
-const NITRO_SPEED_BONUS     = 30;            // +30 km/h overhead on top of current
-const PICKUP_FX_DURATION    = 0.70;          // seconds the "Charge" pickup glow plays
-const ACTIVATION_GRACE      = 0.08;          // ignore very-fast Down-arrow cancel after Space
+const NITRO_PER_BOTTLE      = 25;
+const NITRO_FULL_BURN_TIME  = 5.0;
+const NITRO_DRAIN_PER_SEC   = NITRO_MAX_PERCENT / NITRO_FULL_BURN_TIME;
+const NITRO_SPEED_BONUS     = 30;
+const PICKUP_FX_DURATION    = 0.70;
+const ACTIVATION_GRACE      = 0.08;
 
 function ensureNitroState() {
   if (P._nitroInit) return;
 
   P._nitroInit         = true;
-  P.nitroMax           = NITRO_MAX_PERCENT;   // exposed to HUD (100)
-  P.nitroStored        = P.nitroStored ?? 0;  // 0..100
+  P.nitroMax           = NITRO_MAX_PERCENT;
+  P.nitroStored        = P.nitroStored ?? 0;
   P.nitroActive        = false;
   P.nitroPickupFxTime  = 0;
 
@@ -274,13 +241,6 @@ function ensureNitroState() {
   P.nitroBottlePickedUp = false;
 }
 
-// ─── PICKUP (called by collisionSystem) ──────────────────
-// Returns:
-//   true  → bottle stored successfully (caller should mark dead)
-//   false → bar full, ignore pickup     (caller keeps bottle alive)
-//
-// IMPORTANT: This is silent. No sound, no flame, no boost.
-// It is purely a +25% bar fill plus a soft visual glow.
 export function addNitroBottle() {
   ensureNitroState();
 
@@ -291,41 +251,31 @@ export function addNitroBottle() {
   return true;
 }
 
-// Expose globally so any code path can grant a bottle.
 if (typeof window !== 'undefined') {
   window.addNitroBottle = addNitroBottle;
 }
 
-// ─── ACTIVATION (Spacebar edge) ──────────────────────────
 function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
   ensureNitroState();
 
-  // Already burning? Ignore extra presses.
   if (P.nitroActive) return false;
-
-  // Empty bar → press does nothing. No SFX. No flame.
   if ((P.nitroStored || 0) <= 0) return false;
 
-  // ── Activate ──
   P.nitroActive       = true;
   P._nitroActivationT = 0;
 
   const normalMax = C.NORMAL_MAX || 100;
   const nitroMax  = C.NITRO_MAX  || normalMax + NITRO_SPEED_BONUS;
 
-  // Lift current speed by +30 km/h (clamped to NITRO_MAX) and
-  // hold it as a floor while the burn lasts.
-  P._nitroTargetSpeed = Math.min(nitroMax, Math.max(0, P.speed || 0) + NITRO_SPEED_BONUS);
-  P.speed             = Math.max(P.speed || 0, P._nitroTargetSpeed);
+  P._nitroTargetSpeed = Math.min(
+    nitroMax,
+    Math.max(0, P.speed || 0) + NITRO_SPEED_BONUS
+  );
 
-  // ── Visual: one big rear burst on ignition ──
+  P.speed = Math.max(P.speed || 0, P._nitroTargetSpeed);
+
   spawnFx('Boost', anchorX, anchorY + drawH * 0.05, drawW * 1.9, 32, 0.95, 'lighter');
 
-  // ── Audio: ONLY the looping flame sound. No one-shot on top. ──
-  // The looping nitro SFX will keep playing until the bar runs out
-  // (or the player cancels with Down). Using a unique key prevents
-  // any collision with the engine loop or with one-shot 'nitro'
-  // calls fired from elsewhere.
   if (!P._nitroLoopOn) {
     nitroLoopStart(0.85);
     P._nitroLoopOn = true;
@@ -334,11 +284,8 @@ function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
   return true;
 }
 
-// ─── STOP (bar empty OR cancelled) ───────────────────────
-function stopNitro(/* reason = 'empty' | 'cancel' | 'forced' */) {
+function stopNitro() {
   if (!P.nitroActive) {
-    // Make absolutely sure no stale loop is left running
-    // even if state got out of sync somehow.
     if (P._nitroLoopOn) {
       nitroLoopStop();
       P._nitroLoopOn = false;
@@ -355,7 +302,6 @@ function stopNitro(/* reason = 'empty' | 'cancel' | 'forced' */) {
   }
 }
 
-// ─── External pickup signals (legacy hooks, kept) ────────
 function watchExternalPickupSignals() {
   ensureNitroState();
 
@@ -371,28 +317,24 @@ function watchExternalPickupSignals() {
   }
 }
 
-// ─── Per-frame nitro tick ────────────────────────────────
 export function updateNitro(dt) {
   ensureNitroState();
 
   watchExternalPickupSignals();
 
-  // Pickup glow fades out independently of activation state.
   if (P.nitroPickupFxTime > 0) {
     P.nitroPickupFxTime = Math.max(0, P.nitroPickupFxTime - dt);
   }
 
-  // ── Edge-detect Space press ──
-  // consumeNitroPress() returns true ONCE per physical key press.
-  // Holding Space does NOT re-trigger thanks to inputController.js.
   if (consumeNitroPress()) {
     const W = getW();
     const H = getH();
     const res = getRes();
+    const { srcW, srcH } = getBaseCarSize();
 
     const SCALE = 1.5 * getCamCarScale();
-    const drawW = (SRC_W * res * SCALE) | 0;
-    const drawH = (SRC_H * res * SCALE) | 0;
+    const drawW = (srcW * res * SCALE) | 0;
+    const drawH = (srcH * res * SCALE) | 0;
 
     const ax = W / 2;
     const ay = ((H * 0.89) + getCamCarYOff() * res) | 0;
@@ -400,36 +342,28 @@ export function updateNitro(dt) {
     tryActivateNitro(ax, ay, drawW, drawH);
   }
 
-  // ── Active burn: drain bar + hold speed floor ──
   if (P.nitroActive) {
     P._nitroActivationT += dt;
 
-    // Continuous drain. 100% -> empty in 5s.
     P.nitroStored = Math.max(0, P.nitroStored - NITRO_DRAIN_PER_SEC * dt);
 
-    // Keep speed pinned at the target while the burn lasts.
     if (P._nitroTargetSpeed > 0) {
       P.speed = Math.max(P.speed || 0, P._nitroTargetSpeed);
     }
 
-    // Optional: Down-arrow cancels the burn (Asphalt-9 behaviour).
-    // Remaining stored % stays in the bar for the next press.
     const downNow  = !!K.down;
     const downEdge = downNow && !P._lastDownForCancel;
     P._lastDownForCancel = downNow;
 
     if (downEdge && P._nitroActivationT > ACTIVATION_GRACE) {
-      stopNitro('cancel');
+      stopNitro();
     } else if (P.nitroStored <= 0) {
       P.nitroStored = 0;
-      stopNitro('empty');
+      stopNitro();
     }
   } else {
-    // Track Down state so that re-pressing later still edge-detects.
     P._lastDownForCancel = !!K.down;
 
-    // Safety net: if for ANY reason we ended up with active=false
-    // but the loop flag is still true, kill the loop.
     if (P._nitroLoopOn) {
       nitroLoopStop();
       P._nitroLoopOn = false;
@@ -438,7 +372,7 @@ export function updateNitro(dt) {
 }
 
 // ═══════════════════════════════════════════════════════
-// JUMP PHYSICS (untouched)
+// JUMP PHYSICS
 // ═══════════════════════════════════════════════════════
 export function launchPlayerJump(jumpObj, jumpSpr = {}) {
   if (P.isAirborne) return false;
@@ -463,7 +397,11 @@ export function launchPlayerJump(jumpObj, jumpSpr = {}) {
   P.jumpPitch    = 0;
   P._jumpCooldown = 0.45;
 
-  P.speed = Math.min(nitroMax, Math.max(P.speed * forwardKick, P.speed + speedKickKmh));
+  P.speed = Math.min(
+    nitroMax,
+    Math.max(P.speed * forwardKick, P.speed + speedKickKmh)
+  );
+
   return true;
 }
 
@@ -493,9 +431,6 @@ export function updateJumpPhysics(dt) {
 let _fxClock = 0;
 
 function drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH) {
-  // Hard gate: flame only when actively burning AND bar > 0.
-  // The moment either is false, this draws nothing — guaranteeing
-  // there is no "ghost flame" after the bar empties.
   if (!P.nitroActive || P.nitroStored <= 0) return;
 
   const ramp = Math.min(1, P._nitroActivationT * 6);
@@ -541,55 +476,6 @@ function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
     ax: 0.5,
     ay: 0.5,
   });
-}
-
-// Legacy in-canvas nitro bar (DOM HUD is the source of truth now,
-// but kept for screenshot mode / debugging). Untouched logic — just
-// reads the new percent-based P.nitroStored / P.nitroMax.
-function drawNitroBar(ctx, W, H, res) {
-  const max = P.nitroMax || NITRO_MAX_PERCENT;
-  const stored = Math.max(0, Math.min(max, P.nitroStored || 0));
-
-  const x = W - 250 * res;
-  const y = 32 * res;
-  const w = 190 * res;
-  const h = 18 * res;
-  const gap = 6 * res;
-  const segW = (w - gap * 2) / 3;
-  const segMax = max / 3;
-
-  ctx.save();
-
-  ctx.fillStyle = 'rgba(0,0,0,0.48)';
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(x - 10 * res, y - 10 * res, w + 20 * res, h + 34 * res, 14 * res);
-    ctx.fill();
-  } else {
-    ctx.fillRect(x - 10 * res, y - 10 * res, w + 20 * res, h + 34 * res);
-  }
-
-  ctx.fillStyle = '#fff';
-  ctx.font = `700 ${13 * res}px system-ui, Arial`;
-  ctx.textAlign = 'left';
-  ctx.fillText('NITRO', x, y - 4 * res);
-
-  for (let i = 0; i < 3; i++) {
-    const sx = x + i * (segW + gap);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    ctx.fillRect(sx, y, segW, h);
-
-    const fill = Math.max(0, Math.min(1, (stored - i * segMax) / segMax));
-    if (fill > 0) {
-      ctx.fillStyle = P.nitroActive
-        ? 'rgba(255,210,60,0.95)'
-        : 'rgba(60,210,255,0.95)';
-      ctx.fillRect(sx, y, segW * fill, h);
-    }
-  }
-
-  ctx.restore();
 }
 
 function drawDriftSkid(ctx, anchorX, anchorY, drawW, drawH) {
@@ -658,6 +544,8 @@ function drawBaseDust(ctx, anchorX, anchorY, drawW, drawH) {
 let _lastImpact = 0;
 let _lastTime = 0;
 
+
+
 // ═══════════════════════════════════════════════════════
 // MAIN CAR RENDER
 // ═══════════════════════════════════════════════════════
@@ -674,26 +562,41 @@ export function drawCar(steerVisual = 0) {
   updateOneShots(dt);
   updateJumpPhysics(dt);
 
-  const visual = Math.max(-1, Math.min(1, steerVisual || 0));
-  _frameTarget = STRAIGHT + visual * STRAIGHT;
-  const k = 1 - Math.pow(0.001, dt * 8);
-  _frameFloat += (_frameTarget - _frameFloat) * k;
-
-  const idx = Math.max(0, Math.min(TOTAL - 1, Math.round(_frameFloat)));
-
   const ctx = getCtx();
   const W = getW();
   const H = getH();
   const res = getRes();
 
+  const sprite = getPlayerSpriteSafe();
+  const frames = sprite?.frames || [];
+  const straight = getStraightIndex(sprite);
+  const total = frames.length || 21;
+
+  const visual = Math.max(-1, Math.min(1, steerVisual || 0));
+  _frameTarget = straight + visual * straight;
+
+  const k = 1 - Math.pow(0.001, dt * 8);
+  _frameFloat += (_frameTarget - _frameFloat) * k;
+
+  const idx = Math.max(0, Math.min(total - 1, Math.round(_frameFloat)));
+  const f = frames[idx];
+
+  const srcW = sprite?.srcW || 140;
+  const srcH = sprite?.srcH || 173;
+
   const SCALE = 1.5 * getCamCarScale();
-  const drawH = (SRC_H * res * SCALE) | 0;
-  const drawW = (SRC_W * res * SCALE) | 0;
+  const drawH = (srcH * res * SCALE) | 0;
+  const drawW = (srcW * res * SCALE) | 0;
 
   const roadOffsetX = (P.playerX - P.cameraX) * W * 0.42;
   const anchorX = W / 2 + roadOffsetX;
-  const airOffset = (P.airY || 0) * (C.JUMP_VISUAL_SCALE || 1) * res;
-  const anchorY = (((H * 0.89) + getCamCarYOff() * res) - airOffset) | 0;
+
+
+const airOffset = (P.airY || 0) * (C.JUMP_VISUAL_SCALE || 1) * res;
+const camJumpOffset = (P.cameraAirY || 0) * (C.JUMP_CAMERA_VISUAL_SCALE ?? 0.35) * res;
+
+const anchorY =
+  (((H * 0.89) + getCamCarYOff() * res) - airOffset + camJumpOffset) | 0;
 
   if ((P.impactFlash || 0) > 0.15 && _lastImpact <= 0.15) {
     spawnFx('Burst', anchorX, anchorY - drawH * 0.28, drawW * 1.1, 34, 0.75, 'lighter');
@@ -706,56 +609,52 @@ export function drawCar(steerVisual = 0) {
   drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH);
   drawBaseDust(ctx, anchorX, anchorY, drawW, drawH);
 
-  // CAR SPRITE
+  const anchorFrameX = f?.anchorX ?? sprite?.anchorX ?? 0.5;
+  const anchorFrameY = f?.anchorY ?? sprite?.anchorY ?? 0.65;
+
   const driftShift = P.isManualDrifting ? -visual * drawW * 0.045 : 0;
-  const dx = anchorX - drawW * ANCHOR_X + driftShift;
-  const dy = anchorY - drawH * ANCHOR_Y;
+  const dx = anchorX - drawW * anchorFrameX + driftShift;
+  const dy = anchorY - drawH * anchorFrameY;
 
-  if (_sheet.ready) {
-    const f = FRAMES_A[idx];
+ 
 
-    ctx.save();
-    ctx.globalAlpha = 0.40;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.ellipse(
-      anchorX,
-      anchorY + drawH * 0.06,
-      drawW * 0.48,
-      drawH * 0.06,
-      0, 0, Math.PI * 2
-    );
-    ctx.fill();
-    ctx.restore();
-
+  if (sprite?.img?.ready && f) {
     ctx.drawImage(
-      _sheet,
-      f.x, f.y, f.w, f.h,
-      dx + (f.sx / SRC_W) * drawW,
-      dy + (f.sy / SRC_H) * drawH,
-      (f.w / SRC_W) * drawW,
-      (f.h / SRC_H) * drawH
+      sprite.img,
+      f.x,
+      f.y,
+      f.w,
+      f.h,
+      dx + (f.sx / srcW) * drawW,
+      dy + (f.sy / srcH) * drawH,
+      (f.w / srcW) * drawW,
+      (f.h / srcH) * drawH
     );
   } else {
     ctx.fillStyle = '#1a88ff';
-    ctx.fillRect(dx + drawW * 0.08, dy + drawH * 0.28, drawW * 0.84, drawH * 0.65);
+    ctx.fillRect(
+      dx + drawW * 0.08,
+      dy + drawH * 0.28,
+      drawW * 0.84,
+      drawH * 0.65
+    );
   }
 
   // OVER CAR
   drawLensFlare(ctx, anchorX, anchorY, drawW, drawH);
   drawOneShots(ctx);
-
-  // NITRO bar is now drawn by the DOM HUD (uiRender.js).
 }
 
 // ═══════════════════════════════════════════════════════
-// PUBLIC ANCHOR / COLLISION HELPERS (unchanged contracts)
+// PUBLIC ANCHOR / COLLISION HELPERS
 // ═══════════════════════════════════════════════════════
 export function getCarAnchor() {
   const res = getRes();
+  const { srcW, srcH } = getBaseCarSize();
+
   const SCALE = 1.5 * getCamCarScale();
-  const drawW = (SRC_W * res * SCALE) | 0;
-  const drawH = (SRC_H * res * SCALE) | 0;
+  const drawW = (srcW * res * SCALE) | 0;
+  const drawH = (srcH * res * SCALE) | 0;
 
   const W = getW();
   const H = getH();
@@ -788,4 +687,6 @@ export function getPlayerCollisionInfo() {
   };
 }
 
-export function forceStopNitro() { stopNitro('forced'); }
+export function forceStopNitro() {
+  stopNitro();
+}
