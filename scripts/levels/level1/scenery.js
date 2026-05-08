@@ -152,26 +152,26 @@ export function buildSceneryObjects() {
 
   // ── ON-ROAD HURDLES ──────────────────────────────────
   const HURDLES = [
-    { kind: 'gorillaRock', seg: 55,   offset: -0.58, size: 0.40,clearAirHeight: 10 },
-    { kind: 'gorillaRock', seg: 400,  offset: -0.58, size: 0.40,clearAirHeight: 10 },
-    { kind: 'gorillaRock', seg: 1080, offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'gorillaRock', seg: 1260, offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'gorillaRock', seg: 1760, offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'stoneWall',   seg: 170,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'stoneWall',   seg: 700,  offset:  0.70, size: 0.40,clearAirHeight: 10 },
-    { kind: 'stoneWall',   seg: 840,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'stoneWall',   seg: 930,  offset:  0.00, size: 0.40,clearAirHeight: 10 },
-    { kind: 'woodFence',   seg: 95,   offset:  0.70, size: 0.70,clearAirHeight: 10 },
-    { kind: 'woodFence',   seg: 365,  offset:  0.70, size: 0.70,clearAirHeight: 10 },
-    { kind: 'woodFence',   seg: 600,  offset: -0.58, size: 0.70,clearAirHeight: 10 },
-    { kind: 'woodFence',   seg: 1190, offset: -0.58, size: 0.70,clearAirHeight: 10 },
-    { kind: 'woodFence',   seg: 1190, offset:  0.70, size: 0.70,clearAirHeight: 10 }, 
-    { kind: 'woodFence',   seg: 1520, offset:  0.70, size: 0.70,clearAirHeight: 10 },
-    { kind: 'stoneBlock',  seg: 320,  offset:  0.00, size: 0.45,clearAirHeight: 10 },
-    { kind: 'stoneBlock',  seg: 670,  offset:  0.70, size: 0.45,clearAirHeight: 10 },
-    { kind: 'stoneBlock',  seg: 970,  offset: -0.58, size:	 0.45,clearAirHeight: 10 },
-    { kind: 'stoneBlock',  seg: 1390, offset:  0.00, size: 0.45,clearAirHeight: 10 },
-    { kind: 'stoneBlock',  seg: 1560, offset:  0.00, size: 0.45,clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 55, offset: -0.58, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 400, offset: -0.58, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1080, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1260, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1760, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 170, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 700, offset: 0.70, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 840, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 930, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 95, offset: 0.70, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 365, offset: 0.70, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 600, offset: -0.58, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1190, offset: -0.58, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1190, offset: 0.70, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1520, offset: 0.70, size: 0.70, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 320, offset: 0.00, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 670, offset: 0.70, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 970, offset: -0.58, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 1390, offset: 0.00, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 1560, offset: 0.00, size: 0.45, clearAirHeight: 10 },
   ];
 
   for (const h of HURDLES) {
@@ -194,8 +194,8 @@ export function buildSceneryObjects() {
   // player must steer to take them.
   // ═════════════════════════════════════════════════════
   const BOOSTPAD_SPACING = 70;     // segments between pads
-  const BOOSTPAD_FIRST   = 100;    // first pad position
-  const BOOSTPAD_LAST    = total - 30;
+  const BOOSTPAD_FIRST = 100;    // first pad position
+  const BOOSTPAD_LAST = total - 30;
 
   const lanePattern = [0.00, -0.55, 0.55];   // center, left, right (loops)
 

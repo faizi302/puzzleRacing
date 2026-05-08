@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════════════════════
-// OBJECT RENDER — Image loader (effects + scenery + horizon)
+// OBJECT RENDER — Level-safe image loader
+// Fix: when returning Level2 → Level1, images are reset correctly.
 // ═══════════════════════════════════════════════════════
+
 export function loadImage(src) {
   const img = new Image();
   img.ready = false;
@@ -10,6 +12,7 @@ export function loadImage(src) {
 
   img.promise = new Promise((resolve) => {
     const tryLoad = () => {
+      img.ready = false;
       img.src = list[i];
     };
 
@@ -34,59 +37,66 @@ export function loadImage(src) {
   return img;
 }
 
-export const IMG = {
-  horizon: loadImage([
+// ── DEFAULT LEVEL 1 IMAGES ─────────────────────────────
+// These are used whenever the active level does not provide custom paths.
+const DEFAULT_LEVEL_IMAGES = {
+  horizon: [
     'assets/backgrounds/Horizons.jpg',
     'assets/Horizons.jpg',
     'Horizons.jpg',
-  ]),
+  ],
 
-  segments: loadImage([
+  segments: [
     'assets/level/level1/LocationESegments.jpg',
     'assets/LocationESegments.jpg',
     'LocationESegments.jpg',
-  ]),
+  ],
 
-  scenery: loadImage([
+  scenery: [
     'assets/level/level1/LocationEScenery.png',
     'assets/LocationEScenery.png',
     'LocationEScenery.png',
-  ]),
+  ],
 
-  // ── Jumps atlas — try several locations so it works no matter
-  //    where you put jumps.png in the project.
-  jumps: loadImage([
+  jumps: [
     'assets/level/level1/jumps.png',
     'assets/level/level2/jumps.png',
     'assets/scenery/jumps.png',
     'assets/jumps.png',
     'jumps.png',
-  ]),
+  ],
+};
+
+export const IMG = {
+  horizon: loadImage(DEFAULT_LEVEL_IMAGES.horizon),
+  segments: loadImage(DEFAULT_LEVEL_IMAGES.segments),
+  scenery: loadImage(DEFAULT_LEVEL_IMAGES.scenery),
+  jumps: loadImage(DEFAULT_LEVEL_IMAGES.jumps),
 
   effects: loadImage([
     'assets/player/Effects.png',
     'assets/Effects.png',
-    'Effects.png'
+    'Effects.png',
   ]),
 };
 
-export function setLevelImages(levelMeta) {
+export async function setLevelImages(levelMeta) {
   const waits = [];
 
-  if (levelMeta?.segmentsImage) {
-    IMG.segments = loadImage(levelMeta.segmentsImage);
-    waits.push(IMG.segments.promise);
-  }
+  // IMPORTANT:
+  // Always reset to Level 1 defaults when a level does not provide
+  // its own image paths. This fixes Level2 → Level1 wrong atlas issue.
+  const segmentsSrc = levelMeta?.segmentsImage || DEFAULT_LEVEL_IMAGES.segments;
+  const scenerySrc  = levelMeta?.sceneryImage  || DEFAULT_LEVEL_IMAGES.scenery;
+  const jumpsSrc    = levelMeta?.jumpsImage    || DEFAULT_LEVEL_IMAGES.jumps;
 
-  if (levelMeta?.sceneryImage) {
-    IMG.scenery = loadImage(levelMeta.sceneryImage);
-    waits.push(IMG.scenery.promise);
-  }
+  IMG.segments = loadImage(segmentsSrc);
+  IMG.scenery  = loadImage(scenerySrc);
+  IMG.jumps    = loadImage(jumpsSrc);
 
-  if (levelMeta?.jumpsImage) {
-    IMG.jumps = loadImage(levelMeta.jumpsImage);
-    waits.push(IMG.jumps.promise);
-  }
+  waits.push(IMG.segments.promise);
+  waits.push(IMG.scenery.promise);
+  waits.push(IMG.jumps.promise);
 
   return Promise.all(waits);
 }

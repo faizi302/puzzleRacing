@@ -107,7 +107,7 @@ export function drawScenery() {
 
   // One-shot atlas-loaded log
   if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
-      IMG.jumps.ready && !_debugReportedAtlasLoaded) {
+    IMG.jumps.ready && !_debugReportedAtlasLoaded) {
     console.log('[scenery] IMG.jumps loaded:',
       IMG.jumps.naturalWidth + 'x' + IMG.jumps.naturalHeight,
       'src:', IMG.jumps.src);
@@ -180,22 +180,22 @@ export function drawScenery() {
       // JUMP RAMP — physical-size projection (BIGGER & BOLDER)
       // ═══════════════════════════════════════════════════
 
-const jumpSize = it.o.size ?? 1.00;
+      const jumpSize = it.o.size ?? 1.00;
 
-// width relative to road width at that exact depth
-const roadFrac = it.o.roadFrac ?? s.roadFrac ?? 0.78;
+      // width relative to road width at that exact depth
+      const roadFrac = it.o.roadFrac ?? s.roadFrac ?? 0.78;
 
-// manual height multiplier
-const heightMul = it.o.heightMul ?? s.heightMul ?? 0.85;
+      // manual height multiplier
+      const heightMul = it.o.heightMul ?? s.heightMul ?? 0.85;
 
-drawW = it.rw * roadFrac * jumpSize;
-drawH = drawW * (s.sh / s.sw) * heightMul;
+      drawW = it.rw * roadFrac * jumpSize;
+      drawH = drawW * (s.sh / s.sw) * heightMul;
 
-const groundX = it.cx + (it.o.offset || 0) * it.rw;
-x = groundX - drawW / 2;
+      const groundX = it.cx + (it.o.offset || 0) * it.rw;
+      x = groundX - drawW / 2;
 
-const anchor = s.anchorY ?? 1.0;
-y = it.y - drawH * anchor;
+      const anchor = s.anchorY ?? 1.0;
+      y = it.y - drawH * anchor;
 
       if (y > _H || x > _W + drawW || x < -drawW) continue;
       if (y + drawH < horizonY - 50) continue;
@@ -207,25 +207,38 @@ y = it.y - drawH * anchor;
       y = it.y - drawH * s.anchorY;
 
     } else if (it.o.isCoin || it.o.isBooster || it.o.isKey) {
-      const perspective = clamp(it.scale * 1800, 0.08, 1.65);
+      const perspective = clamp(it.scale * 1800, 0.04, 1.45);
+
       let baseSize;
-      if (it.o.isKey) baseSize = 130;
-      else if (it.o.isBooster) baseSize = 92;
-      else baseSize = 80;
+      let minSize;
+      let maxSize;
 
-      drawW = baseSize * perspective * _res;
+      if (it.o.isKey) {
+        baseSize = s.renderBase ?? 130;
+        minSize = (s.renderMin ?? 32) * _res;
+        maxSize = (s.renderMax ?? 240) * _res;
+      } else if (it.o.isBooster) {
+        baseSize = s.renderBase ?? 92;
+        minSize = (s.renderMin ?? 14) * _res;
+        maxSize = (s.renderMax ?? 100) * _res;
+      } else {
+        // COIN — now controlled per level from scenery config
+        baseSize = s.renderBase ?? 58;
+        minSize = (s.renderMin ?? 10) * _res;
+        maxSize = (s.renderMax ?? 78) * _res;
+      }
+
+      const objSize = it.o.size ?? 1;
+      const spriteScale = s.scale ?? 1;
+
+      drawW = baseSize * perspective * spriteScale * objSize * _res;
       drawH = drawW * (s.sh / s.sw);
-
-      let minSize, maxSize;
-      if (it.o.isKey) { minSize = 32 * _res; maxSize = 240 * _res; }
-      else if (it.o.isBooster) { minSize = 14 * _res; maxSize = 100 * _res; }
-      else { minSize = 20 * _res; maxSize = 180 * _res; }
 
       drawW = clamp(drawW, minSize, maxSize);
       drawH = drawW * (s.sh / s.sw);
 
       x = it.cx + it.o.offset * it.rw - drawW / 2;
-      y = it.y - drawH * 0.88;
+      y = it.y - drawH * (s.anchorY ?? 0.88);
 
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
@@ -267,13 +280,27 @@ y = it.y - drawH * anchor;
         const objSize = it.o.size ?? 1;
 
         worldR = it.o.small
-          ? C.ROAD_W * 0.28 * s.scale * objSize
+          ? C.ROAD_W * 0.20 * s.scale * objSize
           : C.ROAD_W * 0.82 * s.scale * objSize;
       }
-
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
-      const minW = it.o.isBoundaryPole ? 8 * _res  : (it.o.small ? 16 * _res : 48 * _res);
-      const maxW = it.o.isBoundaryPole ? 0.18 * _W : (it.o.small ? 0.20 * _W : 0.55 * _W);
+
+      let minW;
+      let maxW;
+
+      if (it.o.isBoundaryPole) {
+        // far poles small, near poles still big
+        const nearT = clamp(1 - it.dz / 9000, 0, 1);
+
+        minW = 0.34 * _res;
+        maxW = (18 + nearT * 70) * _res;
+      } else {
+        minW = it.o.small ? 16 * _res : 48 * _res;
+        maxW = it.o.small ? 0.20 * _W : 0.55 * _W;
+      }
+
+      drawW = clamp(drawW, minW, maxW);
+      drawH = drawW * (s.sh / s.sw);
       drawW = clamp(drawW, minW, maxW);
       drawH = drawW * (s.sh / s.sw);
 
