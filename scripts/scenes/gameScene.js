@@ -41,6 +41,15 @@ import {
   showRaceHint, hideRaceHint,
 } from '../visuals/uiRender.js';
 
+import {
+  resetOpponents,
+  updateOpponents,
+  getOpponentCount,
+  getPlayerRacePosition,
+} from '../systems/opponentSystem.js';
+
+import { loadOpponentSprites } from '../visuals/opponentSprites.js';
+
 export class GameScene {
   constructor(sceneManager) {
     this.scenes = sceneManager;
@@ -128,6 +137,12 @@ export class GameScene {
     buildTrack(buildScenery);
     resetPhys();
     resetParts();
+
+    await loadOpponentSprites();
+resetOpponents(this.level?.id || 'level1');
+
+this._opponents = getOpponentCount();
+this._position = getPlayerRacePosition();
 
     show('game');
     sizeCanvas();
@@ -266,6 +281,8 @@ export class GameScene {
 
     while (this.accum >= STEP) {
       updatePhys(inp, STEP, trackLen);
+
+      updateOpponents(STEP, sceneryObjs);
 
       const a = getCarAnchor();
       checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
