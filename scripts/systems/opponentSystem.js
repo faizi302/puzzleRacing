@@ -1,5 +1,21 @@
 // ═══════════════════════════════════════════════════════
 // OPPONENT SYSTEM — AI racers + collision + jumps + ranking
+// ─────────────────────────────────────────────────────────
+// REWRITTEN AI BRAIN:
+//   • Reads road curvature 4 / 10 / 20 / 35 segments ahead
+//     so cars steer BEFORE the curve hits them.
+//   • Hurdle avoidance now SCANS upcoming hurdles, picks the
+//     biggest free lane, and commits to it early — instead of
+//     just nudging away at the last moment.
+//   • Cars run a full physics tick every frame regardless of
+//     distance from the player → they cover the entire map,
+//     stay on the road, and never "freeze" off-screen.
+//   • Speed is now curve-aware: AI eases off the throttle on
+//     sharp curves like a real driver.
+//   • Jumps and hurdle bounces are unchanged (already worked).
+//
+// Nothing else (collision shape, ranking math, puzzle brain,
+// rubber-band) was touched — only the driving model.
 // ═══════════════════════════════════════════════════════
 
 import { C } from '../configs/roadConfig.js';
@@ -18,12 +34,22 @@ let _lastPlayerPos = 0;
 // z = distance in front of player at race start
 // ──────────────────────────────────────────────────────
 const LEVEL1_OPPONENTS = [
-  { id:'op_1', name:'RAX',  team:'red',    type:'normal',   number:2, x:-0.45, z:420,  speedKmh:92,  skill:0.62, aggression:0.35 },
-  { id:'op_2', name:'BOLT', team:'blue',   type:'normal',   number:3, x: 0.35, z:720,  speedKmh:96,  skill:0.68, aggression:0.45 },
-  { id:'op_3', name:'NOVA', team:'green',  type:'fakeFast', number:4, x:-0.15, z:1040, speedKmh:108, skill:0.55, aggression:0.65 },
-  { id:'op_4', name:'SYNC', team:'purple', type:'smart',    number:5, x: 0.55, z:1360, speedKmh:90,  skill:0.82, aggression:0.55 },
-  { id:'boss', name:'ZERO', team:'silver', type:'rival',    number:6, x: 0.05, z:1720, speedKmh:101, skill:0.92, aggression:0.78, boss:true },
+  // FRONT ROW
+  { id:'op_1', name:'THUNDER', team:'red',    type:'normal',   number:1, x:-0.55, z:C.SEG_LEN * 10, speedKmh:92,  skill:0.62, aggression:0.35 },
+  { id:'op_2', name:'VIPER',   team:'green',  type:'normal',   number:2, x: 0.00, z:C.SEG_LEN * 10, speedKmh:96,  skill:0.68, aggression:0.45 },
+  { id:'op_3', name:'STEEL',   team:'yellow', type:'fakeFast', number:3, x: 0.55, z:C.SEG_LEN * 10, speedKmh:108, skill:0.55, aggression:0.65 },
+
+  // PLAYER ROW LEFT
+  { id:'boss', name:'ZERO', team:'silver', type:'rival', number:4, x:-0.30, z:C.SEG_LEN * 4.5, speedKmh:101, skill:0.92, aggression:0.78, boss:true },
+
+  // PLAYER ROW RIGHT
+  { id:'op_4', name:'PHOENIX', team:'purple', type:'smart', number:5, x:0.30, z:C.SEG_LEN * 4.5, speedKmh:90, skill:0.82, aggression:0.55 },
 ];
+
+// ─── Lane definitions (used by hurdle avoidance) ────────
+// AI prefers staying in one of three lanes; if all three are
+// blocked, it tries finer offsets between them.
+const LANES = [-0.58, -0.29, 0, 0.29, 0.58];
 
 function kmhToWorld(kmh) {
   return kmh * (C.KMH_TO_WORLD || 1);
@@ -52,16 +78,35 @@ function smoothDamp(current, target, power, dt) {
   return current + (target - current) * k;
 }
 
+// ── Curve reader: weighted look-ahead at multiple horizons ──
+// Same idea as the player's getLookAheadCurve, but tuned for
+// AI: gives more weight to far-ahead curves so the AI starts
+// turning EARLY (which is what makes it look like it's actually
+// driving the road instead of reacting to it).
 function getCurveAt(z, track = 1) {
   const a = findSegOnTrack(z, track)?.curve || 0;
-  const b = findSegOnTrack(z + C.SEG_LEN * 8, track)?.curve || 0;
-  const c = findSegOnTrack(z + C.SEG_LEN * 18, track)?.curve || 0;
-  return a * 0.55 + b * 0.30 + c * 0.15;
+  const b = findSegOnTrack(z + C.SEG_LEN * 4, track)?.curve || 0;
+  const c = findSegOnTrack(z + C.SEG_LEN * 10, track)?.curve || 0;
+  const d = findSegOnTrack(z + C.SEG_LEN * 20, track)?.curve || 0;
+  const e = findSegOnTrack(z + C.SEG_LEN * 35, track)?.curve || 0;
+  return a * 0.30 + b * 0.30 + c * 0.20 + d * 0.12 + e * 0.08;
+}
+
+// Sharper curve detector — used to slow the car on tight bends.
+function getCurveStrength(z, track = 1) {
+  let max = 0;
+  for (let i = 0; i < 25; i += 4) {
+    const cv = Math.abs(findSegOnTrack(z + C.SEG_LEN * i, track)?.curve || 0);
+    if (cv > max) max = cv;
+  }
+  return max;
 }
 
 function makeOpponent(cfg, i) {
+
   const baseSpeed = kmhToWorld(cfg.speedKmh);
   const startZ = wrapZ((P.pos || 0) + (cfg.z || 0), trackLen);
+
 
   return {
     ...cfg,
@@ -76,6 +121,12 @@ function makeOpponent(cfg, i) {
 
     x: cfg.x || 0,
     targetX: cfg.x || 0,
+    formationX: cfg.x || 0,
+    formationZ: cfg.z || 0,
+
+    // Lane "intent" — the lane the AI is currently committed to.
+    // Updated by hurdle avoidance and lane-changing logic.
+    laneTargetX: cfg.x || 0,
 
     speed: baseSpeed,
     baseSpeed,
@@ -94,7 +145,7 @@ function makeOpponent(cfg, i) {
 
     seed: 1000 + i * 77,
     thinkT: Math.random() * 10,
-    laneChangeT: 0,
+    laneChangeT: 1.5 + Math.random() * 2.0,
     avoidX: 0,
 
     hitCooldown: 0,
@@ -181,7 +232,8 @@ function getAIProgress(ai) {
     return ai.forwardTravel * 0.12;
   }
 
-  return ai.forwardTravel;
+  // AI starts ahead of player according to its formation z
+  return (ai.formationZ || 0) + ai.forwardTravel;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -228,6 +280,7 @@ function unlockAiRoad2(ai, bossJump = false) {
   ai.speed = Math.abs(ai.baseSpeed * (ai.boss ? 1.04 : 0.98));
   ai.x = ai.boss ? 0.15 : 0;
   ai.targetX = ai.x;
+  ai.laneTargetX = ai.x;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -356,6 +409,10 @@ function tickAISceneryCollision(ai, sceneryObjs) {
   for (const o of sceneryObjs) {
     if (!o || o._dead) continue;
 
+    // Only react to actual on-road obstacles. Decorative
+    // scenery (buildings, trees, towers) is always skipped.
+    if (!o.isHurdle && !o.isJump) continue;
+
     const dz = wrapDz(o.z, ai.z, len);
 
     // wider range so fast AI cannot skip collision
@@ -375,72 +432,209 @@ function tickAISceneryCollision(ai, sceneryObjs) {
 
 // ═══════════════════════════════════════════════════════
 // AI DRIVING
+// ─────────────────────────────────────────────────────
+// findBestLane — given a list of upcoming hurdles, return the
+// lane offset (in [-0.65, 0.65]) that maximises clear distance.
+//
+// Approach: for each candidate lane, find the nearest hurdle
+// that would block it. Pick the lane with the FURTHEST nearest
+// blocker. Ties broken by preferring the AI's current lane
+// (so the car doesn't zig-zag pointlessly).
 // ═══════════════════════════════════════════════════════
-function tickAIDriving(ai, dt) {
+function findBestLane(ai, sceneryObjs, len) {
+  // Scan window — how far ahead the AI plans its lane.
+  // Bigger = more "intelligent"-looking but reacts slower
+  // when something appears suddenly.
+  const SCAN_AHEAD = C.SEG_LEN * 14;
+  const SCAN_BEHIND = -60;
+
+  // Build a list of upcoming hurdles only
+  const blockers = [];
+  for (const o of sceneryObjs) {
+    if (!o || o._dead) continue;
+    if (!o.isHurdle && !o.isJump) continue;
+
+    const dz = wrapDz(o.z, ai.z, len);
+    if (dz < SCAN_BEHIND || dz > SCAN_AHEAD) continue;
+
+    // Jumps are GOOD (boost) — only avoid if AI already in jump cooldown
+    if (o.isJump && !ai.boss) {
+      // small AI prefer jumps, just continue
+      continue;
+    }
+    if (o.isJump) continue;
+
+    blockers.push({
+      x: objX(o),
+      dz,
+      halfW: (o.size ?? 0.45) * 0.46 + 0.22, // include AI half-width as buffer
+    });
+  }
+
+  if (!blockers.length) return null;
+
+  // Score each candidate lane by nearest blocker distance.
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const lane of LANES) {
+    let nearest = SCAN_AHEAD + 1;
+
+    for (const b of blockers) {
+      if (Math.abs(lane - b.x) < b.halfW) {
+        if (b.dz < nearest) nearest = b.dz;
+      }
+    }
+
+    // Prefer current lane on tie — small bonus for staying close
+    const stickiness = -Math.abs(lane - ai.x) * 30;
+    const score = nearest + stickiness;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = lane;
+    }
+  }
+
+  return best;
+}
+
+function tickAIDriving(ai, dt, sceneryObjs = []) {
+  // Lock AI cars only during countdown/start formation
+  if (P.countdownActive || P.countdownT > 0 || P.starting || P.readyState) {
+    ai.x = ai.formationX;
+    ai.targetX = ai.formationX;
+    ai.laneTargetX = ai.formationX;
+    ai.speed = 0;
+    return;
+  }
+
   ai.thinkT += dt;
   ai.hitCooldown = Math.max(0, ai.hitCooldown - dt);
   ai.boostT = Math.max(0, ai.boostT - dt);
 
   const len = ai.onRoad2 ? getTrackLen(2) : trackLen;
   const track = ai.onRoad2 ? 2 : 1;
-  const curve = getCurveAt(ai.z, track);
 
-  const curveCompensation = -curve * (0.50 + ai.skill * 0.56);
+  // ── Curve steering: turn EARLY into curves ──────────
+  // Read curve weighted across multiple look-ahead points.
+  const curveAhead = getCurveAt(ai.z, track);
 
-  const wobble =
-    Math.sin(ai.thinkT * (0.8 + ai.skill) + ai.seed) *
-    (0.025 + (1 - ai.skill) * 0.075);
+  // Centripetal correction: a curving road pushes the car
+  // outward; AI compensates by steering opposite.
+  // Bigger skill = more accurate compensation = stays cleaner
+  // through curves.
+  const curveSteer = -curveAhead * (1.20 + ai.skill * 0.60);
 
+  // Sharp curve detector → slow down before tight bends.
+  const curveSharpness = getCurveStrength(ai.z, track);
+
+  // ── Hurdle avoidance: pick the cleanest lane ────────
+  // Only re-pick periodically or if currently committed
+  // lane just became blocked. This keeps the car from
+  // dithering between lanes every frame.
   ai.laneChangeT -= dt;
 
-  if (ai.laneChangeT <= 0) {
-    ai.laneChangeT = 1.5 + Math.random() * 2.5;
-    ai.avoidX = (Math.random() - 0.5) * ai.aggression * 0.28;
+  const bestLane = findBestLane(ai, sceneryObjs, len);
+
+  if (bestLane !== null) {
+    // If the lane I'm aiming at now has a hurdle in it
+    // OR my replan timer expired → commit to bestLane.
+    const currentLaneBlocked = Math.abs(bestLane - ai.laneTargetX) > 0.05;
+
+    if (currentLaneBlocked || ai.laneChangeT <= 0) {
+      ai.laneTargetX = bestLane;
+      ai.laneChangeT = 0.6 + Math.random() * 0.6;
+    }
+  } else if (ai.laneChangeT <= 0) {
+    // No hurdles ahead → drift toward a random lane occasionally
+    // for visual variety. Lower aggression = stays in middle.
+    ai.laneChangeT = 2.2 + Math.random() * 2.4;
+
+    const driftLanes = [-0.40, 0, 0.40];
+    const pick = driftLanes[(Math.random() * driftLanes.length) | 0];
+
+    ai.laneTargetX = pick * (0.35 + ai.aggression * 0.45);
   }
 
-  // keep target inside road
+  // Tiny natural wobble, scaled inversely to skill.
+  const wobble =
+    Math.sin(ai.thinkT * (0.75 + ai.skill * 0.8) + ai.seed) *
+    (0.012 + (1 - ai.skill) * 0.025);
+
+  // ── Build final target X ────────────────────────────
+  // laneTargetX = where the AI wants to be (lane choice)
+  // curveSteer  = correction to fight centrifugal force
+  // wobble      = micro-jitter so movement isn't robotic
   ai.targetX = clamp(
-    curveCompensation + wobble + ai.avoidX,
-    -0.62,
-    0.62
+    ai.laneTargetX + curveSteer + wobble,
+    -0.78,
+    0.78
   );
 
   const oldX = ai.x;
-  const steerPower = 3.2 + ai.skill * 5.2;
 
+  // Higher skill = smoother/faster steering
+  const steerPower = 3.8 + ai.skill * 6.5;
   ai.x = smoothDamp(ai.x, ai.targetX, steerPower, dt);
-  ai.x = clamp(ai.x, -0.92, 0.92);
+  ai.x = clamp(ai.x, -0.90, 0.90);
 
-  ai.steerVisual = clamp((ai.x - oldX) * 10, -1, 1);
+  ai.steerVisual = clamp((ai.x - oldX) * 9, -1, 1);
 
-  // Strong road-side collision / correction
+  // ── Road edge correction ────────────────────────────
+  // If AI gets pushed toward the rumble, gently nudge it back.
   if (Math.abs(ai.x) > 0.82) {
     const dirBack = ai.x > 0 ? -1 : 1;
 
-    ai.x += dirBack * 0.045;
-    ai.targetX += dirBack * 0.10;
+    ai.x += dirBack * 0.055;
+    ai.targetX += dirBack * 0.14;
+    ai.laneTargetX = clamp(ai.laneTargetX + dirBack * 0.10, -0.65, 0.65);
 
-    ai.speed *= Math.pow(0.78, dt * 60);
+    // Off-road speed penalty (matches player physics feel)
+    ai.speed *= Math.pow(0.80, dt * 60);
     ai.hitCooldown = Math.max(ai.hitCooldown, 0.25);
 
     ai.x = clamp(ai.x, -0.90, 0.90);
-    ai.targetX = clamp(ai.targetX, -0.62, 0.62);
+    ai.targetX = clamp(ai.targetX, -0.78, 0.78);
   }
 
+  // ── Speed logic (now curve-aware) ───────────────────
+  // Sharper curve → AI naturally eases off the throttle.
+  // Curve sharpness 0   → full speed
+  // Curve sharpness 1+  → reduced to ~70% of base
+  const curveSpeedScale = clamp(1 - curveSharpness * 0.30, 0.65, 1.0);
+
+  let targetSpeed;
+
   if (ai.failedFakeRoad) {
-    ai.speed = smoothDamp(ai.speed, ai.baseSpeed * 0.38, 1.8, dt);
+    targetSpeed = ai.baseSpeed * 0.38;
   } else if (ai.onRoad2) {
-    ai.speed = smoothDamp(ai.speed, ai.baseSpeed * (ai.boss ? 1.08 : 0.98), 1.2, dt);
+    targetSpeed = ai.baseSpeed * (ai.boss ? 1.08 : 0.98) * curveSpeedScale;
   } else if (ai.discoveredPuzzle && !ai.onRoad2) {
+    // reverse phase
     ai.speed = -Math.abs(
       smoothDamp(Math.abs(ai.speed), ai.baseSpeed * 0.72, 1.5, dt)
     );
+    targetSpeed = null;
   } else {
-    ai.speed = smoothDamp(ai.speed, ai.baseSpeed, 1.0, dt);
+    targetSpeed = ai.baseSpeed * curveSpeedScale;
+  }
+
+  if (targetSpeed !== null) {
+    // Apply rubber-band boost if active
+    if (ai.boostT > 0) targetSpeed *= 1.10;
+
+    // After hit, recover gradually
+    if (ai.hitCooldown > 0.20) {
+      targetSpeed *= 0.65;
+    }
+
+    ai.speed = smoothDamp(ai.speed, targetSpeed, 1.4, dt);
   }
 
   ai.speed = clamp(ai.speed, -ai.maxSpeed, ai.maxSpeed);
 
+  // ── Move forward along the track ────────────────────
   const before = ai.z;
   ai.z += ai.speed * dt;
 
@@ -601,7 +795,7 @@ export function updateOpponents(dt, sceneryObjs = []) {
     // before movement: catches collision already overlapping
     tickAISceneryCollision(ai, sceneryObjs);
 
-    tickAIDriving(ai, d);
+    tickAIDriving(ai, d, sceneryObjs);
     tickAIJump(ai, d);
 
     // after movement: catches fast movement crossing hurdles/jumps

@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-  <meta name="theme-color" content="#05060d"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#05060d" />
   <title>Formula OLC Racing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css"/>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <!-- ════════════════════════════════════════════════════════
@@ -62,7 +66,7 @@
         <button id="btn-start" class="mb pr">▶ PLAY</button>
         <div class="mb-row">
           <button id="btn-continue" class="mb">⚡ CONTINUE</button>
-          <button id="btn-howto"    class="mb ghost">HOW TO PLAY</button>
+          <button id="btn-howto" class="mb ghost">HOW TO PLAY</button>
         </div>
       </div>
 
@@ -104,7 +108,8 @@
         <div class="hr"><kbd>SPACE</kbd><span>Handbrake</span></div>
         <div class="hr"><kbd>ESC</kbd><span>Pause</span></div>
       </div>
-      <p class="htip">Stay on the road. Walls cost you speed and spawn sparks.<br>Collect 3 keys to unlock the secret right fork!</p>
+      <p class="htip">Stay on the road. Walls cost you speed and spawn sparks.<br>Collect 3 keys to unlock the secret
+        right fork!</p>
       <button id="btn-back" class="mb">← BACK</button>
     </div>
   </div>
@@ -224,19 +229,27 @@
           <div class="stats-grid">
             <div class="stat-bar">
               <div class="lbl">⚡ Speed <b id="stat-speed">3/5</b></div>
-              <div class="track"><div class="fill" id="bar-speed" style="width:60%"></div></div>
+              <div class="track">
+                <div class="fill" id="bar-speed" style="width:60%"></div>
+              </div>
             </div>
             <div class="stat-bar">
               <div class="lbl">🛞 Grip <b id="stat-grip">3/5</b></div>
-              <div class="track"><div class="fill" id="bar-grip" style="width:60%"></div></div>
+              <div class="track">
+                <div class="fill" id="bar-grip" style="width:60%"></div>
+              </div>
             </div>
             <div class="stat-bar">
               <div class="lbl">💨 Nitro <b id="stat-nitro">3/5</b></div>
-              <div class="track"><div class="fill" id="bar-nitro" style="width:60%"></div></div>
+              <div class="track">
+                <div class="fill" id="bar-nitro" style="width:60%"></div>
+              </div>
             </div>
             <div class="stat-bar">
               <div class="lbl">🛡 Durability <b id="stat-dura">3/5</b></div>
-              <div class="track"><div class="fill" id="bar-dura" style="width:60%"></div></div>
+              <div class="track">
+                <div class="fill" id="bar-dura" style="width:60%"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -345,7 +358,8 @@
           <p><span><kbd>←</kbd> <kbd>→</kbd></span><span>Steer</span></p>
           <p><span><kbd>SPACE</kbd></span><span>Handbrake</span></p>
           <p><span><kbd>ESC</kbd></span><span>Pause</span></p>
-          <button id="btn-reset-data" class="mb danger compact" style="margin-top:18px;width:100%">🗑 RESET PROGRESS</button>
+          <button id="btn-reset-data" class="mb danger compact" style="margin-top:18px;width:100%">🗑 RESET
+            PROGRESS</button>
         </div>
       </div>
     </div>
@@ -384,7 +398,8 @@
     <div class="mbox">
       <h2>PAUSED</h2>
       <button id="btn-resume" class="mb pr">▶ RESUME</button>
-      <button id="btn-quit"   class="mb">🏠 HUB</button>
+      <button id="btn-restart" class="mb">🔄 RESTART</button>
+      <button id="btn-quit" class="mb">🏠 HUB</button>
     </div>
   </div>
 
@@ -397,11 +412,12 @@
         <div class="wr"><span>Best Lap</span><b id="ws-b">—</b></div>
         <div class="wr"><span>Laps</span><b id="ws-l">—</b></div>
       </div>
-      <button id="btn-again"  class="mb pr">🔄 NEXT LEVEL</button>
+      <button id="btn-again" class="mb pr">🔄 NEXT LEVEL</button>
       <button id="btn-tomenu" class="mb">🏠 HUB</button>
     </div>
   </div>
 
   <script type="module" src="scripts/main.js"></script>
 </body>
+
 </html>

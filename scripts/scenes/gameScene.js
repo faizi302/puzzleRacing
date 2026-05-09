@@ -73,7 +73,11 @@ export class GameScene {
     // When you add AI cars, set this._opponents = N and update
     // this._position from your race-position system each frame.
     this._opponents = 6;   // shows "1/6" like Asphalt
-    this._position  = 1;
+    this._position = 1;
+
+
+    this._raceDistance = 0;
+    this._lastProgressPos = 0;
 
     // ── Reverse-road hint trigger ──────────────────────────────
     // The visible reminder for this is the orange race-start banner
@@ -115,6 +119,33 @@ export class GameScene {
 
   isPaused() { return this.paused; }
 
+  _tickRaceDistance() {
+    if (!trackLen) return;
+
+    const curPos = P.pos || 0;
+    let moved = curPos - this._lastProgressPos;
+
+    // Lap wrap: player crossed finish/start line forward
+    if (moved < -trackLen * 0.5) {
+      moved += trackLen;
+
+      // NEW LAP: reset HUD progress back to 0
+      this._raceDistance = 0;
+    }
+
+    // Reverse wrap protection
+    if (moved > trackLen * 0.5) {
+      moved -= trackLen;
+    }
+
+    if ((P.speed || 0) > 0) {
+      this._raceDistance += Math.max(0, moved);
+    }
+
+    this._raceDistance = Math.max(0, Math.min(trackLen, this._raceDistance));
+    this._lastProgressPos = curPos;
+  }
+
   async enter(level) {
     if (level) {
       this.level = level;
@@ -138,11 +169,15 @@ export class GameScene {
     resetPhys();
     resetParts();
 
-    await loadOpponentSprites();
-resetOpponents(this.level?.id || 'level1');
+    this._raceDistance = 0;
+    this._lastProgressPos = P.pos || 0;
 
-this._opponents = getOpponentCount();
-this._position = getPlayerRacePosition();
+    await loadOpponentSprites();
+    resetOpponents(this.level?.id || 'level1');
+
+    this._opponents = getOpponentCount();
+    this._opponents = getOpponentCount();
+    this._position = getPlayerRacePosition();
 
     show('game');
     sizeCanvas();
@@ -150,7 +185,11 @@ this._position = getPlayerRacePosition();
     // ── Build & show the new HUD ──
     buildRaceHUD({ onPause: () => this.pause() });
     showRaceHUD();
-    hideRaceHint(); // make sure no leftover hint is visible
+    hideRaceHint();
+
+    // Force countdown ranking: 6/6
+    this._showStartRank = true;
+    updateRaceHUD(this._hudSnapshot());
 
     lockInput(true);
     renderFrame(0);
@@ -158,6 +197,9 @@ this._position = getPlayerRacePosition();
     await playIntro();
     if (getSetting('soundOn')) playSfx('start');
     await countdown();
+
+    this._showStartRank = false;
+    updateRaceHUD(this._hudSnapshot());
 
     lockInput(false);
     if (getSetting('musicOn')) startMusic();
@@ -167,7 +209,7 @@ this._position = getPlayerRacePosition();
     // Sub    = the explanatory line
     // Auto-hides after 4.2s.
     const title = this.level.startMessage || 'LAP 1';
-    const sub   = this.level.hintMessage  || '';
+    const sub = this.level.hintMessage || '';
     showRaceHint(title, sub, 4200);
 
     this.running = true;
@@ -246,25 +288,25 @@ this._position = getPlayerRacePosition();
   // Everything here is a read-only snapshot, no mutation.
   _hudSnapshot() {
     const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
-    const lap       = Math.max(1, Math.min(totalLaps, (P.lapCount || 0) + 1));
+    const lap = Math.max(1, Math.min(totalLaps, (P.lapCount || 0) + 1));
 
     // Distance through the CURRENT lap.
     // P.pos is a forward distance accumulator in your engine;
     // use modulo-trackLen for safety.
-    const lapPos = trackLen > 0 ? ((P.pos || 0) % trackLen) : 0;
-    const distPct = trackLen > 0 ? lapPos / trackLen : 0;
+    const distPct = trackLen > 0 ? this._raceDistance / trackLen : 0;
 
     return {
-      speed:       Math.abs(P.speed || 0),
+      speed: Math.abs(P.speed || 0),
       distPct,
       lap,
       totalLaps,
-      raceTime:    P.raceTime || 0,
-      bestTime:    best() || 0,
-      position:    this._position,
-      opponents:   this._opponents,
+      raceTime: P.raceTime || 0,
+      bestTime: best() || 0,
+      position: this._showStartRank ? this._opponents : this._position,
+
+      opponents: this._opponents,
       nitroStored: P.nitroStored || 0,
-      nitroMax:    P.nitroMax || 3,
+      nitroMax: P.nitroMax || 3,
       nitroActive: !!P.nitroActive,
     };
   }
@@ -282,7 +324,12 @@ this._position = getPlayerRacePosition();
     while (this.accum >= STEP) {
       updatePhys(inp, STEP, trackLen);
 
+      this._tickRaceDistance();
+
       updateOpponents(STEP, sceneryObjs);
+
+      this._position = getPlayerRacePosition();
+      this._opponents = getOpponentCount();
 
       const a = getCarAnchor();
       checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
