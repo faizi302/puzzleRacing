@@ -153,8 +153,19 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
     const fullW = (cw * 2) / ROAD_TEX_FRAC;
     const dx = cx - fullW * 0.5;
 
-    const srcY = frame.sy + frame.sh * t1;
-    const srcH = Math.max(1, frame.sh * (t2 - t1));
+// Make one texture frame stretch across many road segments.
+// This prevents white/texture lines from repeating too tightly.
+const TEXTURE_REPEAT_SEGMENTS = 10;
+
+const segTexT1 = (segIndex % TEXTURE_REPEAT_SEGMENTS) / TEXTURE_REPEAT_SEGMENTS;
+const segTexT2 = ((segIndex % TEXTURE_REPEAT_SEGMENTS) + 1) / TEXTURE_REPEAT_SEGMENTS;
+
+const texT1 = segTexT1 + (segTexT2 - segTexT1) * t1;
+const texT2 = segTexT1 + (segTexT2 - segTexT1) * t2;
+
+const srcY = frame.sy + frame.sh * texT1;
+const srcH = Math.max(1, frame.sh * (texT2 - texT1));
+
 
     ctx.drawImage(
       img,

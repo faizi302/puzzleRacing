@@ -13,7 +13,7 @@ import { toast, shake, tweenNumber } from '../ui/uiFX.js';
 
 import level1 from '../levels/level1/index.js';
 import level2 from '../levels/level2/index.js';
-// import level3 from '../levels/level3/index.js';
+import level3 from '../levels/level3/index.js';
 
 const LEVELS = [
   {
@@ -34,8 +34,8 @@ const LEVELS = [
     gold: 75, silver: 95,
   },
   {
-    num: 3, name: 'Ice Canyon', biome: 'ice',
-    module: null,
+    num: 3,  name: 'Desert Rally', biome: 'desert',
+    module: level3,
     difficulty: 'HARD',
     mission: 'Master traction on the frozen pass',
     reward: '+400 🪙 + 2 💎',

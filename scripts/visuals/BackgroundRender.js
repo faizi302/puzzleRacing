@@ -71,12 +71,37 @@ function drawGroundBase(secretT) {
     g.addColorStop(1, '#3f6c25');
   }
 
+  const isLevel3 = lvl?.id === 'level3';
+
+if (isLevel3) {
+  g.addColorStop(0, '#d7c486');   // horizon dust
+  g.addColorStop(0.45, '#b9a66d'); // middle dry ground
+  g.addColorStop(1, '#8f7a48');    // near darker desert
+} else if (isLevel2) {
+  g.addColorStop(0, '#C8C7CD');
+  g.addColorStop(0.45, '#8f8e8c');
+  g.addColorStop(1, '#5a5959');
+} else if (secretT > 0.55) {
+  g.addColorStop(0, '#25472f');
+  g.addColorStop(0.5, '#1f3928');
+  g.addColorStop(1, '#172b20');
+} else {
+  g.addColorStop(0, '#5a8a3a');
+  g.addColorStop(0.5, '#4a7c2e');
+  g.addColorStop(1, '#3f6c25');
+}
+
   ctx.fillStyle = g;
   ctx.fillRect(0, horizonY, W, H - horizonY);
 
   const fog = ctx.createLinearGradient(0, horizonY, 0, horizonY + H * 0.12);
+if (isLevel3) {
+  fog.addColorStop(0, 'rgba(222, 204, 145, 0.65)');
+  fog.addColorStop(1, 'rgba(222, 204, 145, 0)');
+} else {
   fog.addColorStop(0, 'rgba(180, 210, 195, 0.55)');
   fog.addColorStop(1, 'rgba(180, 210, 195, 0)');
+}
   ctx.fillStyle = fog;
   ctx.fillRect(0, horizonY, W, H * 0.14);
 }

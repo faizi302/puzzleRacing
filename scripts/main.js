@@ -24,8 +24,8 @@ import { initBackground } from './ui/background.js';
 
 // ── Levels ─────────────────────────────────────────────
 import level1 from './levels/level1/index.js';
-// import level2 from './levels/level2/index.js';
-// import level3 from './levels/level3/index.js';
+import level2 from './levels/level2/index.js';
+import level3 from './levels/level3/index.js';
 
 // ── Boot ───────────────────────────────────────────────
 loadPlayerData();   // restore saved progress before anything reads it
