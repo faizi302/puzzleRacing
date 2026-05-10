@@ -2295,3 +2295,43 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 @media (hover: hover) {
   .race-hud .hud-pause:hover { background: rgba(255,45,138,.15); }
 }
+
+#level-grid {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 12px 70px 24px;
+}
+
+.level-card {
+  min-width: 320px;
+  flex: 0 0 320px;
+}
+
+.hub-wrap {
+  position: relative;
+}
+
+.level-nav {
+  position: absolute;
+  top: 52%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(8,12,28,0.78);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.level-nav-left {
+  left: 28px;
+}
+
+.level-nav-right {
+  right: 28px;
+}

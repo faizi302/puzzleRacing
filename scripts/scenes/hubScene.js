@@ -3,9 +3,9 @@
 // daily login reward panel, and 4 routes:
 //   Career, Garage, Settings, How-to-play
 // ═══════════════════════════════════════════════════════
-import { show }                               from '../systems/gameState.js';
-import { getPlayerData, getMissions }         from '../player/playerData.js';
-import { tweenNumber }                        from '../ui/uiFX.js';
+import { show } from '../systems/gameState.js';
+import { getPlayerData, getMissions } from '../player/playerData.js';
+import { tweenNumber } from '../ui/uiFX.js';
 
 export class HubScene {
   constructor(sceneManager) {
@@ -19,22 +19,25 @@ export class HubScene {
     this._wireOnce();
   }
 
-  exit() {}
+  exit() { }
 
   _refresh() {
     const d = getPlayerData();
 
     tweenNumber('hub-coins', d.coins);
-    tweenNumber('hub-keys',  d.keys);
-    tweenNumber('hub-gems',  d.gems);
+    tweenNumber('hub-keys', d.keys);
+    tweenNumber('hub-gems', d.gems);
 
+    const TOTAL_LEVELS = 5;
     const prog = document.getElementById('hub-career-progress');
-    if (prog) prog.textContent = `${d.completedLevels.length} / 3 LEVELS`;
+
+    if (prog) {
+      prog.textContent = `${d.completedLevels.length} / ${TOTAL_LEVELS} LEVELS`;
+    }
 
     const streak = document.getElementById('login-streak');
     if (streak) streak.textContent = String(d.loginStreak || 1);
 
-    // Daily missions
     const m = getMissions();
     this._setMission('mr-1', m.race1.done);
     this._setMission('mr-2', m.keys5.done, `Collect 5 keys (${m.keys5.progress || 0}/5)`);
@@ -57,10 +60,10 @@ export class HubScene {
     if (this._wired) return;
     this._wired = true;
 
-    document.getElementById('hub-career')  ?.addEventListener('click', () => this.scenes.go('career'));
-    document.getElementById('hub-garage')  ?.addEventListener('click', () => this.scenes.go('garage'));
+    document.getElementById('hub-career')?.addEventListener('click', () => this.scenes.go('career'));
+    document.getElementById('hub-garage')?.addEventListener('click', () => this.scenes.go('garage'));
     document.getElementById('hub-settings')?.addEventListener('click', () => this.scenes.go('settings'));
-    document.getElementById('hub-help')    ?.addEventListener('click', () => show('howto'));
+    document.getElementById('hub-help')?.addEventListener('click', () => show('howto'));
     document.getElementById('btn-hub-back')?.addEventListener('click', () => this.scenes.go('menu'));
   }
 }

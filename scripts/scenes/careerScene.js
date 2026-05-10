@@ -14,6 +14,8 @@ import { toast, shake, tweenNumber } from '../ui/uiFX.js';
 import level1 from '../levels/level1/index.js';
 import level2 from '../levels/level2/index.js';
 import level3 from '../levels/level3/index.js';
+import level4 from '../levels/level4/index.js';
+import level5 from '../levels/level5/index.js';
 
 const LEVELS = [
   {
@@ -22,8 +24,7 @@ const LEVELS = [
     difficulty: 'EASY',
     mission: 'Reach the finish line — find the secret fork',
     reward: '+150 🪙',
-    gold: 60,        // ★★★ best time threshold (s)
-    silver: 80,        // ★★ threshold
+    gold: 60, silver: 80,
   },
   {
     num: 2, name: 'Canada Rally', biome: 'city',
@@ -34,12 +35,28 @@ const LEVELS = [
     gold: 75, silver: 95,
   },
   {
-    num: 3,  name: 'Desert Rally', biome: 'desert',
+    num: 3, name: 'Desert Rally', biome: 'desert',
     module: level3,
     difficulty: 'HARD',
-    mission: 'Master traction on the frozen pass',
+    mission: 'Master traction in desert roads',
     reward: '+400 🪙 + 2 💎',
     gold: 90, silver: 110,
+  },
+  {
+    num: 4, name: 'Neon Valley', biome: 'city',
+    module: level4,
+    difficulty: 'HARD',
+    mission: 'Beat the night track without losing control',
+    reward: '+500 🪙 + 2 💎',
+    gold: 105, silver: 130,
+  },
+  {
+    num: 5, name: 'Ice Canyon', biome: 'ice',
+    module: level5,
+    difficulty: 'EXTREME',
+    mission: 'Master the final frozen road',
+    reward: '+700 🪙 + 3 💎',
+    gold: 120, silver: 150,
   },
 ];
 
@@ -81,6 +98,28 @@ export class CareerScene {
     const grid = document.getElementById('level-grid');
     if (!grid) return;
     grid.innerHTML = '';
+
+    grid.parentElement?.querySelector('.level-nav-left')?.remove();
+    grid.parentElement?.querySelector('.level-nav-right')?.remove();
+
+    const leftBtn = document.createElement('button');
+    leftBtn.className = 'level-nav level-nav-left';
+    leftBtn.textContent = '◀';
+
+    const rightBtn = document.createElement('button');
+    rightBtn.className = 'level-nav level-nav-right';
+    rightBtn.textContent = '▶';
+
+    leftBtn.addEventListener('click', () => {
+      grid.scrollTo({ left: 0, behavior: 'smooth' });
+    });
+
+    rightBtn.addEventListener('click', () => {
+      grid.scrollTo({ left: grid.scrollWidth, behavior: 'smooth' });
+    });
+
+    grid.parentElement?.appendChild(leftBtn);
+    grid.parentElement?.appendChild(rightBtn);
 
     const data = getPlayerData();
 

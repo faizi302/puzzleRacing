@@ -6,6 +6,9 @@
 // import level3 from '../levels/level3/index.js';
 import { SPR_L2 } from './sceneryConfigLevel2.js';
 import { SPR_L3 } from '../levels/level3/sceneryConfig.js';
+import { SPR_L4 } from '../levels/level4/sceneryConfig.js';
+import { SPR_L5 } from '../levels/level5/sceneryConfig.js';
+
 export const SPR = {
   // Arches: scale tuned so opening spans road but pillars stay outside road edge.
   woodArch: { sx: 10, sy: 10, sw: 1285, sh: 315, scale: 1.10, anchorY: .93 },
@@ -126,4 +129,6 @@ export const SPR_BY_LEVEL = {
   level1: SPR,
   level2: SPR_L2,
   level3: SPR_L3,
+  level4: SPR_L4,
+  level5: SPR_L5,
 };
