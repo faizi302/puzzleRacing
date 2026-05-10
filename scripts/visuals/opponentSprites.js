@@ -31,7 +31,7 @@ const TEAM_SHEETS = {
   purple: {
     img: 'assets/player/UnitsTeamD.png',
     json: 'assets/player/UnitsTeamD.json',
-    unit: 'UnitsNone',
+    unit: 'UnitE',
   },
 
   silver: {

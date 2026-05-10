@@ -75,6 +75,7 @@ scenes.register('game',     gameScene);
 
 // ── Pause / Win modal buttons ──────────────────────────
 document.getElementById('btn-resume')?.addEventListener('click', () => gameScene.resume());
+document.getElementById('btn-restart')?.addEventListener('click', () => gameScene.restart());
 document.getElementById('btn-quit')  ?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
 document.getElementById('btn-again') ?.addEventListener('click', () => scenes.go('career'));
 document.getElementById('btn-tomenu')?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
