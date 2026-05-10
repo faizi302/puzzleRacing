@@ -126,6 +126,7 @@ export function drawScenery() {
   let jumpsCulled = 0;
 
   for (const o of sceneryObjs) {
+    if (o.hidden) continue;
     if (o._dead && (o.isCoin || o.isBooster || o.isKey)) continue;
 
     if (o.isJump) jumpsTotal++;
@@ -263,20 +264,20 @@ export function drawScenery() {
       const side = it.o.side || 1;
       let worldR;
 
-      if (it.o.isBoundaryPole && it.o.fixedSize) {
-        const poleSize = it.o.screenSize ?? 70;
+  if (it.o.isBoundaryPole && it.o.fixedSize) {
+  const poleSize = it.o.screenSize ?? 70;
 
-        drawW = poleSize * _res * (it.o.size ?? 1);
-        drawH = drawW * (s.sh / s.sw);
+  drawW = poleSize * _res * (it.o.size ?? 1);
+  drawH = drawW * (s.sh / s.sw);
 
-        const groundX = it.cx + side * it.rw * it.o.offset;
-        x = groundX - drawW / 2;
-        y = it.y - drawH * s.anchorY;
+  const groundX = it.cx + side * it.rw * it.o.offset;
+  x = groundX - drawW / 2;
+  y = it.y - drawH * s.anchorY;
 
-        if (y > _H || x > _W + drawW || x < -drawW) continue;
-        if (y + drawH < horizonY) continue;
-
-      } else {
+  // allow road-side fixed poles to appear from horizon to bottom
+  if (y > _H + drawH) continue;
+  if (x > _W + drawW || x < -drawW) continue;
+}else {
         const objSize = it.o.size ?? 1;
 
         worldR = it.o.small
@@ -308,8 +309,17 @@ export function drawScenery() {
       x = groundX - drawW / 2;
       y = it.y - drawH * s.anchorY;
 
-      if (side < 0 && x + drawW > it.cx - it.rw * 0.94) x = it.cx - it.rw * 0.94 - drawW;
-      if (side > 0 && x < it.cx + it.rw * 0.94) x = it.cx + it.rw * 0.94;
+// Normal side objects stay near road edge.
+// Background props are allowed to sit far away on the empty desert area.
+if (!it.o.backgroundProp) {
+  if (side < 0 && x + drawW > it.cx - it.rw * 0.94) {
+    x = it.cx - it.rw * 0.94 - drawW;
+  }
+
+  if (side > 0 && x < it.cx + it.rw * 0.94) {
+    x = it.cx + it.rw * 0.94;
+  }
+}
 
       if (y > _H || x > _W + drawW || x < -drawW) continue;
       if (y + drawH < horizonY) continue;
@@ -318,7 +328,24 @@ export function drawScenery() {
     const fade = clamp(1 - it.dz / (C.DRAW_D * C.SEG_LEN * 0.65), 0, 1);
 
     ctx.save();
-    ctx.globalAlpha = 0.20 + fade * 0.80;
+let alpha = 0.20 + fade * 0.80;
+
+if (it.o.isMemoryPlatform) {
+  if (it.o.memoryHidden) {
+    alpha = 0.0;
+  }
+
+  if (it.o.isFakePlatform && !it.o.memoryHidden) {
+    alpha = 0.45 + 0.35 * Math.sin(now * 0.012);
+  }
+
+  if (it.o.justShifted) {
+    alpha = 0.75 + 0.25 * Math.sin(now * 0.02);
+  }
+}
+
+ctx.globalAlpha = alpha;
+
 
     if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
@@ -355,8 +382,19 @@ export function drawScenery() {
 
     } else if (it.o.isJump) {
       // Fully opaque on the close-up — fade only kicks in at distance.
-      ctx.globalAlpha = 0.55 + fade * 0.45;
-
+if (it.o.isMemoryPlatform) {
+  if (it.o.memoryHidden) {
+    ctx.globalAlpha = 0.0;
+  } else if (it.o.isFakePlatform) {
+    ctx.globalAlpha = 0.45 + 0.35 * Math.sin(now * 0.012);
+  } else if (it.o.justShifted) {
+    ctx.globalAlpha = 0.75 + 0.25 * Math.sin(now * 0.02);
+  } else {
+    ctx.globalAlpha = 0.55 + fade * 0.45;
+  }
+} else {
+  ctx.globalAlpha = 0.55 + fade * 0.45;
+}
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
       // Pulsing pink bloom on the chevron strip — makes ramps catch
@@ -375,6 +413,56 @@ export function drawScenery() {
     } else {
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
     }
+
+    // ═══════════════════════════════════════════════
+// LEVEL 3 PUZZLE SYMBOLS
+// Draw ⭐ 🌙 🔥 🌊 on murals + switches
+// ═══════════════════════════════════════════════
+
+if (it.o.isMural || it.o.isPuzzleSwitch) {
+  const symbolMap = {
+    star: '⭐',
+    moon: '🌙',
+    fire: '🔥',
+    water: '🌊',
+  };
+
+  // murals already store emoji directly
+  // switches store text like "star"
+  const symbolText = it.o.isMural
+    ? it.o.symbol
+    : symbolMap[it.o.symbol];
+
+  if (symbolText) {
+    ctx.save();
+
+    // strong readable font
+    const fontSize = Math.max(
+      22,
+      drawW * 0.30
+    );
+
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // white glow
+    ctx.shadowColor = 'rgba(255,255,255,0.65)';
+    ctx.shadowBlur = 10;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.95;
+
+    // center of sprite
+    ctx.fillText(
+      symbolText,
+      x + drawW * 0.5,
+      y + drawH * 0.38
+    );
+
+    ctx.restore();
+  }
+}
 
     ctx.restore();
   }

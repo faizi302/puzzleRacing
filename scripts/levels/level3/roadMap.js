@@ -113,6 +113,7 @@ function buildLevel3MainRoad() {
 
 export function buildRoads() {
   const road1 = buildLevel3MainRoad();
+  const road2 = buildSecretRoad();
 
   return {
     road1: {
@@ -121,8 +122,22 @@ export function buildRoads() {
     },
 
     road2: {
-      segs: road1,
-      len: road1.length * C.SEG_LEN,
+      segs: road2,
+      len: road2.length * C.SEG_LEN,
     },
   };
+}
+
+
+function buildSecretRoad() {
+  const out = [];
+  const b = makeBuilder(out);
+
+  b.straight(100);
+  b.curve(180, 1.6);
+  b.sCurve(260, -1.3, 1.4);
+  b.curve(180, -1.5);
+  b.straight(220);
+
+  return out;
 }

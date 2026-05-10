@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════
 // LEVEL 3 CONFIG
+// THE SYMBOL CODE
 // ═══════════════════════════════════════════════════════
 
 export const LEVEL_META = {
   id: 'level3',
-  name: 'DESERT RALLY',
+  name: 'THE SYMBOL CODE',
 
-  // BackgroundRender.js already uses this
   horizonForward: 'B',
   horizonBackward: 'B',
 
@@ -18,9 +18,18 @@ export const LEVEL_META = {
     'assets/level/level3/LocationBSegments.jpg',
   ],
 
-  startMessage: '🏁 Level 3: Desert Rally Started!',
-  hintMessage: '⚠️ Long desert curves ahead!',
-  reverseMessage: '✨ Hidden desert road unlocked!',
-  forkMessage: '🔄 Secret route opened!',
-  winMessage: '🏆 Level 3 completed!',
+  startMessage:
+    '🔢 Level 3: The Symbol Code',
+
+  hintMessage:
+    'The walls are whispering the answer...',
+
+  reverseMessage:
+    '⭐ 🌙 🔥 🌊',
+
+  forkMessage:
+    '🔓 Hidden path unlocked!',
+
+  winMessage:
+    '🏆 Symbol Code completed!',
 };

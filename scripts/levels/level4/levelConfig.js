@@ -1,6 +1,6 @@
 export const LEVEL_META = {
   id: 'level4',
-  name: 'ARCTIC CHAOS',
+  name: 'THE MEMORY SPRINT',
 
   horizonForward: 'A',
   horizonBackward: 'A',
@@ -13,9 +13,9 @@ export const LEVEL_META = {
     'assets/level/level4/LocationASegments.jpg',
   ],
 
-  startMessage: '🏁 Level 4: Arctic Chaos started!',
-  hintMessage: '⚠️ Hard chained turns ahead. Do not trust the next curve.',
-  reverseMessage: '✨ Arctic secret discovered!',
-  forkMessage: '🔄 Hidden snow route opened!',
-  winMessage: '🏆 Level 4 completed!',
+  startMessage: '🧠 Level 4: The Memory Sprint',
+  hintMessage: 'Memorize the safe platforms. They will disappear soon.',
+  reverseMessage: '🌫️ Platforms disappeared! Run from memory!',
+  forkMessage: '💨 One platform shifted!',
+  winMessage: '🏆 Memory Sprint completed!',
 };

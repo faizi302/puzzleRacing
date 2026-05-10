@@ -169,6 +169,9 @@ export class GameScene {
     resetPhys();
     resetParts();
 
+    if (this.level?.resetPuzzle) {
+  this.level.resetPuzzle();
+}
     this._raceDistance = 0;
     this._lastProgressPos = P.pos || 0;
 
@@ -340,28 +343,26 @@ export class GameScene {
     const STEP = C.STEP;
     const inp = readInput();
 
+
     while (this.accum >= STEP) {
-      updatePhys(inp, STEP, trackLen);
+  updatePhys(inp, STEP, trackLen);
 
-      this._tickRaceDistance();
+  this._tickRaceDistance();
 
-      updateOpponents(STEP, sceneryObjs);
+  if (this.level?.updatePuzzle) {
+    this.level.updatePuzzle(STEP, sceneryObjs);
+  }
 
-      this._position = getPlayerRacePosition();
-      this._opponents = getOpponentCount();
+  updateOpponents(STEP, sceneryObjs);
 
-      const a = getCarAnchor();
-      checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
+  this._position = getPlayerRacePosition();
+  this._opponents = getOpponentCount();
 
-      if ((inp.hand || inp.down) && P.speed > C.NORMAL_MAX * 0.35) {
-        if (Math.random() < 0.45) {
-          spawnSkid(a.anchorX - a.drawW * 0.30, a.anchorY + a.drawH * 0.06);
-          spawnSkid(a.anchorX + a.drawW * 0.30, a.anchorY + a.drawH * 0.06);
-        }
-      }
+  const a = getCarAnchor();
+  checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
 
-      this.accum -= STEP;
-    }
+  this.accum -= STEP;
+}
 
     this._trackPickups();
 

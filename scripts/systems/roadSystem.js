@@ -8,6 +8,8 @@ import {
   findSeg, trackLen, switchToTrack,
 } from '../core/roadMap.js';
 
+import { getActiveLevel } from '../core/activeLevel.js';
+
 import { setEngineSpeed, setBrakeLoop, playSfx } from '../core/audio.js';
 
 export const P = {
@@ -241,14 +243,26 @@ function unlockReverseSecret() {
 }
 
 function tickReversePuzzle(d) {
+  const lvl = getActiveLevel();
+
+  // LEVEL 3 uses Symbol Puzzle,
+  // not reverse-driving puzzle
+if (lvl?.id === 'level3' || lvl?.id === 'level4') {
+  return;
+}
+
   if (P.secretUnlocked || P.onRoad2) return;
 
   if (P.speed < -40) {
     P.reverseDistance += Math.abs(P.speed) * d;
 
-    if (!P.reverseHintFired && P.reverseDistance >= C.REVERSE_HINT_DISTANCE) {
+    if (!P.reverseHintFired &&
+        P.reverseDistance >= C.REVERSE_HINT_DISTANCE) {
       P.reverseHintFired = true;
-      if (_reverseHintCb) _reverseHintCb();
+
+      if (_reverseHintCb) {
+        _reverseHintCb();
+      }
     }
 
     if (P.reverseDistance >= C.REVERSE_SECRET_DISTANCE) {

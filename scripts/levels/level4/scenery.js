@@ -128,5 +128,55 @@ export function buildSceneryObjects() {
     noCollision: true,
   });
 
+  // =====================================================
+// LEVEL 4 MEMORY SPRINT PLATFORMS
+// Real path must be remembered during preview.
+// Fake pads shimmer during preview but punish later.
+// =====================================================
+// =====================================================
+// LEVEL 4 MEMORY SPRINT PLATFORMS
+// Spread across full road, not only start
+// =====================================================
+function addMemoryPad(id, seg, offset, isFake = false, keepVisible = false) {
+  addRoad('boostPad', seg, offset, 1.10, {
+    isJump: true,
+    isMemoryPlatform: true,
+    memoryId: id,
+    isFakePlatform: isFake,
+    keepVisible,
+    memoryHidden: false,
+    roadFrac: 0.72,
+    heightMul: 0.85,
+  });
+}
+
+const p1 = Math.floor(total * 0.12);
+const p2 = Math.floor(total * 0.22);
+const p3 = Math.floor(total * 0.32);
+const p4 = Math.floor(total * 0.42);
+const p5 = Math.floor(total * 0.52);
+const p6 = Math.floor(total * 0.62);
+const p7 = Math.floor(total * 0.72);
+const p8 = Math.floor(total * 0.82);
+const p9 = Math.floor(total * 0.90);
+
+// Safe path
+addMemoryPad('p1', p1, 0.00, false, true);
+addMemoryPad('p2', p2, -0.55, false);
+addMemoryPad('p3', p3, 0.55, false);
+addMemoryPad('p4', p4, 0.00, false);
+addMemoryPad('p5', p5, -0.55, false);
+addMemoryPad('p6', p6, 0.55, false);
+addMemoryPad('p7', p7, 0.00, false); // becomes fake mid-run
+addMemoryPad('p8', p8, -0.55, false);
+addMemoryPad('p9', p9, 0.55, false);
+
+// Fake preview pads
+addMemoryPad('f1', p2, 0.55, true);
+addMemoryPad('f2', p3, -0.55, true);
+addMemoryPad('f3', p5, 0.55, true);
+addMemoryPad('f4', p7, -0.55, true);
+addMemoryPad('f5', p8, 0.00, true);
+
   return objs;
 }

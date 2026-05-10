@@ -26,6 +26,9 @@ import { trackLen } from '../core/roadMap.js';
 import { playSfx } from '../core/audio.js';
 import { addCoins } from '../player/playerData.js';
 
+import { getActiveLevel } from '../core/activeLevel.js';
+import { pressSymbolSwitch } from '../levels/level3/logic.js';
+import { punishMemoryMistake } from '../levels/level4/logic.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -73,19 +76,19 @@ const CHARGE = [
 
 const COIN_SPARK = [
   { x: 1139, y: 1340, w: 117, h: 116 },
-  { x: 1925, y: 128,  w: 122, h: 122 },
-  { x: 1925, y: 502,  w: 121, h: 121 },
-  { x: 789,  y: 1171, w: 121, h: 120 },
-  { x: 1,    y: 1330, w: 119, h: 120 },
-  { x: 779,  y: 1292, w: 118, h: 121 },
-  { x: 121,  y: 1438, w: 115, h: 122 },
-  { x: 1,    y: 1451, w: 113, h: 121 },
-  { x: 329,  y: 1393, w: 119, h: 118 },
+  { x: 1925, y: 128, w: 122, h: 122 },
+  { x: 1925, y: 502, w: 121, h: 121 },
+  { x: 789, y: 1171, w: 121, h: 120 },
+  { x: 1, y: 1330, w: 119, h: 120 },
+  { x: 779, y: 1292, w: 118, h: 121 },
+  { x: 121, y: 1438, w: 115, h: 122 },
+  { x: 1, y: 1451, w: 113, h: 121 },
+  { x: 329, y: 1393, w: 119, h: 118 },
   { x: 1147, y: 1460, w: 125, h: 103 },
   { x: 1141, y: 1565, w: 128, h: 98 },
   { x: 1402, y: 1529, w: 128, h: 99 },
   { x: 1273, y: 1529, w: 128, h: 100 },
-  { x: 883,  y: 1478, w: 128, h: 101 },
+  { x: 883, y: 1478, w: 128, h: 101 },
   { x: 1012, y: 1565, w: 128, h: 99 },
   { x: 1531, y: 1556, w: 128, h: 97 },
 ];
@@ -573,6 +576,49 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
+    if (o.hidden) continue;
+
+    if (o.isPuzzleSwitch) {
+      if (
+        Math.abs(px - objX) < 0.38 &&
+        dz < 90 &&
+        dz > -90
+      ) {
+        if (o._pressed) continue;
+
+        o._pressed = true;
+
+        const result = pressSymbolSwitch(o.symbol);
+
+        // wrong → show traps
+        if (result?.spawnTraps) {
+          for (const t of sceneryObjs) {
+            if (t.isPuzzleTrap) {
+              t.hidden = false;
+            }
+          }
+
+          // allow switches again
+          for (const sw of sceneryObjs) {
+            if (sw.isPuzzleSwitch) {
+              sw._pressed = false;
+            }
+          }
+        }
+
+        // correct → effect
+        if (result?.correct || result?.solved) {
+          spawnPickup(
+            screenAnchorX,
+            screenAnchorY - 100,
+            false
+          );
+        }
+      }
+
+      continue;
+    }
+
     // ═══════════════════════════════════════════════════
     // BOOSTER (NITRO BOTTLE) — STORAGE-ONLY PICKUP
     // ─────────────────────────────────────────────────────
@@ -623,28 +669,36 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     }
 
     // ── JUMP RAMP ──
-    if (o.isJump) {
-      const spr = JUMP_SPR[o.kind] || {};
-      const jumpDz = wrapDz(o.z, playerZ);
+// ── JUMP RAMP ──
+if (o.isJump) {
+  const spr = JUMP_SPR[o.kind] || {};
+  const jumpDz = wrapDz(o.z, playerZ);
 
-      const hitBackZ = o.hitBackZ ?? spr.hitBackZ ?? -70;
-      const hitFrontZ = o.hitFrontZ ?? spr.hitFrontZ ?? 160;
-      const hitHalfW = o.hitHalfW ?? spr.hitHalfW ?? 0.42;
+  const hitBackZ = o.hitBackZ ?? spr.hitBackZ ?? -70;
+  const hitFrontZ = o.hitFrontZ ?? spr.hitFrontZ ?? 160;
+  const hitHalfW = o.hitHalfW ?? spr.hitHalfW ?? 0.42;
 
-      const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+  const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
 
-      if (
-        jumpDz > hitBackZ &&
-        jumpDz < hitFrontZ &&
-        laneDiff < hitHalfW &&
-        !P.isAirborne &&
-        (P._jumpCooldown || 0) <= 0
-      ) {
-        launchPlayerJump(o, spr);
-      }
+  const hitJump =
+    jumpDz > hitBackZ &&
+    jumpDz < hitFrontZ &&
+    laneDiff < hitHalfW &&
+    !P.isAirborne &&
+    (P._jumpCooldown || 0) <= 0;
 
-      continue;
-    }
+  if (!hitJump) continue;
+
+  if (o.isMemoryPlatform && o.isFakePlatform) {
+    punishMemoryMistake();
+    o.memoryHidden = false;
+    o.justShifted = true;
+    continue;
+  }
+
+  launchPlayerJump(o, spr);
+  continue;
+}
 
     // ── ON-ROAD HURDLE ──
     if (cat === 'hurdle') {
