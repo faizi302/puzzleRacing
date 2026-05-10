@@ -745,14 +745,30 @@ function tickPlayerAICollision() {
 // RANKING
 // ═══════════════════════════════════════════════════════
 export function updateRacePositions() {
-  const all = [
+  const playerProgress = getPlayerProgress();
+
+  let playerRank = 1;
+
+  for (const ai of opponents) {
+    if (!ai.active) continue;
+
+    const aiProgress = getAIProgress(ai);
+
+    // If AI is ahead of player, player rank goes down
+    if (aiProgress > playerProgress + 40) {
+      playerRank++;
+    }
+  }
+
+  P.racePosition = clamp(playerRank, 1, opponents.length + 1);
+
+  raceOrder = [
     {
       id: 'player',
       name: 'YOU',
       isPlayer: true,
-      raceProgress: getPlayerProgress(),
+      raceProgress: playerProgress,
     },
-
     ...opponents.map(ai => ({
       id: ai.id,
       name: ai.name,
@@ -760,17 +776,11 @@ export function updateRacePositions() {
       ai,
       raceProgress: getAIProgress(ai),
     })),
-  ];
+  ].sort((a, b) => b.raceProgress - a.raceProgress);
 
-  all.sort((a, b) => b.raceProgress - a.raceProgress);
-
-  raceOrder = all;
-
-  for (let i = 0; i < all.length; i++) {
-    if (all[i].isPlayer) {
-      P.racePosition = i + 1;
-    } else {
-      all[i].ai.position = i + 1;
+  for (let i = 0; i < raceOrder.length; i++) {
+    if (!raceOrder[i].isPlayer) {
+      raceOrder[i].ai.position = i + 1;
     }
   }
 }
