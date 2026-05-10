@@ -246,6 +246,25 @@ export class GameScene {
     hideRaceHUD();
   }
 
+  restart() {
+    if (!this.level) return;
+
+    this.running = false;
+    this.paused = false;
+    this.winShown = false;
+    this._showStartRank = false;
+
+    stopAll();
+    stopMusic();
+    hideRaceHUD();
+    hideRaceHint();
+
+    document.getElementById('s-pause')?.classList.remove('on');
+    document.getElementById('s-win')?.classList.remove('on');
+
+    this.enter(this.level);
+  }
+
   async endRace() {
     this.winShown = true;
     lockInput(true);
