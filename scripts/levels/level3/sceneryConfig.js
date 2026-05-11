@@ -13,19 +13,9 @@ export const SPR_L3 = {
   Landmark3: { sx: 691, sy: 828, sw: 313, sh: 172, scale: 1.00, anchorY: 0.97 },
 
   Finish: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
-  Boost: { sx: 6, sy: 961, sw: 220, sh: 225, scale: 0.80, anchorY: 0.97 },
 
-  Coin: {
-    sx: 556,
-    sy: 845,
-    sw: 83,
-    sh: 88,
-    scale: 1,
-    anchorY: 0.90,
-    renderBase: 48,
-    renderMin: 8,
-    renderMax: 66,
-  },
+  Coin: { sx: 556, sy: 845, sw: 83, sh: 88, scale: 1, anchorY: 0.90, renderBase: 48, renderMin: 8, renderMax: 66,},
+  Boost: { sx: 6, sy: 961, sw: 220, sh: 225, scale: 0.80, anchorY: 0.97 },
 
   Barricade1: { sx: 785, sy: 1314, sw: 405, sh: 159, scale: 0.80, anchorY: 0.97 },
   Barricade2: { sx: 1210, sy: 1314, sw: 398, sh: 88, scale: 0.80, anchorY: 0.97 },
