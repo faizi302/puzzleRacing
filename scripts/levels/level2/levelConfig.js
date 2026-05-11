@@ -1,7 +1,6 @@
-// scripts/levels/level2/levelConfig.js
 export const LEVEL_META = {
   id: 'level2',
-  name: 'CANADA RALLY',
+  name: 'THE SHIFTING MAZE',
 
   horizonForward: 'D',
   horizonBackward: 'D',
@@ -14,9 +13,9 @@ export const LEVEL_META = {
     'assets/level/level2/LocationDSegments.jpg',
   ],
 
-  startMessage: '🏁 Level 2: Canada Rally started!',
-  hintMessage: '🧩 This road is longer and sharper.',
-  reverseMessage: '✨ Secret rally path discovered!',
-  forkMessage: '🔄 Rally road unlocked!',
-  winMessage: '🏆 Level 2 completed!',
+  startMessage: '🔄 Level 2: The Shifting Maze',
+  hintMessage: 'Watch carefully. The safe path will change.',
+  reverseMessage: '⚡ The maze shifted!',
+  forkMessage: 'LEFT is safe now. RIGHT is deadly!',
+  winMessage: '🏆 Shifting Maze completed!',
 };

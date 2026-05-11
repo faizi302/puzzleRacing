@@ -29,6 +29,8 @@ import { addCoins } from '../player/playerData.js';
 import { getActiveLevel } from '../core/activeLevel.js';
 import { pressSymbolSwitch } from '../levels/level3/logic.js';
 import { punishMemoryMistake } from '../levels/level4/logic.js';
+
+import { isLevel2TrapActive, punishMazeTrap } from '../levels/level2/logic.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -577,6 +579,9 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     }
 
     if (o.hidden) continue;
+    if (o.isMazeTrap && !isLevel2TrapActive()) {
+  continue;
+}
 
     if (o.isPuzzleSwitch) {
       if (
@@ -700,6 +705,19 @@ if (o.isJump) {
   continue;
 }
 
+if (o.isMazeTrap) {
+  const trapActive = isLevel2TrapActive();
+
+  if (!trapActive) continue;
+
+  const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+
+  if (laneDiff < 0.35 && dz > -80 && dz < 110) {
+    punishMazeTrap();
+    spawnCrash(screenAnchorX, screenAnchorY - 40);
+    continue;
+  }
+}
     // ── ON-ROAD HURDLE ──
     if (cat === 'hurdle') {
       resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);

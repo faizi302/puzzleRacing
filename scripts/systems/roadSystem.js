@@ -247,7 +247,7 @@ function tickReversePuzzle(d) {
 
   // LEVEL 3 uses Symbol Puzzle,
   // not reverse-driving puzzle
-if (lvl?.id === 'level3' || lvl?.id === 'level4') {
+if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') {
   return;
 }
 
