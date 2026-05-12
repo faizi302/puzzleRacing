@@ -56,8 +56,25 @@ function drawGroundBase(secretT) {
 
   const lvl = getActiveLevel();
   const isLevel2 = lvl?.id === 'level2';
+  const isLevel3 = lvl?.id === 'level3';
+  const isLevel4 = lvl?.id === 'level4';
+  const isLevel5 = lvl?.id === 'level5';
 
-  if (isLevel2) {
+  if (isLevel3) {
+    g.addColorStop(0, '#d7c486');
+    g.addColorStop(0.45, '#b9a66d');
+    g.addColorStop(1, '#8f7a48');
+  } else if (isLevel4) {
+    // ice/snow side ground
+    g.addColorStop(0, '#eef8ff');
+    g.addColorStop(0.45, '#d8edf8');
+    g.addColorStop(1, '#b9d3e2');
+  } else if (isLevel5) {
+    // natural water side area
+    g.addColorStop(0, '#74b9c9');
+    g.addColorStop(0.45, '#3e91aa');
+    g.addColorStop(1, '#1f647c');
+  } else if (isLevel2) {
     g.addColorStop(0, '#C8C7CD');
     g.addColorStop(0.45, '#8f8e8c');
     g.addColorStop(1, '#5a5959');
@@ -71,37 +88,23 @@ function drawGroundBase(secretT) {
     g.addColorStop(1, '#3f6c25');
   }
 
-  const isLevel3 = lvl?.id === 'level3';
-
-if (isLevel3) {
-  g.addColorStop(0, '#d7c486');   // horizon dust
-  g.addColorStop(0.45, '#b9a66d'); // middle dry ground
-  g.addColorStop(1, '#8f7a48');    // near darker desert
-} else if (isLevel2) {
-  g.addColorStop(0, '#C8C7CD');
-  g.addColorStop(0.45, '#8f8e8c');
-  g.addColorStop(1, '#5a5959');
-} else if (secretT > 0.55) {
-  g.addColorStop(0, '#25472f');
-  g.addColorStop(0.5, '#1f3928');
-  g.addColorStop(1, '#172b20');
-} else {
-  g.addColorStop(0, '#5a8a3a');
-  g.addColorStop(0.5, '#4a7c2e');
-  g.addColorStop(1, '#3f6c25');
-}
-
   ctx.fillStyle = g;
   ctx.fillRect(0, horizonY, W, H - horizonY);
 
   const fog = ctx.createLinearGradient(0, horizonY, 0, horizonY + H * 0.12);
-if (isLevel3) {
-  fog.addColorStop(0, 'rgba(222, 204, 145, 0.65)');
-  fog.addColorStop(1, 'rgba(222, 204, 145, 0)');
-} else {
-  fog.addColorStop(0, 'rgba(180, 210, 195, 0.55)');
-  fog.addColorStop(1, 'rgba(180, 210, 195, 0)');
-}
+  if (isLevel3) {
+    fog.addColorStop(0, 'rgba(222, 204, 145, 0.65)');
+    fog.addColorStop(1, 'rgba(222, 204, 145, 0)');
+  } else if (isLevel4) {
+    fog.addColorStop(0, 'rgba(230, 248, 255, 0.72)');
+    fog.addColorStop(1, 'rgba(230, 248, 255, 0)');
+  } else if (isLevel5) {
+    fog.addColorStop(0, 'rgba(120, 195, 210, 0.55)');
+    fog.addColorStop(1, 'rgba(120, 195, 210, 0)');
+  } else {
+    fog.addColorStop(0, 'rgba(180, 210, 195, 0.55)');
+    fog.addColorStop(1, 'rgba(180, 210, 195, 0)');
+  }
   ctx.fillStyle = fog;
   ctx.fillRect(0, horizonY, W, H * 0.14);
 }
@@ -138,8 +141,8 @@ export function drawBG() {
   const ctx = getCtx();
   const W = getW();
   const H = getH();
-const jumpShift = Math.min(42, (P.cameraAirY || 0) * 0.06);
-const skyH = ((H * 0.43) + jumpShift) | 0;
+  const jumpShift = Math.min(42, (P.cameraAirY || 0) * 0.06);
+  const skyH = ((H * 0.43) + jumpShift) | 0;
 
   const speed01 = clamp(Math.abs(P.speed) / C.NORMAL_MAX, 0, 1.2);
   const curve = P.cameraCurve ?? P.roadCurve;
@@ -157,8 +160,8 @@ const skyH = ((H * 0.43) + jumpShift) | 0;
   const forwardFrame = HORIZON_FRAMES[forwardKey] || HORIZON_FRAMES.E;
   const backwardFrame = HORIZON_FRAMES[backwardKey] || HORIZON_FRAMES.C;
 
-drawCoverFrame(ctx, IMG.horizon, forwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panE, 1 - turnT);
-drawCoverFrame(ctx, IMG.horizon, backwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panC, turnT);
+  drawCoverFrame(ctx, IMG.horizon, forwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panE, 1 - turnT);
+  drawCoverFrame(ctx, IMG.horizon, backwardFrame, 0, -jumpShift, W, skyH + jumpShift, _panC, turnT);
 
   drawGroundBase(turnT);
   drawCameraTurnOverlay(turnT);

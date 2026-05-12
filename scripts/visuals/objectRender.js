@@ -65,6 +65,10 @@ const DEFAULT_LEVEL_IMAGES = {
     'assets/jumps.png',
     'jumps.png',
   ],
+
+  puzzleSymbols: [
+    'assets/level/level3/puzzle_sequence.png',
+  ],
 };
 
 export const IMG = {
@@ -72,6 +76,7 @@ export const IMG = {
   segments: loadImage(DEFAULT_LEVEL_IMAGES.segments),
   scenery: loadImage(DEFAULT_LEVEL_IMAGES.scenery),
   jumps: loadImage(DEFAULT_LEVEL_IMAGES.jumps),
+  puzzleSymbols: loadImage(DEFAULT_LEVEL_IMAGES.puzzleSymbols),
 
   effects: loadImage([
     'assets/player/Effects.png',
@@ -87,12 +92,16 @@ export async function setLevelImages(levelMeta) {
   // Always reset to Level 1 defaults when a level does not provide
   // its own image paths. This fixes Level2 → Level1 wrong atlas issue.
   const segmentsSrc = levelMeta?.segmentsImage || DEFAULT_LEVEL_IMAGES.segments;
-  const scenerySrc  = levelMeta?.sceneryImage  || DEFAULT_LEVEL_IMAGES.scenery;
-  const jumpsSrc    = levelMeta?.jumpsImage    || DEFAULT_LEVEL_IMAGES.jumps;
+  const scenerySrc = levelMeta?.sceneryImage || DEFAULT_LEVEL_IMAGES.scenery;
+  const jumpsSrc = levelMeta?.jumpsImage || DEFAULT_LEVEL_IMAGES.jumps;
+
+  const puzzleSymbolsSrc = levelMeta?.puzzleSymbolsImage || DEFAULT_LEVEL_IMAGES.puzzleSymbols;
+  IMG.puzzleSymbols = loadImage(puzzleSymbolsSrc);
+  waits.push(IMG.puzzleSymbols.promise);
 
   IMG.segments = loadImage(segmentsSrc);
-  IMG.scenery  = loadImage(scenerySrc);
-  IMG.jumps    = loadImage(jumpsSrc);
+  IMG.scenery = loadImage(scenerySrc);
+  IMG.jumps = loadImage(jumpsSrc);
 
   waits.push(IMG.segments.promise);
   waits.push(IMG.scenery.promise);
