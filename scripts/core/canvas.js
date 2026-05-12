@@ -35,7 +35,7 @@ export function initRenderer(canvas) {
   _cv = canvas;
   _cx = canvas.getContext('2d', { alpha: false });
   _cx.imageSmoothingEnabled = true;
-  _cx.imageSmoothingQuality = 'high';
+  _cx.imageSmoothingQuality = 'low';
 }
 
 /**

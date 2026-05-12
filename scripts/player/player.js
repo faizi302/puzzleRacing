@@ -433,34 +433,59 @@ let _fxClock = 0;
 function drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH) {
   if (!P.nitroActive || P.nitroStored <= 0) return;
 
-  const ramp = Math.min(1, P._nitroActivationT * 6);
+  const ramp = Math.min(1, P._nitroActivationT * 7);
+  const pulse = 0.92 + Math.sin(_fxClock * 40) * 0.08;
 
-  const flameW = drawW * 2.20;
-  const flameH = drawH * 3.10;
+  // exhaust/silencer point — center backside of car
+  const startX = anchorX;
+  const startY = anchorY + drawH * 0.16;
 
-  const flameX = anchorX;
-  const flameY = anchorY + drawH * 0.10;
+  // long backward beam
+  const endY = startY + drawH * 4.8 * pulse;
 
-  drawFxFrame(ctx, 'Streaks', _fxClock * 22, flameX, flameY + flameH * 0.50, flameH * 1.20, {
-    alpha: 0.55 * ramp,
-    blend: 'screen',
-    ax: 0.5,
-    ay: 0.05,
-  });
+  // very thin at car, slightly wider at end
+  const startW = drawW * 0.045;
+  const endW   = drawW * 0.34;
 
-  drawFxFrame(ctx, 'Boost', _fxClock * 38, flameX, flameY + flameH * 0.22, flameW * 1.30, {
-    alpha: 1.0 * ramp,
-    blend: 'lighter',
-    ax: 0.5,
-    ay: 0.02,
-  });
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = ramp;
 
-  drawFxFrame(ctx, 'Boost', _fxClock * 30 + 1.2, flameX, flameY + flameH * 0.62, flameW * 1.50, {
-    alpha: 0.78 * ramp,
-    blend: 'lighter',
-    ax: 0.5,
-    ay: 0.04,
-  });
+  // outer glow
+  let g = ctx.createLinearGradient(startX, startY, startX, endY);
+  g.addColorStop(0.00, 'rgba(180,240,255,0.95)');
+  g.addColorStop(0.25, 'rgba(60,170,255,0.55)');
+  g.addColorStop(1.00, 'rgba(20,80,255,0.00)');
+
+  ctx.beginPath();
+  ctx.moveTo(startX - startW, startY);
+  ctx.lineTo(startX + startW, startY);
+  ctx.lineTo(startX + endW, endY);
+  ctx.lineTo(startX - endW, endY);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  // bright inner core
+  const coreEndW = endW * 0.36;
+  const coreStartW = startW * 0.45;
+
+  let cg = ctx.createLinearGradient(startX, startY, startX, endY);
+  cg.addColorStop(0.00, 'rgba(255,255,255,1)');
+  cg.addColorStop(0.22, 'rgba(120,230,255,0.9)');
+  cg.addColorStop(0.75, 'rgba(40,120,255,0.35)');
+  cg.addColorStop(1.00, 'rgba(40,120,255,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(startX - coreStartW, startY);
+  ctx.lineTo(startX + coreStartW, startY);
+  ctx.lineTo(startX + coreEndW, endY);
+  ctx.lineTo(startX - coreEndW, endY);
+  ctx.closePath();
+  ctx.fillStyle = cg;
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
@@ -476,6 +501,51 @@ function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
     ax: 0.5,
     ay: 0.5,
   });
+}
+
+function drawDriftTyreLines(ctx, anchorX, anchorY, drawW, drawH) {
+  if (!P.driftLines?.length) return;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+
+  for (const mark of P.driftLines) {
+    const ageAlpha = Math.max(0, Math.min(1, mark.life || 0));
+    const dz = P.pos - mark.z;
+
+    // only draw recent marks behind car
+    if (dz < -100 || dz > 2600) continue;
+
+    const t = Math.max(0, Math.min(1, dz / 2600));
+
+    const y = anchorY + drawH * 0.26 + t * drawH * 2.2;
+    const x = anchorX + (mark.x - P.playerX) * getW() * 0.42 * (1 - t * 0.45);
+
+    const w = drawW * (0.12 + t * 0.10);
+    const gap = drawW * 0.27;
+
+    ctx.globalAlpha = 0.45 * ageAlpha * (1 - t * 0.35);
+
+    // black road = black tyre marks
+    // soil/offroad = brown/dusty tyre marks
+    ctx.strokeStyle = mark.off
+      ? 'rgba(130, 92, 45, 1)'
+      : 'rgba(20, 20, 20, 1)';
+
+    ctx.lineWidth = Math.max(2, 5 * getRes() * (1 - t * 0.35));
+
+    ctx.beginPath();
+    ctx.moveTo(x - gap, y);
+    ctx.lineTo(x - gap - w, y + drawH * 0.16);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x + gap, y);
+    ctx.lineTo(x + gap + w, y + drawH * 0.16);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 function drawDriftSkid(ctx, anchorX, anchorY, drawW, drawH) {

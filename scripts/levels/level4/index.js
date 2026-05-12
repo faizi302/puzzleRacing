@@ -5,6 +5,7 @@ import { resetLevel4Puzzle, updateLevel4Puzzle } from './logic.js';
 
 export default {
   ...LEVEL_META,
+   totalLaps: 1,
   buildRoads,
   buildSceneryObjects,
   resetPuzzle: resetLevel4Puzzle,

@@ -11,6 +11,7 @@ import {
 import { getActiveLevel } from '../core/activeLevel.js';
 
 import { setEngineSpeed, setBrakeLoop, playSfx } from '../core/audio.js';
+import { K, consumeDownPress } from '../core/inputController.js';
 
 export const P = {
   pos: 0,
@@ -30,6 +31,14 @@ export const P = {
   playerZ: 0,
   cameraTurning: false,
   cameraTurnTime: 0,
+
+  driftActive: false,
+  driftDir: 0,
+  driftTimer: 0,
+  driftSmokePower: 0,
+  manualDriftVelocity: 0,
+  steerVisual: 0,
+  driftLines: [],
 
   nitroTime: 0,
   nitroActive: false,
@@ -102,6 +111,14 @@ export function resetPhys() {
   P.cameraTurning = false;
   P.cameraTurnTime = 0;
 
+  P.driftActive = false;
+  P.driftDir = 0;
+  P.driftTimer = 0;
+  P.driftSmokePower = 0;
+  P.manualDriftVelocity = 0;
+  P.steerVisual = 0;
+  P.driftLines = [];
+
   P.nitroTime = 0;
   P.nitroActive = false;
 
@@ -157,7 +174,7 @@ export function applyCollisionImpact(type = 'medium', dir = 0) {
     soft: { keep: 0.88, push: 0.025, dmg: 0, shake: 0.08, cd: 0.10, nitro: false, min: 0 },
     medium: { keep: 0.62, push: 0.090, dmg: 8, shake: 0.25, cd: 0.35, nitro: false, min: 350 },
     hard: { keep: 0.38, push: 0.150, dmg: 18, shake: 0.45, cd: 0.50, nitro: true, min: 250 },
-    wall: { keep: 0.28, push: 0.220, dmg: 25, shake: 0.60, cd: 0.65, nitro: true, min: 120 },
+    wall: { keep: 0.72, push: 0.158, dmg: 8, shake: 0.18, cd: 0.22, nitro: true, min: 120 },
     traffic: { keep: 0.45, push: 0.170, dmg: 20, shake: 0.50, cd: 0.55, nitro: true, min: 200 },
     deadly: { keep: 0.06, push: 0.260, dmg: 45, shake: 0.85, cd: 0.90, nitro: true, min: 0 },
   };
@@ -247,9 +264,9 @@ function tickReversePuzzle(d) {
 
   // LEVEL 3 uses Symbol Puzzle,
   // not reverse-driving puzzle
-if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') {
-  return;
-}
+  if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') {
+    return;
+  }
 
   if (P.secretUnlocked || P.onRoad2) return;
 
@@ -257,7 +274,7 @@ if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') {
     P.reverseDistance += Math.abs(P.speed) * d;
 
     if (!P.reverseHintFired &&
-        P.reverseDistance >= C.REVERSE_HINT_DISTANCE) {
+      P.reverseDistance >= C.REVERSE_HINT_DISTANCE) {
       P.reverseHintFired = true;
 
       if (_reverseHintCb) {
@@ -276,11 +293,11 @@ export function updatePhys(inp, dt, len) {
   tickCollisionState(d);
 
   // Smooth camera Y follow when car jumps
-const jumpCamFollow = C.JUMP_CAMERA_FOLLOW ?? 0.45;
-const jumpCamTarget = (P.airY || 0) * jumpCamFollow;
+  const jumpCamFollow = C.JUMP_CAMERA_FOLLOW ?? 0.45;
+  const jumpCamTarget = (P.airY || 0) * jumpCamFollow;
 
-const jumpCamSmooth = 1 - Math.pow(0.001, d * 4.5);
-P.cameraAirY += (jumpCamTarget - P.cameraAirY) * jumpCamSmooth;
+  const jumpCamSmooth = 1 - Math.pow(0.001, d * 4.5);
+  P.cameraAirY += (jumpCamTarget - P.cameraAirY) * jumpCamSmooth;
 
   // Smooth fake 180 camera transition.
   if (P.cameraTurning) {
@@ -365,25 +382,137 @@ P.cameraAirY += (jumpCamTarget - P.cameraAirY) * jumpCamSmooth;
 
   P.roadCurve += (curveNow - P.roadCurve) * 0.10;
 
-  const CENTRIFUGAL_STRENGTH = 3.2;
-  const curvePush = P.roadCurve * Math.min(Math.abs(speedFrac), 1) * CENTRIFUGAL_STRENGTH * d;
-  P.playerX -= curvePush;
+// ═══════════════════════════════════════════════════════
+// ASPHALT LEGENDS STYLE DRIFT
+// Control:
+//   Hold Left/Right + single tap Down = start drift
+//   Release Down, keep Left/Right = keep drift
+//   Switch Left/Right = control drift direction
+//   Collision/offroad = drift cancels
+// ═══════════════════════════════════════════════════════
 
-  const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
-  const effSteer = Math.max(speedAbsFrac, C.STEER_MIN_FAC);
-  const steerDx = d * C.STEER_SPD * effSteer;
+const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
+const steerInput = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+const downTap = consumeDownPress();
 
-  // LEFT / RIGHT only change car frame.
-  // They do NOT move car position.
-  // Steering rule:
-  // left/right alone = only visual frame change
-  // up + left/right = car position moves
-  const canMoveSide = inp.up && P.speed > 20;
+const canDrive = P.speed > 80;
+const canStartDrift =
+  canDrive &&
+  steerInput !== 0 &&
+  downTap &&
+  speedAbsFrac > 0.35;
 
-  if (canMoveSide) {
-    if (inp.left) P.playerX -= steerDx;
-    if (inp.right) P.playerX += steerDx;
+// start drift from single Down tap
+if (canStartDrift) {
+  P.driftActive = true;
+  P.driftDir = steerInput;
+  P.driftTimer = 0;
+}
+
+// keep drift while player keeps steering
+if (P.driftActive) {
+  P.driftTimer += d;
+
+  if (steerInput !== 0) {
+    P.driftDir = steerInput;
   }
+
+  // cancel drift if no steering, too slow, collision, or outside road
+  if (
+    steerInput === 0 ||
+    P.speed < 60 ||
+    P.hitCooldown > 0 ||
+    Math.abs(P.playerX) > 1.05
+  ) {
+    P.driftActive = false;
+  }
+}
+
+P.isManualDrifting = P.driftActive;
+P.steerVisual = steerInput;
+
+// curve force
+const curvePower = Math.min(Math.abs(speedFrac), 1);
+
+// normal curve push should be controlled
+const CENTRIFUGAL_NORMAL = 2.80;
+
+// during drift, curve push becomes weaker
+const CENTRIFUGAL_DRIFT = 0.75;
+
+const curvePush =
+  P.roadCurve *
+  curvePower *
+  (P.driftActive ? CENTRIFUGAL_DRIFT : CENTRIFUGAL_NORMAL) *
+  d;
+
+P.playerX -= curvePush;
+
+// manual steering speed
+// decrease NORMAL_STEER_MULT if left/right still too fast
+const NORMAL_STEER_MULT = 0.55;
+const DRIFT_STEER_MULT = 0.95;
+
+const baseSteer =
+  d *
+  C.STEER_SPD *
+  Math.max(speedAbsFrac, C.STEER_MIN_FAC);
+
+const normalSteer = baseSteer * NORMAL_STEER_MULT;
+const driftSteer = baseSteer * DRIFT_STEER_MULT;
+
+if (canDrive) {
+  if (P.driftActive) {
+    // drift control
+    P.playerX += steerInput * driftSteer;
+
+    // slow down softly during drift
+    P.speed *= Math.pow(0.992, d * 60);
+
+    P.manualDriftVelocity = steerInput * driftSteer * 60;
+
+    const targetSmoke = Math.min(1, 0.35 + speedAbsFrac * 0.65);
+    P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
+
+    // small camera yaw feeling
+    P.cameraCurve += steerInput * 0.004;
+
+    // save tire line points
+    if (!P.driftLines) P.driftLines = [];
+
+    P.driftLines.push({
+      x: P.playerX,
+      z: P.pos,
+      life: 1.0,
+      off: P.isOffTrack,
+    });
+
+    if (P.driftLines.length > 90) {
+      P.driftLines.shift();
+    }
+
+  } else {
+    // normal lane movement
+    P.playerX += steerInput * normalSteer;
+
+    P.manualDriftVelocity *= Math.pow(0.05, d);
+    P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
+  }
+} else {
+  P.driftActive = false;
+  P.manualDriftVelocity *= Math.pow(0.05, d);
+  P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
+}
+
+// fade tyre lines
+if (P.driftLines?.length) {
+  for (let i = P.driftLines.length - 1; i >= 0; i--) {
+    P.driftLines[i].life -= d * 0.22;
+    if (P.driftLines[i].life <= 0) {
+      P.driftLines.splice(i, 1);
+    }
+  }
+}
 
   const camFollow = 1 - Math.pow(0.001, d);
   P.cameraX += (P.playerX - P.cameraX) * camFollow;
@@ -404,7 +533,7 @@ P.cameraAirY += (jumpCamTarget - P.cameraAirY) * jumpCamSmooth;
       P.speed += C.OFFRD_DC * d * (0.28 + outside * 0.5);
     }
 
-   if (Math.abs(P.playerX) > 1.02 && P.hitCooldown <= 0) {
+    if (Math.abs(P.playerX) > 1.02 && P.hitCooldown <= 0) {
       applyCollisionImpact('wall', dirBack);
     }
   }

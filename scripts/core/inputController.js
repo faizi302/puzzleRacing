@@ -15,7 +15,7 @@
 export const K = {
   up:false, down:false, left:false, right:false,
   hand:false, nitro:false, pause:false,
-  _locked: false,
+  _locked: false,downPressed: false,
 
   // ── Edge-detected one-shot flag for Space (nitro) ──
   // Set true on keydown, cleared by consumeNitroPress().
@@ -72,6 +72,10 @@ export function initInput() {
       K.nitroPressed = true;
     }
 
+    if (action === 'down' && !K.down && !e.repeat) {
+  K.downPressed = true;
+}
+
     K[action] = true;
   });
 
@@ -79,6 +83,19 @@ export function initInput() {
     const action = KM[e.code];
     if (action) K[action] = false;
   });
+
+
+}
+
+export function consumeDownPress() {
+  if (K._locked) {
+    K.downPressed = false;
+    return false;
+  }
+
+  const v = K.downPressed;
+  K.downPressed = false;
+  return v;
 }
 
 export function bindTouch(id, key) {

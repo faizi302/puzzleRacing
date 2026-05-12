@@ -22,6 +22,7 @@ export function resetLevel4Puzzle() {
 export function updateLevel4Puzzle(dt, sceneryObjs = []) {
   L4_MEMORY.timer += dt;
 
+  // 1) Preview ends after 4 seconds
   if (L4_MEMORY.phase === 'preview' && L4_MEMORY.timer >= L4_MEMORY.previewTime) {
     L4_MEMORY.phase = 'run';
 
@@ -34,8 +35,12 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     try { playSfx('whoosh', { volume: 0.6 }); } catch (e) {}
   }
 
-  // Mid-run twist: one safe platform becomes fake
-  if (L4_MEMORY.phase === 'run' && !L4_MEMORY.shifted &&P.pos > 0.52 * trackLen) {
+  // 2) Mid-run twist: p7 becomes fake
+  if (
+    L4_MEMORY.phase === 'run' &&
+    !L4_MEMORY.shifted &&
+    P.pos > 0.52 * trackLen
+  ) {
     L4_MEMORY.shifted = true;
 
     const target = sceneryObjs.find(o =>
@@ -47,33 +52,33 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     if (target) {
       target.isFakePlatform = true;
       target.justShifted = true;
-      target.memoryHidden = false; // show cue briefly
+      target.memoryHidden = false;
     }
 
-    // WIN CONDITION — player reaches final safe memory platform
-const finalPad = sceneryObjs.find(o =>
-  o.isMemoryPlatform &&
-  o.memoryId === 'p9'
-);
-
-if (
-  finalPad &&
-  !P.level4MemorySolved &&
-  Math.abs(P.pos - finalPad.z) < 220
-) {
-  P.level4MemorySolved = true;
-  L4_MEMORY.phase = 'solved';
-
-  P.raceFinished = true;
-  P.endPhase = 1;
-  P.endTime = 0;
-
-  try {
-    playSfx('win', { volume: 0.8 });
-  } catch (e) {}
-}
-
     try { playSfx('screech', { volume: 0.4 }); } catch (e) {}
+  }
+
+  // 3) ONE-LAP WIN CONDITION
+  // Player reaches final safe pad p9 = level complete
+  const finalPad = sceneryObjs.find(o =>
+    o.isMemoryPlatform &&
+    o.memoryId === 'p9' &&
+    !o.isFakePlatform
+  );
+
+  if (
+    finalPad &&
+    !P.level4MemorySolved &&
+    Math.abs(P.pos - finalPad.z) < 220
+  ) {
+    P.level4MemorySolved = true;
+    L4_MEMORY.phase = 'solved';
+
+    P.raceFinished = true;
+    P.endPhase = 1;
+    P.endTime = 0;
+
+    try { playSfx('win', { volume: 0.8 }); } catch (e) {}
   }
 }
 
