@@ -14,6 +14,10 @@ export const LEVEL_META = {
     'assets/level/level3/LocationBScenery.png',
   ],
 
+  puzzleSymbolsImage: [
+    'assets/level/level3/puzzle_sequence.png',
+  ],
+
   segmentsImage: [
     'assets/level/level3/LocationBSegments.jpg',
   ],
@@ -25,7 +29,7 @@ export const LEVEL_META = {
     'The walls are whispering the answer...',
 
   reverseMessage:
-    '⭐ 🌙 🔥 🌊',
+    '⭐ 🌙 💎 🗝️',
 
   forkMessage:
     '🔓 Hidden path unlocked!',

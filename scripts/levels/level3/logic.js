@@ -3,7 +3,7 @@ import { switchToTrack } from '../../core/roadMap.js';
 import { notify } from '../../player/playerAnimation.js';
 import { playSfx } from '../../core/audio.js';
 
-const CORRECT_ORDER = ['star', 'moon', 'fire', 'water'];
+const CORRECT_ORDER = ['star', 'moon', 'diamond', 'key'];
 
 let sequence = [];
 let solved = false;

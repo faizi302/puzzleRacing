@@ -272,7 +272,12 @@ function wrapDz(objZ, playerZ) {
 }
 
 function isPickup(o) {
-  return o?.isCoin || o?.isBooster || o?.isKey;
+  return (
+    o?.isCoin ||
+    o?.isBooster ||
+    o?.isKey ||
+    o?.isPuzzleSwitch
+  );
 }
 
 function resetPickupWhenBehind(o, dz) {
@@ -295,6 +300,7 @@ function objCat(o) {
   if (o.isKey) return 'key';
   if (o.isCoin) return 'coin';
   if (o.isBooster) return 'booster';
+  if (o.isPuzzleSwitch) return 'puzzle';
 
   if (o.kind === 'bridge') return null;
 
@@ -325,7 +331,12 @@ function objCat(o) {
 }
 
 function objLateralX(o) {
-  if (o.isCoin || o.isBooster || o.isKey) return o.offset || 0;
+  if (
+    o.isCoin ||
+    o.isBooster ||
+    o.isKey ||
+    o.isPuzzleSwitch
+  ) return o.offset || 0;
   // Hurdles store their lane position directly in offset (no side multiplier).
   if (o.isHurdle) return o.offset || 0;
   return (o.side || 0) * (o.offset || 1.0);
@@ -578,19 +589,29 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
     if (o.hidden) continue;
 
-    if (o.isPuzzleSwitch) {
+    if (cat === 'puzzle') {
+      const pickupHalfW = 0.12;
+      const pickupBackZ = -45;
+      const pickupAheadZ = 30;
+
       if (
-        Math.abs(px - objX) < 0.38 &&
-        dz < 90 &&
-        dz > -90
+        Math.abs(px - objX) < pickupHalfW &&
+        dz < pickupAheadZ &&
+        dz > pickupBackZ
       ) {
         if (o._pressed) continue;
 
         o._pressed = true;
+        o._dead = true;
 
         const result = pressSymbolSwitch(o.symbol);
 
-        // wrong → show traps
+        spawnPickup(
+          screenAnchorX,
+          screenAnchorY - 80,
+          false
+        );
+
         if (result?.spawnTraps) {
           for (const t of sceneryObjs) {
             if (t.isPuzzleTrap) {
@@ -598,21 +619,12 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
             }
           }
 
-          // allow switches again
           for (const sw of sceneryObjs) {
             if (sw.isPuzzleSwitch) {
               sw._pressed = false;
+              sw._dead = false;
             }
           }
-        }
-
-        // correct → effect
-        if (result?.correct || result?.solved) {
-          spawnPickup(
-            screenAnchorX,
-            screenAnchorY - 100,
-            false
-          );
         }
       }
 
@@ -669,36 +681,36 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     }
 
     // ── JUMP RAMP ──
-// ── JUMP RAMP ──
-if (o.isJump) {
-  const spr = JUMP_SPR[o.kind] || {};
-  const jumpDz = wrapDz(o.z, playerZ);
+    // ── JUMP RAMP ──
+    if (o.isJump) {
+      const spr = JUMP_SPR[o.kind] || {};
+      const jumpDz = wrapDz(o.z, playerZ);
 
-  const hitBackZ = o.hitBackZ ?? spr.hitBackZ ?? -70;
-  const hitFrontZ = o.hitFrontZ ?? spr.hitFrontZ ?? 160;
-  const hitHalfW = o.hitHalfW ?? spr.hitHalfW ?? 0.42;
+      const hitBackZ = o.hitBackZ ?? spr.hitBackZ ?? -70;
+      const hitFrontZ = o.hitFrontZ ?? spr.hitFrontZ ?? 160;
+      const hitHalfW = o.hitHalfW ?? spr.hitHalfW ?? 0.42;
 
-  const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+      const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
 
-  const hitJump =
-    jumpDz > hitBackZ &&
-    jumpDz < hitFrontZ &&
-    laneDiff < hitHalfW &&
-    !P.isAirborne &&
-    (P._jumpCooldown || 0) <= 0;
+      const hitJump =
+        jumpDz > hitBackZ &&
+        jumpDz < hitFrontZ &&
+        laneDiff < hitHalfW &&
+        !P.isAirborne &&
+        (P._jumpCooldown || 0) <= 0;
 
-  if (!hitJump) continue;
+      if (!hitJump) continue;
 
-  if (o.isMemoryPlatform && o.isFakePlatform) {
-    punishMemoryMistake();
-    o.memoryHidden = false;
-    o.justShifted = true;
-    continue;
-  }
+      if (o.isMemoryPlatform && o.isFakePlatform) {
+        punishMemoryMistake();
+        o.memoryHidden = false;
+        o.justShifted = true;
+        continue;
+      }
 
-  launchPlayerJump(o, spr);
-  continue;
-}
+      launchPlayerJump(o, spr);
+      continue;
+    }
 
     // ── ON-ROAD HURDLE ──
     if (cat === 'hurdle') {
