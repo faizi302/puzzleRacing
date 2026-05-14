@@ -25,7 +25,7 @@ export const SPR_L3 = {
   HayRoll: { sx: 372, sy: 1175, sw: 480, sh: 160, scale: 0.73, anchorY: 1.00 },
   HayBlocks: { sx: 1200, sy: 1300, sw: 440, sh: 100, scale: 0.80, anchorY: 0.97 },
   Fence: { sx: 1622, sy: 1392, sw: 550, sh: 100, scale: 0.80, anchorY: 1.00 },
-  RockFlowers: { sx: 825, sy: 1290, sw: 360, sh: 170, scale: 0.90, anchorY: 1.00 },
+  RockFlowers: { sx: 808, sy: 1299, sw: 384, sh: 192, scale: 0.80, anchorY: 1.90 },
 
   Bumper1: { sx: 1957, sy: 226, sw: 34, sh: 194, scale: 0.40, anchorY: 0.97 },
   Bumper2: { sx: 1776, sy: 319, sw: 101, sh: 249, scale: 0.40, anchorY: 0.97 },

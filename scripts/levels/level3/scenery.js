@@ -231,27 +231,16 @@ export function buildSceneryObjects() {
 
   const HURDLES = [
     // Left lane hay roll
-    // { kind: 'HayRoll', seg: 10, offset: -0.42, size: 0.72 },
+    { kind: 'HayRoll', seg: 80, offset: 0.75, size: 0.72 },
 
     // Center hay blocks
-    // { kind: 'HayBlocks', seg: 10, offset: 0.00, size: 0.70 },
+    { kind: 'HayBlocks', seg: 630, offset: -0.55, size: 0.70 },
+    { kind: 'HayBlocks', seg: 810, offset: -0.55, size: 0.70 },
 
-    // // Right lane fence
-    // { kind: 'Fence', seg: 10, offset: 0.55, size: 0.68 },
-
-    // // Double side rocks
-    // { kind: 'RockFlowers', seg: 10, offset: -0.75, size: 0.75 },
-    // { kind: 'RockFlowers', seg: 520, offset: 0.75, size: 0.75 },
-
-    // // Mixed manual placements
-    // { kind: 'HayRoll', seg: 700, offset: 0.00, size: 0.72 },
-    // { kind: 'Fence', seg: 860, offset: -0.55, size: 0.68 },
-    // { kind: 'HayBlocks', seg: 1020, offset: 0.55, size: 0.70 },
-
-    // // Later race harder section
-    // { kind: 'RockFlowers', seg: 1280, offset: 0.00, size: 0.78 },
-    // { kind: 'Fence', seg: 1460, offset: -0.55, size: 0.68 },
-    // { kind: 'HayRoll', seg: 1640, offset: 0.55, size: 0.72 },
+    { kind: 'RockFlowers', seg: 240, offset: -0.55, size: 0.75 },
+    // Right lane fence
+    { kind: 'Fence', seg: 554, offset:  0.89, size: 0.62 },
+    { kind: 'Fence', seg: 810, offset:  0.89, size: 0.62 },
   ];
 
   for (const h of HURDLES) {

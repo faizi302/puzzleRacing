@@ -13,9 +13,9 @@ export const LEVEL_META = {
     'assets/level/level4/LocationASegments.jpg',
   ],
 
-  startMessage: '🧠 Level 4: The Memory Sprint',
-  hintMessage: 'Memorize the safe platforms. They will disappear soon.',
-  reverseMessage: '🌫️ Platforms disappeared! Run from memory!',
-  forkMessage: '💨 One platform shifted!',
-  winMessage: '🏆 Memory Sprint completed!',
+  startMessage: '🧠 LEVEL 4 · THE MEMORY SPRINT',
+  hintMessage:  '3 lanes · 9 checkpoints · only ONE lane is safe at each',
+  reverseMessage: '🌫️ Platforms vanished — drive from memory!',
+  forkMessage:  '💨 The safe path shifts!',
+  winMessage:   '🏆 Perfect memory! All safe platforms cleared.',
 };

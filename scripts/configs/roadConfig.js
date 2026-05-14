@@ -7,7 +7,7 @@ export const C = {
   SEG_LEN   : 240,
   RUMBLE    : 0.2,
   LANES     : 3,
-  DRAW_D    : 720,
+  DRAW_D    : 360,
   CAM_H     : 980,
   FOV       : 88,
   TOTAL_LAPS: 1,

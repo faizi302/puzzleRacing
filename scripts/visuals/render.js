@@ -6,12 +6,13 @@
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG } from './BackgroundRender.js';
 import { drawRoad } from './roadRender.js';
-import { drawScenery } from './sceneryRender.js';
+import { drawScenery, sceneryObjs } from './sceneryRender.js';
 import { drawCar } from '../player/player.js';
 import { drawParts } from '../systems/collisionSystem.js';
 import { drawFadeOverlay } from '../player/playerAnimation.js';
 import { drawOpponents } from './opponentRender.js'; // NEW
 import { P } from '../systems/roadSystem.js';
+import { drawCheckpoints } from '../levels/level2/checkpointRender.js';
 
 function getShakeOffset() {
   if (P.cameraShakeTime <= 0 || P.cameraShake <= 0) {
@@ -66,6 +67,8 @@ export function renderFrame(steerVisual) {
 
   // 1. Road base
   drawRoad();
+
+  drawCheckpoints(ctx, sceneryObjs);
 
   // 2. World scenery / trees / arches / objects
   drawScenery();

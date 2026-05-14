@@ -14,8 +14,8 @@ export const LEVEL_META = {
   ],
 
   startMessage: '🔄 Level 2: The Shifting Maze',
-  hintMessage: 'Watch carefully. The safe path will change.',
-  reverseMessage: '⚡ The maze shifted!',
-  forkMessage: 'LEFT is safe now. RIGHT is deadly!',
+  hintMessage: '🟢 GREEN = safe path!  🔴 RED = danger! Trust the colours...',
+  reverseMessage: '⚡ The maze shifted! RED was safe all along!',
+  forkMessage: '⚠️ Drive through RED checkpoints — avoid the GREEN ones!',
   winMessage: '🏆 Shifting Maze completed!',
 };

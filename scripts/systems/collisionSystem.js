@@ -30,7 +30,8 @@ import { getActiveLevel } from '../core/activeLevel.js';
 import { pressSymbolSwitch } from '../levels/level3/logic.js';
 import { punishMemoryMistake } from '../levels/level4/logic.js';
 
-import { isLevel2TrapActive, punishMazeTrap } from '../levels/level2/logic.js';
+import { rewardCheckpoint, punishCheckpoint } from '../levels/level2/logic.js';
+import { triggerGatePass } from '../levels/level2/checkpointRender.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -412,7 +413,7 @@ function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
   if (canFx(o, 450)) {
     spawnSkid(screenAnchorX, screenAnchorY + 20);
-    safeSfx('screech');
+    safeSfx('screech', { volume: 0.18 });
   }
 }
 
@@ -453,7 +454,7 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
       screenAnchorX + (hitLeft ? -35 : 35),
       screenAnchorY - 20
     );
-    safeSfx('crash');
+   safeSfx('crash', { volume: 0.28 });
   }
 }
 
@@ -514,7 +515,7 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
     if (canFx(o, 350)) {
       spawnCrash(screenAnchorX + lateralPushDir * 60, screenAnchorY - 30);
-      safeSfx('crash');
+      safeSfx('crash', { volume: 0.28 });
     }
   } else {
     // Front / back hit
@@ -534,7 +535,7 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
     if (canFx(o, 480)) {
       spawnCrash(screenAnchorX, screenAnchorY - 40);
-      safeSfx('crash');
+      safeSfx('crash', { volume: 0.12 });
     }
   }
 }
@@ -555,7 +556,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     resetPickupWhenBehind(o, dz);
 
     const cat = objCat(o);
-    if (!cat) continue;
+    if (!cat && !o.isCheckpoint) continue;
 
     if (dz < HIT.PLAYER_Z_BACK || dz > HIT.PLAYER_Z_AHEAD) continue;
 
@@ -584,15 +585,12 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
         addCoins(1);
 
         spawnPickup(screenAnchorX, screenAnchorY - 80);
-        safeSfx('coin');
+        safeSfx('coin', { volume: 0.22 });
       }
       continue;
     }
 
     if (o.hidden) continue;
-    if (o.isMazeTrap && !isLevel2TrapActive()) {
-  continue;
-}
 
     if (cat === 'puzzle') {
       const pickupHalfW = 0.12;
@@ -717,20 +715,35 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-if (o.isMazeTrap) {
-  const trapActive = isLevel2TrapActive();
+    // ── CHECKPOINT GATE (Level 2 — Shifting Maze) ────────
+    // RED  gate (isSafeGate)   → reward player
+    // GREEN gate (isDangerGate) → punish player
+    // Each gate triggers only once (o.passed guard).
+    if (o.isCheckpoint) {
+      if (o.passed) continue;
 
-  if (!trapActive) continue;
+      const gateHalfW  = 0.22;
+      const gateAheadZ = 120;
+      const gateBackZ  = -60;
 
-  const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
+      const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
 
-  if (laneDiff < 0.35 && dz > -80 && dz < 110) {
-    punishMazeTrap();
-    spawnCrash(screenAnchorX, screenAnchorY - 40);
-    continue;
-  }
-}
-    // ── ON-ROAD HURDLE ──
+      if (laneDiff < gateHalfW && dz > gateBackZ && dz < gateAheadZ) {
+        triggerGatePass(o);
+
+        if (o.isSafeGate) {
+          rewardCheckpoint();
+          spawnPickup(screenAnchorX, screenAnchorY - 80, false);
+        } else {
+          punishCheckpoint();
+          spawnCrash(screenAnchorX, screenAnchorY - 40);
+        }
+      }
+
+      continue;
+    }
+
+    // ── TUNNEL / ARCH / CENTER HURDLE ──
     if (cat === 'hurdle') {
       resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);
       continue;
@@ -760,7 +773,7 @@ export function tickEdgeScrape() {
   if (isScraping && !_scrapeWasOn) {
     safeSfx('screech', {
       loop: true,
-      volume: 0.35,
+      volume: 0.04,
       key: 'screech',
     });
 

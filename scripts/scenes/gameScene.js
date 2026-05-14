@@ -61,6 +61,8 @@ export class GameScene {
     this.fpsT = 0;
     this.fpsN = 0;
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this.level = null;
 
     // Track stats for THIS race only — committed on win.
@@ -156,6 +158,8 @@ export class GameScene {
 
     unlockAudio();
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._raceCoins = 0;
     this._raceKeys = 0;
     this._lastKeyCount = 0;
@@ -163,6 +167,7 @@ export class GameScene {
     this._position = 1;
 
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
 
     buildTrack(buildScenery);
@@ -255,7 +260,14 @@ export class GameScene {
     this.running = false;
     this.paused = false;
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._showStartRank = false;
+
+    // Clear engine-side flags so the new race starts clean.
+    P.raceFailed = false;
+    P.raceFinished = false;
+    P._failReason = null;
 
     stopAll();
     stopMusic();
@@ -264,6 +276,7 @@ export class GameScene {
 
     document.getElementById('s-pause')?.classList.remove('on');
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
 
     this.enter(this.level);
   }
@@ -289,6 +302,74 @@ export class GameScene {
     show('win');
     hideRaceHUD();
     P.endPhase = 2;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // LOSE FLOW
+  // ───────────────────────────────────────────────────────────
+  // Mirrors endRace() but for failure cases. No rewards are
+  // persisted (player did not complete the level), and the
+  // lose panel is shown with the player's progress so they can
+  // see how close they got.
+  //
+  // Triggered either by:
+  //   • `P.raceFailed` flag set by any engine system, OR
+  //   • calling `gameScene.fail(reason)` from anywhere
+  //     (timer, AI rivals, health system, etc.)
+  // ═══════════════════════════════════════════════════════════
+  async loseRace(reason) {
+    this.loseShown = true;
+    lockInput(true);
+    stopMusic();
+    // Reuse 'coin' as a soft negative cue — swap to a dedicated
+    // 'lose' sfx if you add one to the audio system.
+    if (getSetting('soundOn')) {
+      try { playSfx('coin'); } catch (e) { }
+    }
+
+    // Compute level progress as a percentage of the track lap-distance
+    // the player has covered so far. Caps at 100%.
+    const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
+    const lapsDone  = Math.max(0, P.lapCount || 0);
+    const lapFrac   = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress  = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct       = Math.round(progress * 100);
+
+    // Stats
+    const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
+    const posTxt   = `${this._position} / ${this._opponents}`;
+
+    // Populate DOM
+    const reasonEl = document.getElementById('ls-reason');
+    if (reasonEl && reason) reasonEl.textContent = reason;
+    else if (reasonEl)      reasonEl.textContent = "You didn't make it this time";
+
+    document.getElementById('ls-t').textContent  = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent  = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent  = posTxt;
+    document.getElementById('ls-prog-pct').textContent = `${pct}%`;
+
+    // Hide HUD before the panel slides in
+    hideRaceHUD();
+    hideRaceHint();
+
+    show('lose');
+
+    // Animate the bar fill on next frame so the CSS transition runs.
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('ls-prog-fill');
+      if (fill) fill.style.width = `${pct}%`;
+    });
+
+    P.endPhase = 2;
+  }
+
+  // Public trigger — call from anywhere to force a loss.
+  // Example: gameScene.fail('Time ran out!')
+  fail(reason) {
+    if (this.winShown || this.loseShown) return;
+    P.raceFailed = true;
+    this._failReason = reason || null;
   }
 
   // Track coin/key gain during the race
@@ -392,6 +473,12 @@ export class GameScene {
     if (this.fpsT >= 0.5) { this.fps = (this.fpsN / this.fpsT) | 0; this.fpsT = 0; this.fpsN = 0; }
 
     if (P.raceFinished && !this.winShown) this.endRace();
+    else if (P.raceFailed && !this.loseShown && !this.winShown) {
+      // Prefer a reason set by puzzle logic (P._failReason) over the
+      // one cached when gameScene.fail() was called externally.
+      const reason = P._failReason || this._failReason;
+      this.loseRace(reason);
+    }
 
     requestAnimationFrame(this.loop);
   };
