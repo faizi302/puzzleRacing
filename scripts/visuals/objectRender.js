@@ -69,6 +69,13 @@ const DEFAULT_LEVEL_IMAGES = {
   puzzleSymbols: [
     'assets/level/level3/puzzle_sequence.png',
   ],
+
+  // ── LEVEL 1 — Ghost Start monster spritesheet (2×3, 512×512) ──
+monsters: [
+  'assets/monster/gorila.jpeg',
+  'assets/gorila.jpeg',
+  'gorila.jpeg',
+],
 };
 
 export const IMG = {
@@ -77,6 +84,9 @@ export const IMG = {
   scenery: loadImage(DEFAULT_LEVEL_IMAGES.scenery),
   jumps: loadImage(DEFAULT_LEVEL_IMAGES.jumps),
   puzzleSymbols: loadImage(DEFAULT_LEVEL_IMAGES.puzzleSymbols),
+
+  // Monster spritesheet used by visuals/monsterRender.js.
+  monsters: loadImage(DEFAULT_LEVEL_IMAGES.monsters),
 
   effects: loadImage([
     'assets/player/Effects.png',
@@ -94,6 +104,7 @@ export async function setLevelImages(levelMeta) {
   const segmentsSrc = levelMeta?.segmentsImage || DEFAULT_LEVEL_IMAGES.segments;
   const scenerySrc = levelMeta?.sceneryImage || DEFAULT_LEVEL_IMAGES.scenery;
   const jumpsSrc = levelMeta?.jumpsImage || DEFAULT_LEVEL_IMAGES.jumps;
+  const monstersSrc = levelMeta?.monstersImage || DEFAULT_LEVEL_IMAGES.monsters;
 
   const puzzleSymbolsSrc = levelMeta?.puzzleSymbolsImage || DEFAULT_LEVEL_IMAGES.puzzleSymbols;
   IMG.puzzleSymbols = loadImage(puzzleSymbolsSrc);
@@ -102,10 +113,12 @@ export async function setLevelImages(levelMeta) {
   IMG.segments = loadImage(segmentsSrc);
   IMG.scenery = loadImage(scenerySrc);
   IMG.jumps = loadImage(jumpsSrc);
+  IMG.monsters = loadImage(monstersSrc);
 
   waits.push(IMG.segments.promise);
   waits.push(IMG.scenery.promise);
   waits.push(IMG.jumps.promise);
+  waits.push(IMG.monsters.promise);
 
   return Promise.all(waits);
 }

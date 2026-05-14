@@ -1,13 +1,26 @@
 // ═══════════════════════════════════════════════════════
 // SCENERY RENDER — Drawing only. Building delegated to active level.
 // ─────────────────────────────────────────────────────
-// Now also renders JUMP RAMPS using IMG.jumps + JUMP_SPR atlas.
-// No new render hook needed — everything goes through this one
-// drawScenery() pass.
+// Renders:
+//   • Static scenery (trees, totems, bridges, arches…)
+//   • Pickups (coins, keys, boosters)
+//   • Hurdles + Jump ramps
+//   • Fork-gate / fork-marker tinting
+//   • GHOST START puzzle objects:
+//       - Fake door            → PERMANENT red-skull trap.
+//                                Never opens, never turns green.
+//       - Pressure plate       → ground disc, pulses, turns
+//                                green once activated
+//       - Fake wall            → full opacity normal stone wall;
+//                                fades to ~40% once dissolved
+//                                so the player can see the trick
+//                                is broken
+//       - Real key             → legacy renderer (kept harmless
+//                                in case any external level still
+//                                emits it). The reworked Level 1
+//                                no longer places one.
 //
-// DEBUG: open browser console and run:
-//   window.DEBUG_JUMPS = true
-// You'll see one log per second telling you exactly what's happening.
+// DEBUG: window.DEBUG_JUMPS = true logs jump info every second.
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { segs, trackLen, getActiveTrack } from '../core/roadMap.js';
@@ -108,7 +121,7 @@ function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
 // ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
   if (!_visibleSegs.length) return;
-  if (!IMG.scenery?.ready && !IMG.jumps?.ready) return
+  if (!IMG.scenery?.ready && !IMG.jumps?.ready) return;
 
   // One-shot atlas-loaded log
   if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
@@ -131,6 +144,9 @@ export function drawScenery() {
   let jumpsCulled = 0;
 
   for (const o of sceneryObjs) {
+    // Monsters are drawn by their own pass — skip them here.
+    if (o.isMonster) continue;
+
     if (o.hidden) continue;
     if (o._dead && (o.isCoin || o.isBooster || o.isKey)) continue;
 
@@ -155,10 +171,12 @@ export function drawScenery() {
     const rw = v.w1 + (v.w2 - v.w1) * pct;
 
     if (!o.isCoin && !o.isBooster && !o.isKey && !o.isHurdle && !o.isJump &&
+        !o.isPressurePlate && !o.isFakeWall && !o.isRealKey &&
       (y < horizonY - 4 || y > _H * 0.98)) continue;
-    if ((o.isCoin || o.isBooster || o.isKey) &&
+    if ((o.isCoin || o.isBooster || o.isKey || o.isRealKey) &&
       (y < horizonY * 0.5 || y > _H * 0.98)) continue;
     if (o.isHurdle && y > _H * 1.10) continue;
+    if (o.isFakeWall && y > _H * 1.10) continue;
     if (o.isJump && y > _H * 1.10) {
       jumpsCulled++;
       continue;
@@ -185,13 +203,8 @@ export function drawScenery() {
       // ═══════════════════════════════════════════════════
       // JUMP RAMP — physical-size projection (BIGGER & BOLDER)
       // ═══════════════════════════════════════════════════
-
       const jumpSize = it.o.size ?? 1.00;
-
-      // width relative to road width at that exact depth
       const roadFrac = it.o.roadFrac ?? s.roadFrac ?? 0.78;
-
-      // manual height multiplier
       const heightMul = it.o.heightMul ?? s.heightMul ?? 0.85;
 
       drawW = it.rw * roadFrac * jumpSize;
@@ -206,32 +219,43 @@ export function drawScenery() {
       if (y > _H || x > _W + drawW || x < -drawW) continue;
       if (y + drawH < horizonY - 50) continue;
 
+    } else if (it.o.isPressurePlate) {
+      // ═══════════════════════════════════════════════════
+      // PRESSURE PLATE — flat disc on the road, glows.
+      // ═══════════════════════════════════════════════════
+      const plateSize = 0.78;
+      drawW = it.rw * plateSize;
+      drawH = drawW * 0.22;   // very flat — it's a floor plate
+
+      const groundX = it.cx + (it.o.offset || 0) * it.rw;
+      x = groundX - drawW / 2;
+      y = it.y - drawH * 0.85;
+
+      if (y > _H || x > _W + drawW || x < -drawW) continue;
+
     } else if (it.o.overhead) {
       drawW = it.rw * 2.6 * s.scale;
       drawH = drawW * (s.sh / s.sw);
       x = it.cx - drawW / 2;
       y = it.y - drawH * s.anchorY;
 
-    } else if (it.o.isCoin || it.o.isBooster || it.o.isKey || it.o.isPuzzleSymbol) {
+    } else if (it.o.isCoin || it.o.isBooster || it.o.isKey || it.o.isPuzzleSymbol || it.o.isRealKey) {
       const perspective = clamp(it.scale * 1800, 0.04, 1.45);
 
-      let baseSize;
-      let minSize;
-      let maxSize;
+      let baseSize, minSize, maxSize;
 
-      if (it.o.isKey) {
+      if (it.o.isKey || it.o.isRealKey) {
         baseSize = s.renderBase ?? 130;
-        minSize = (s.renderMin ?? 32) * _res;
-        maxSize = (s.renderMax ?? 240) * _res;
+        minSize  = (s.renderMin ?? 32) * _res;
+        maxSize  = (s.renderMax ?? 240) * _res;
       } else if (it.o.isBooster) {
         baseSize = s.renderBase ?? 92;
-        minSize = (s.renderMin ?? 14) * _res;
-        maxSize = (s.renderMax ?? 100) * _res;
+        minSize  = (s.renderMin ?? 14) * _res;
+        maxSize  = (s.renderMax ?? 100) * _res;
       } else {
-        // COIN — now controlled per level from scenery config
         baseSize = s.renderBase ?? 58;
-        minSize = (s.renderMin ?? 10) * _res;
-        maxSize = (s.renderMax ?? 78) * _res;
+        minSize  = (s.renderMin ?? 10) * _res;
+        maxSize  = (s.renderMax ?? 78) * _res;
       }
 
       const objSize = it.o.size ?? 1;
@@ -249,7 +273,9 @@ export function drawScenery() {
       if (y + drawH < horizonY) continue;
       if (y > _H || x > _W + drawW || x < -drawW) continue;
 
-    } else if (it.o.isHurdle) {
+    } else if (it.o.isHurdle || it.o.isFakeWall) {
+      // Fake walls use the same sizing math as hurdles — they're
+      // visually identical to a stoneWall hurdle, just no collision.
       const hurdleSize = it.o.size ?? 0.45;
       const HURDLE_WORLD_W = C.ROAD_W * hurdleSize * s.scale;
       drawW = HURDLE_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
@@ -279,7 +305,6 @@ export function drawScenery() {
         x = groundX - drawW / 2;
         y = it.y - drawH * s.anchorY;
 
-        // allow road-side fixed poles to appear from horizon to bottom
         if (y > _H + drawH) continue;
         if (x > _W + drawW || x < -drawW) continue;
       } else {
@@ -291,13 +316,10 @@ export function drawScenery() {
       }
       drawW = worldR * (C.CAM_DEPTH / it.dz) * _W;
 
-      let minW;
-      let maxW;
+      let minW, maxW;
 
       if (it.o.isBoundaryPole) {
-        // far poles small, near poles still big
         const nearT = clamp(1 - it.dz / 9000, 0, 1);
-
         minW = 0.34 * _res;
         maxW = (18 + nearT * 70) * _res;
       } else {
@@ -314,13 +336,10 @@ export function drawScenery() {
       x = groundX - drawW / 2;
       y = it.y - drawH * s.anchorY;
 
-      // Normal side objects stay near road edge.
-      // Background props are allowed to sit far away on the empty desert area.
       if (!it.o.backgroundProp) {
         if (side < 0 && x + drawW > it.cx - it.rw * 0.94) {
           x = it.cx - it.rw * 0.94 - drawW;
         }
-
         if (side > 0 && x < it.cx + it.rw * 0.94) {
           x = it.cx + it.rw * 0.94;
         }
@@ -335,24 +354,176 @@ export function drawScenery() {
     ctx.save();
     let alpha = 0.20 + fade * 0.80;
 
+    // ═══════════════════════════════════════════════════
+    // GHOST START — visual logic per design diagram
+    // ─────────────────────────────────────────────────
+    // The fake wall and fake door LOOK 100% real (no cyan
+    // tint, no shimmer). Only the pressure plate has a glow,
+    // because the diagram shows it as the only "magical"
+    // element. After plate activation:
+    //   • Plate halo turns green (was blue)
+    //   • Fake door swaps from red skull tint to green safe
+    //   • Real key appears with gold glow
+    //   • Fake walls fade slightly to hint they've dissolved
+    // ═══════════════════════════════════════════════════
+    const plateActive = !!P.ghostPlateActive;
+
     if (it.o.isMemoryPlatform) {
-      if (it.o.memoryHidden) {
-        alpha = 0.0;
-      }
-
-      if (it.o.isFakePlatform && !it.o.memoryHidden) {
+      if (it.o.memoryHidden) alpha = 0.0;
+      if (it.o.isFakePlatform && !it.o.memoryHidden)
         alpha = 0.45 + 0.35 * Math.sin(now * 0.012);
-      }
-
-      if (it.o.justShifted) {
+      if (it.o.justShifted)
         alpha = 0.75 + 0.25 * Math.sin(now * 0.02);
-      }
+    }
+
+    // Fake wall: full opacity before plate. After plate, fade
+    // to ~40% so the player can see they've dissolved.
+    if (it.o.isFakeWall) {
+      alpha = it.o.dissolved ? 0.40 + 0.10 * Math.sin(now * 0.005) : 1.0;
     }
 
     ctx.globalAlpha = alpha;
 
+    // ──── Branch by render-mode ────────────────────────
+    if (it.o.isPressurePlate) {
+      // ═══════════════════════════════════════════════════
+      // PRESSURE PLATE — blue glowing floor disc
+      // (matches the diagram exactly: blue gem-like square
+      //  on the road, turns green when activated)
+      // ═══════════════════════════════════════════════════
+      const activated = !!it.o.activated || plateActive;
+      const pulse = 0.55 + 0.45 * Math.sin(now * 0.006);
 
-    if (it.o.isKey) {
+      // Outer glow halo
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (activated ? 0.65 : 0.45) * fade * pulse;
+      ctx.fillStyle = activated
+        ? 'rgba(80, 255, 130, 1)'
+        : 'rgba(80, 160, 255, 1)';   // BLUE before activation (per diagram)
+      ctx.beginPath();
+      ctx.ellipse(
+        x + drawW / 2, y + drawH / 2,
+        drawW * 0.72, drawH * 1.5,
+        0, 0, Math.PI * 2
+      );
+      ctx.fill();
+
+      // Plate base — dark stone disc
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = (0.65 + fade * 0.35);
+      ctx.fillStyle = activated ? '#1f4d22' : '#1a2540';
+      ctx.beginPath();
+      ctx.ellipse(
+        x + drawW / 2, y + drawH / 2,
+        drawW * 0.50, drawH * 1.10,
+        0, 0, Math.PI * 2
+      );
+      ctx.fill();
+
+      // Ring stroke
+      ctx.strokeStyle = activated
+        ? `rgba(120, 255, 160, ${0.65 + 0.35 * pulse})`
+        : `rgba(120, 200, 255, ${0.65 + 0.35 * pulse})`;
+      ctx.lineWidth = Math.max(2, drawW * 0.030);
+      ctx.beginPath();
+      ctx.ellipse(
+        x + drawW / 2, y + drawH / 2,
+        drawW * 0.50, drawH * 1.10,
+        0, 0, Math.PI * 2
+      );
+      ctx.stroke();
+
+      // Inner glowing gem
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (activated ? 0.95 : 0.85) * fade * pulse;
+      ctx.fillStyle = activated
+        ? 'rgba(180, 255, 200, 1)'
+        : 'rgba(160, 220, 255, 1)';
+      ctx.beginPath();
+      ctx.ellipse(
+        x + drawW / 2, y + drawH / 2,
+        drawW * 0.22, drawH * 0.55,
+        0, 0, Math.PI * 2
+      );
+      ctx.fill();
+
+    } else if (it.o.isFakeWall) {
+      // ═══════════════════════════════════════════════════
+      // FAKE WALL — looks 100% SOLID, real stone
+      // ─────────────────────────────────────────────────
+      // No tint, no shimmer, no glow. Just a normal stone
+      // wall sprite at full opacity. The "lie" is that it
+      // has no collision — visually it must read as real.
+      // After plate activation we add a tiny dust/shimmer
+      // hint so the player notices it's dissolved.
+      // ═══════════════════════════════════════════════════
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+
+      if (it.o.dissolved) {
+        const pulse = 0.50 + 0.50 * Math.sin(now * 0.004 + it.o.z * 0.0001);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.18 * fade * pulse;
+        ctx.fillStyle = 'rgba(255, 255, 220, 1)';
+        ctx.fillRect(x, y, drawW, drawH);
+      }
+
+    } else if (it.o.isFakeDoor) {
+      // ═══════════════════════════════════════════════════
+      // FAKE DOOR (PERMANENT TRAP) — stone arch with skull
+      // ─────────────────────────────────────────────────
+      // Diagram invariant: the fake door is ALWAYS a trap.
+      // It never opens. It never turns green. The pressure
+      // plate does NOT change this — the plate's job is to
+      // unlock Road2, not to disarm this door.
+      //
+      // Renderer always shows the red skull warning tint and
+      // ignores any `isDoorOpen` / `plateActive` state.
+      // ═══════════════════════════════════════════════════
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+
+      const pulse = 0.55 + 0.45 * Math.sin(now * 0.005);
+
+      // Red trap tint — always.
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.globalAlpha = 0.42 * fade * pulse;
+      ctx.fillStyle = 'rgba(220, 40, 30, 1)';
+      ctx.fillRect(x, y, drawW, drawH);
+
+      // Skull warning icon — always.
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = (0.85 + 0.15 * pulse) * fade;
+      ctx.font = `bold ${Math.max(20, drawW * 0.12)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ff5050';
+      ctx.fillText('💀', x + drawW / 2, y + drawH * 0.18);
+
+    } else if (it.o.isRealKey) {
+      // ═══════════════════════════════════════════════════
+      // REAL KEY — pre-placed but `hidden:true` until plate
+      // activates. Once visible, gold key + bright halo.
+      // ═══════════════════════════════════════════════════
+      drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
+
+      const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (0.30 + fade * 0.70) * 0.65 * pulse;
+      ctx.fillStyle = 'rgba(255, 210, 60, 1)';
+      ctx.beginPath();
+      ctx.ellipse(
+        x + drawW / 2, y + drawH / 2,
+        drawW * 0.55, drawH * 0.55,
+        0, 0, Math.PI * 2
+      );
+      ctx.fill();
+
+      // Vertical light beam up from the key
+      ctx.globalAlpha = (0.30 + fade * 0.50) * 0.35 * pulse;
+      ctx.fillStyle = 'rgba(255, 220, 120, 1)';
+      ctx.fillRect(x + drawW * 0.42, y - drawH * 0.5,
+                   drawW * 0.16, drawH * 0.9);
+
+    } else if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);
       ctx.shadowBlur = 0;
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
@@ -386,7 +557,6 @@ export function drawScenery() {
       ctx.fillRect(x, y, drawW, drawH);
 
     } else if (it.o.isJump) {
-      // Fully opaque on the close-up — fade only kicks in at distance.
       if (it.o.isMemoryPlatform) {
         if (it.o.memoryHidden) {
           ctx.globalAlpha = 0.0;
@@ -402,8 +572,6 @@ export function drawScenery() {
       }
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
-      // Pulsing pink bloom on the chevron strip — makes ramps catch
-      // the eye even at speed.
       if (it.o.kind !== 'rockArch') {
         const pulse = 0.55 + 0.45 * Math.sin(now * 0.005 + it.o.z * 0.0007);
         ctx.globalCompositeOperation = 'lighter';
@@ -420,10 +588,8 @@ export function drawScenery() {
     }
 
     // ═══════════════════════════════════════════════
-    // LEVEL 3 PUZZLE SYMBOLS
-    // Draw ⭐ 🌙 🔥 🌊 on murals + switches
+    // LEVEL 3 PUZZLE SYMBOLS (kept from original)
     // ═══════════════════════════════════════════════
-
     if (it.o.isMural) {
       const symbolMap = {
         star: '⭐',
@@ -432,39 +598,21 @@ export function drawScenery() {
         water: '🗝️',
       };
 
-      // murals already store emoji directly
-      // switches store text like "star"
       const symbolText = it.o.isMural
         ? it.o.symbol
         : symbolMap[it.o.symbol];
 
       if (symbolText) {
         ctx.save();
-
-        // strong readable font
-        const fontSize = Math.max(
-          22,
-          drawW * 0.30
-        );
-
+        const fontSize = Math.max(22, drawW * 0.30);
         ctx.font = `bold ${fontSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
-        // white glow
         ctx.shadowColor = 'rgba(255,255,255,0.65)';
         ctx.shadowBlur = 10;
-
         ctx.fillStyle = '#ffffff';
         ctx.globalAlpha = 0.95;
-
-        // center of sprite
-        ctx.fillText(
-          symbolText,
-          x + drawW * 0.5,
-          y + drawH * 0.38
-        );
-
+        ctx.fillText(symbolText, x + drawW * 0.5, y + drawH * 0.38);
         ctx.restore();
       }
     }

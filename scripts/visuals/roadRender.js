@@ -89,8 +89,6 @@ export function drawRoad() {
       seg.index
     );
 
-
-
     _visibleSegs.push({
       index: seg.index,
       y1: seg.p1.scr.y,
@@ -155,24 +153,23 @@ function drawLevel2MazeArrows(ctx, x1, y1, w1, x2, y2, w2, segIndex) {
 
   if (P.level2MazePhase === 'preview') {
     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(255,50,50,1)');
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(40,255,90,1)');
+    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, 'rgba(40,255,90,1)');
   }
 
   if (P.level2MazePhase === 'glitch') {
     const pulse = 0.45 + 0.45 * Math.sin(performance.now() * 0.04);
     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, `rgba(255,255,0,${pulse})`);
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, `rgba(255,0,255,${pulse})`);
+    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, `rgba(255,0,255,${pulse})`);
   }
 
   if (P.level2MazePhase === 'run') {
     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(40,255,90,1)');
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(255,50,50,1)');
+    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, 'rgba(255,50,50,1)');
   }
 }
 
 // ── Segment texture draw (performance-optimised) ───────
-const MAX_SLICES = 10; // hard cap — prevents near-camera segments from
-// spawning 50+ draw calls and causing stutter
+const MAX_SLICES = 10;
 
 function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
   const img = IMG.segments;
@@ -189,18 +186,12 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
   const fullW1 = (w1 * 2) / ROAD_TEX_FRAC;
   const fullW2 = (w2 * 2) / ROAD_TEX_FRAC;
 
-  // ── Adaptive slice count ────────────────────────────
-  // Large segments (near camera) used to spawn 60-100 slices.
-  // Now we scale with sqrt so the count grows slowly and cap at 10.
-  // Visually imperceptible at racing speeds; cuts draw calls by ~70%.
   const rawSlices = Math.ceil(segH / Math.max(6, segH * 0.18));
   const slices = Math.min(MAX_SLICES, Math.max(1, rawSlices));
   const sliceH = segH / slices;
 
-  // ── Single save/restore covers both texture AND fog ─
   ctx.save();
 
-  // Clip to trapezoid — prevents texture bleeding at road edges.
   ctx.beginPath();
   ctx.moveTo(x1 - fullW1 * 0.5, y1);
   ctx.lineTo(x1 + fullW1 * 0.5, y1);
@@ -209,7 +200,6 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
   ctx.closePath();
   ctx.clip();
 
-  // Texture slices
   for (let i = 0; i < slices; i++) {
     const t1 = i / slices;
     const t2 = (i + 1) / slices;
@@ -222,8 +212,6 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
     const fullW = (cw * 2) / ROAD_TEX_FRAC;
     const dx = cx - fullW * 0.5;
 
-    // Make one texture frame stretch across many road segments.
-    // This prevents white/texture lines from repeating too tightly.
     const TEXTURE_REPEAT_SEGMENTS = 10;
 
     const segTexT1 = (segIndex % TEXTURE_REPEAT_SEGMENTS) / TEXTURE_REPEAT_SEGMENTS;
@@ -235,7 +223,6 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
     const srcY = frame.sy + frame.sh * texT1;
     const srcH = Math.max(1, frame.sh * (texT2 - texT1));
 
-
     ctx.drawImage(
       img,
       frame.sx, srcY, frame.sw, srcH,
@@ -243,11 +230,9 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
     );
   }
 
-  // Fog overlay — stays inside same save/restore (no extra state push).
   if (fogA > 0.01) {
     ctx.globalAlpha = fogA;
     ctx.fillStyle = COL.FOG;
-    // Re-draw the trapezoid shape (clip is still active, so this is safe).
     ctx.beginPath();
     ctx.moveTo(x1 - fullW1 * 0.5, y1);
     ctx.lineTo(x1 + fullW1 * 0.5, y1);
@@ -257,11 +242,10 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
     ctx.fill();
   }
 
-  ctx.restore();   // one restore covers clip + fog — saves ~200 state-changes/frame
+  ctx.restore();
 }
 
 // ── Nearest-road ground extension ─────────────────────
-// Fills the gap between the front-most segment and the bottom of screen.
 function drawNearestRoadExtension(ctx, W, H) {
   if (!_visibleSegs.length) return;
 
@@ -294,7 +278,7 @@ function drawNearestRoadExtension(ctx, W, H) {
   if (segH <= 0) return;
 
   const fullTopW = (near.w1 * 2) / ROAD_TEX_FRAC;
-  const fullBotW = (bottomW * 2) / ROAD_TEX_FRAC;
+  const fullBotW = (bottomW    * 2) / ROAD_TEX_FRAC;
 
   ctx.save();
   ctx.beginPath();
@@ -305,7 +289,6 @@ function drawNearestRoadExtension(ctx, W, H) {
   ctx.closePath();
   ctx.clip();
 
-  // Extension uses slightly coarser slicing (10 px min) — it's a big quad.
   const rawSlices = Math.ceil(segH / Math.max(10, segH * 0.18));
   const slices = Math.min(MAX_SLICES, Math.max(1, rawSlices));
   const sliceH = segH / slices;
@@ -317,7 +300,7 @@ function drawNearestRoadExtension(ctx, W, H) {
 
     const y = yTop + segH * t1;
     const cx = near.x1 + (bottomX - near.x1) * tm;
-    const cw = near.w1 + (bottomW - near.w1) * tm;
+    const cw = near.w1 + (bottomW    - near.w1) * tm;
 
     const fullW = (cw * 2) / ROAD_TEX_FRAC;
     const dx = cx - fullW * 0.5;

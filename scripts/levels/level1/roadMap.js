@@ -1,8 +1,22 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 1 ROAD MAP — Dual-track Road1 (LEFT) + Road2 (RIGHT)
+// LEVEL 1 ROAD MAP — "THE GHOST START"  (REWORKED)
 // ─────────────────────────────────────────────────────
-// Returns geometry only. The facade in core/roadMap.js handles
-// active-track storage, switching, and live bindings.
+// ROAD1 — the LIE.
+//   The first ~80 segments are deliberately STRAIGHT so the
+//   player can see:
+//     - the normal road ahead leading to the fake door
+//     - the fake wall behind them (when they turn around)
+//     - the pressure plate (behind the wall)
+//   The last ~40 segments are also straight — that's where
+//   the fake door + monster wall sit. Driving into them =
+//   GAME OVER.
+//
+// ROAD2 — the REAL WINNING PATH.
+//   Unlocked by the pressure plate. Road2 also ends in a
+//   monster wall, but a BIG JUMP RAMP sits in front of them
+//   so the player can fly over and finish safely.
+//   The last ~40 segments are kept straight so the ramp,
+//   the monsters, and the finish line all line up visually.
 // ═══════════════════════════════════════════════════════
 import { C, LCOL } from '../../configs/roadConfig.js';
 
@@ -12,12 +26,12 @@ function addSegTo(target, curve, hill) {
   const n   = target.length;
   const isS = n < C.RUMBLE * 2;
   target.push({
-    index : n,
-    p1    : { world: { x: 0, y: 0, z:  n      * C.SEG_LEN }, cam: {}, scr: {} },
-    p2    : { world: { x: 0, y: 0, z: (n + 1) * C.SEG_LEN }, cam: {}, scr: {} },
+    index: n,
+    p1: { world: { x: 0, y: 0, z:  n      * C.SEG_LEN }, cam: {}, scr: {} },
+    p2: { world: { x: 0, y: 0, z: (n + 1) * C.SEG_LEN }, cam: {}, scr: {} },
     curve, hill,
-    col   : isS ? LCOL.START
-                : (Math.floor(n / C.RUMBLE) % 2 ? LCOL.DARK : LCOL.LIGHT),
+    col: isS ? LCOL.START
+             : (Math.floor(n / C.RUMBLE) % 2 ? LCOL.DARK : LCOL.LIGHT),
   });
 }
 
@@ -28,19 +42,30 @@ function makeBuilder(target) {
     for (let i = 0; i < nL; i++) addSegTo(target, eIO(cv, 0, i / nL), eIO(hl, 0, i / nL));
   };
   return {
-    straight : (n = 25)              => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, 0, 0),
-    curve    : (n = 25, cv = 2, hl = 0) => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, cv, hl),
+    straight: (n = 25)                 => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, 0, 0),
+    curve:    (n = 25, cv = 2, hl = 0) => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, cv, hl),
     addStretch,
   };
 }
 
-// ROAD 1 — wrong fork (HARD LEFT, loops forever)
+// ─────────────────────────────────────────────────────
+// ROAD 1 — The TRAP path
+//   - Long opening straight (puzzle zone)
+//   - Winding middle
+//   - Long closing straight (trap zone: fake door + monsters)
+// ─────────────────────────────────────────────────────
 function buildRoad1() {
   const out = [];
   const { straight, curve, addStretch } = makeBuilder(out);
 
   addStretch(1, C.RUMBLE * 2, 1, 0, 0);
-  straight(60);
+
+  // ── Opening straight (the puzzle area) ──
+  // Spawn area, fake wall behind, plate behind wall, all
+  // visible in one frame.
+  straight(80);
+
+  // Winding middle.
   curve(80, -0.55, 0);
   straight(190);
   curve(95, -0.32, 0);
@@ -54,12 +79,22 @@ function buildRoad1() {
   curve(75,   0.22, 0);
   straight(200);
   curve(65,  -0.20, 0);
-  straight(195);
+
+  // ── Closing straight (the TRAP zone) ──
+  // Must be straight so the player clearly sees the fake door
+  // + monster wall lined up before the finish.
+  straight(220);
   straight(40);
   return out;
 }
 
-// ROAD 2 — right fork (HARD RIGHT, one lap = win)
+// ─────────────────────────────────────────────────────
+// ROAD 2 — The REAL path (winning route)
+//   Same overall length so the trap zone aligns nicely.
+//   Closing 40 segments are also straight so the jump ramp,
+//   the monster wall behind it, and the finish line all
+//   read clearly to the player.
+// ─────────────────────────────────────────────────────
 function buildRoad2() {
   const out = [];
   const { straight, curve, addStretch } = makeBuilder(out);
@@ -75,17 +110,17 @@ function buildRoad2() {
   curve(100,  0.22, 0);
   straight(240);
   curve(90,  -0.20, 0);
-  straight(260);
+  straight(200);
   curve(80,   0.18, 0);
-  straight(260);
+
+  // ── Closing straight (RAMP + MONSTERS + FINISH) ──
+  // Keep this generous so the player has a clear runway into
+  // the big jump and a long sight line to the monsters.
+  straight(220);
   straight(40);
   return out;
 }
 
-/**
- * Public API: returns geometry for both tracks of this level.
- * Called by core/roadMap.js's buildTrack().
- */
 export function buildRoads() {
   const r1 = buildRoad1();
   const r2 = buildRoad2();

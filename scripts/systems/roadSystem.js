@@ -72,6 +72,16 @@ export const P = {
   cameraShakeTime: 0,
   bumpVX: 0,
   impactFlash: 0,
+
+  // ── GHOST START PUZZLE STATE (Level 1) ──────────────
+  // The pressure plate, hidden wall, fake-key transform and
+  // the lethal monster wall all read these flags.
+  ghostPlateHeld: 0,        // seconds the car has been sitting on the plate
+  ghostPlateActive: false,  // becomes true once held >= GHOST_PLATE_HOLD_TIME
+  ghostKeyCollected: false, // true after the (now-real) key is picked up
+  ghostDead: false,         // set when a monster lands a lethal hit
+  ghostHiddenWallRevealed: false,
+  ghostTrapHit: false,
 };
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -147,6 +157,24 @@ export function resetPhys() {
   P.cameraShakeTime = 0;
   P.bumpVX = 0;
   P.impactFlash = 0;
+
+  // Ghost Start puzzle reset
+  P.ghostPlateHeld = 0;
+  P.ghostPlateActive = false;
+  P.ghostKeyCollected = false;
+  P.ghostDead = false;
+  P.ghostHiddenWallRevealed = false;
+  P.ghostTrapHit = false;
+  P.ghostKeyRevealed = false;
+  P.ghostDoorOpen = false;
+  P.ghostPhase = 'spawn';
+
+  // If active level has its own puzzle reset hook, call it.
+  // (Used by level1/logic.js — mirrors level2's resetLevel2Puzzle.)
+  const lvl = getActiveLevel?.();
+  if (lvl && typeof lvl.resetPuzzle === 'function') {
+    try { lvl.resetPuzzle(); } catch (e) {}
+  }
 }
 
 export function activateNitro(durationSec = 2.0) {
@@ -288,9 +316,107 @@ function tickReversePuzzle(d) {
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// LEVEL 1 PUZZLE + MONSTER hooks (delegates to level1/logic.js)
+// ─────────────────────────────────────────────────────
+// All Ghost Start state and behaviour lives in the dedicated
+// level1/logic.js (mirroring the level2/logic.js pattern).
+// roadSystem only forwards the per-tick dt to that module —
+// no ghost-puzzle math here.
+//
+// Uses a lazy dynamic import of visuals/sceneryRender to avoid
+// the circular dependency with that module.
+// ═══════════════════════════════════════════════════════
+let _sceneryObjsRef = null;
+
+async function getSceneryObjs() {
+  if (_sceneryObjsRef) return _sceneryObjsRef;
+  const mod = await import('../visuals/sceneryRender.js');
+  _sceneryObjsRef = mod;
+  return mod;
+}
+
+// Resolve scenery + level1 logic at module load.
+getSceneryObjs().catch(() => {});
+
+function tickLevel1Puzzle(d) {
+  const lvl = getActiveLevel();
+  if (lvl?.id !== 'level1') return;
+  if (!_sceneryObjsRef) return;
+
+  const list = _sceneryObjsRef.sceneryObjs;
+  if (!list || !list.length) return;
+
+  // Forward the tick to the level's logic module.
+  if (typeof lvl.updatePuzzle === 'function') {
+    try { lvl.updatePuzzle(d, list); } catch (e) {}
+  }
+}
+
+function tickLevel1Monsters(d) {
+  const lvl = getActiveLevel();
+  if (lvl?.id !== 'level1') return;
+  if (!_sceneryObjsRef) return;
+
+  const list = _sceneryObjsRef.sceneryObjs;
+  if (!list || !list.length) return;
+
+  // 1) Forward AI update to the level's monster module.
+  if (typeof lvl.updateMonsters === 'function') {
+    const monsters = [];
+    for (const o of list) {
+      if (o.isMonster && !o._dead) monsters.push(o);
+    }
+    if (monsters.length) {
+      try { lvl.updateMonsters(monsters, P.pos, d); } catch (e) {}
+    }
+  }
+
+  // 2) Lethal contact check.
+  if (P.ghostDead) return;
+  if (typeof lvl.isMonsterLethal === 'function' && !lvl.isMonsterLethal()) {
+    return;
+  }
+
+  const killZ = C.MONSTER_KILL_RADIUS_Z || 120;
+  const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
+
+  for (const m of list) {
+    if (!m.isMonster || m._dead) continue;
+    if (m.isLethal === false) continue;
+    if (!m.active && m.aiState !== 'chase') continue;
+
+    let dz = m.z - P.pos;
+    while (dz < -trackLen / 2) dz += trackLen;
+    while (dz >  trackLen / 2) dz -= trackLen;
+
+    const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
+
+if (
+  Math.abs(dz) < killZ &&
+  dxLane < killX &&
+  m.aiState === 'attack' &&
+  m.isPunchHitFrame &&
+  !m.hasHitPlayer
+) {
+  m.hasHitPlayer = true;
+
+  if (typeof lvl.triggerMonsterKill === 'function') {
+    try { lvl.triggerMonsterKill(); } catch (e) {}
+  }
+
+  break;
+}
+  }
+}
+
 export function updatePhys(inp, dt, len) {
   const d = Math.min(dt, 0.05);
   tickCollisionState(d);
+
+  // ── LEVEL 1 puzzle + monster updates ────────────────
+  tickLevel1Puzzle(d);
+  tickLevel1Monsters(d);
 
   // Smooth camera Y follow when car jumps
   const jumpCamFollow = C.JUMP_CAMERA_FOLLOW ?? 0.45;

@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // RENDER — Frame orchestrator
-// Added: Opponent Cars Rendering Layer
+// Added: Opponent Cars Rendering Layer + MONSTER Rendering Layer
 // ═══════════════════════════════════════════════════════
 
 import { getCtx, getW, getH } from '../core/canvas.js';
@@ -10,7 +10,8 @@ import { drawScenery } from './sceneryRender.js';
 import { drawCar } from '../player/player.js';
 import { drawParts } from '../systems/collisionSystem.js';
 import { drawFadeOverlay } from '../player/playerAnimation.js';
-import { drawOpponents } from './opponentRender.js'; // NEW
+import { drawOpponents } from './opponentRender.js';
+import { drawMonsters } from './monsterRender.js';   // NEW — Level 1 lethal crawlers
 import { P } from '../systems/roadSystem.js';
 
 function getShakeOffset() {
@@ -67,16 +68,20 @@ export function renderFrame(steerVisual) {
   // 1. Road base
   drawRoad();
 
-  // 2. World scenery / trees / arches / objects
+  // 2. World scenery / trees / arches / ghost puzzle objects
   drawScenery();
 
-  // 3. Opponent AI Cars (NEW)
+  // 3. Opponent AI Cars
   drawOpponents();
 
-  // 4. Collision particles / sparks / impacts
+  // 4. MONSTERS — drawn after scenery so they overlap props,
+  //    before particles + player so impacts read correctly.
+  drawMonsters();
+
+  // 5. Collision particles / sparks / impacts
   drawParts(ctx);
 
-  // 5. Player Car (always last)
+  // 6. Player Car (always last)
   drawCar(steerVisual);
 
   ctx.restore();

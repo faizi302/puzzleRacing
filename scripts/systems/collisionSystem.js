@@ -299,6 +299,27 @@ function resetPickupWhenBehind(o, dz) {
 function objCat(o) {
   if (!o || o._dead) return null;
 
+  // ── LEVEL 1 — GHOST START PUZZLE  ───────────────────
+  // Per the design diagram:
+  //   • Fake wall behind spawn → NO COLLISION (drive through).
+  //   • Fake door at trap end  → NO COLLISION (just a visual);
+  //                              the MONSTER is the real lethal
+  //                              element, handled in roadSystem.
+  //   • Pressure plate         → NO COLLISION (handled by
+  //                              level1/logic.js as a state event).
+  //   • Real key               → standard pickup once revealed.
+  //   • Monsters               → handled in roadSystem (kill check).
+  if (o.isMonster)        return null;
+  if (o.isPressurePlate)  return null;
+  if (o.isFakeWall)       return null;   // drive-through
+  if (o.isFakeDoor)       return null;   // visual only — monster does the killing
+
+  // Real key — only collectable while it's not hidden.
+  if (o.isRealKey) {
+    if (o.hidden) return null;
+    return 'realkey';
+  }
+
   if (o.isKey) return 'key';
   if (o.isCoin) return 'coin';
   if (o.isBooster) return 'booster';
@@ -316,8 +337,6 @@ function objCat(o) {
     return 'arch';
   }
 
-  // On-road hurdles have their own positional collision logic.
-  // Must be checked BEFORE the generic sideScenery/hardSide fallback.
   if (o.isHurdle) return 'hurdle';
 
   if (
@@ -337,6 +356,7 @@ function objLateralX(o) {
     o.isCoin ||
     o.isBooster ||
     o.isKey ||
+    o.isRealKey ||
     o.isPuzzleSwitch
   ) return o.offset || 0;
   // Hurdles store their lane position directly in offset (no side multiplier).
@@ -568,6 +588,27 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
         P.keysCollected++;
         spawnKeyPickup(screenAnchorX, screenAnchorY - 100);
         safeSfx('key');
+      }
+      continue;
+    }
+
+    // ── REAL KEY (Ghost Start) ──
+    // Only collectable when revealed (cat returns null while hidden).
+    // Picking it up tells the level1 logic to retreat the monster.
+    if (cat === 'realkey') {
+      if (Math.abs(px - objX) < 0.42 && dz < 100 && dz > -120) {
+        o._dead = true;
+        P.keysCollected++;
+        spawnKeyPickup(screenAnchorX, screenAnchorY - 100);
+        safeSfx('key');
+
+        const lvl = getActiveLevel();
+        if (lvl && typeof lvl.collectKey === 'function') {
+          try { lvl.collectKey(); } catch (e) {}
+        } else {
+          // Fallback if logic hook missing.
+          P.ghostKeyCollected = true;
+        }
       }
       continue;
     }

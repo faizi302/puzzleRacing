@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // ROAD & PHYSICS CONFIGURATION
-// Ready Player One style reverse-road puzzle
+// LEVEL 1 — "THE GHOST START": What you see is a beautiful lie.
 // ═══════════════════════════════════════════════════════
 export const C = {
   ROAD_W    : 1200,
@@ -15,18 +15,46 @@ export const C = {
   STAR_N    : 200,
   FPS       : 60,
 
-  // ── NEW PUZZLE LOGIC ────────────────────────────────
-  // Player must reverse this much distance on Road1.
-  // After this, camera "turns 180" and Road2 secret path unlocks.
-REVERSE_SECRET_DISTANCE: 2200,
-REVERSE_HINT_DISTANCE: 700,
-REVERSE_CAMERA_TIME: 2.2,
+  // ── Reverse / secret-road puzzle (KEPT) ─────────────
+  REVERSE_SECRET_DISTANCE: 2200,
+  REVERSE_HINT_DISTANCE:   700,
+  REVERSE_CAMERA_TIME:     2.2,
 
-  // Old key system disabled but kept for HUD compatibility.
   KEYS_REQUIRED: 0,
-
-  // Fake fork point / story gate marker
   FORK_SEG: 69,
+
+  // ═════════════════════════════════════════════════════
+  // GHOST START PUZZLE — diagram-accurate positions
+  // ─────────────────────────────────────────────────────
+  // FORWARD path objects (seen on spawn, looking ahead):
+  //   • REAL KEY appears at this segment AFTER plate activates
+  //     (hidden at the start of the game).
+  GHOST_KEY_SPAWN_SEG_FORWARD:  14,
+  //   • FAKE DOOR + MONSTERS guard the trap zone here.
+  //     Monsters spawn ~6 segments before this so they form
+  //     the visible wall the player sees first.
+  GHOST_FAKE_DOOR_SEG_FORWARD:  38,
+  //
+  // BACKWARD path objects (wrap to near end of track, so
+  // driving backward physically takes you to them):
+  //   • FAKE WALL — looks 100% real but has NO collision.
+  //     Drive through it. Sits a short distance behind spawn.
+  GHOST_FAKE_WALL_SEG_BEHIND:   -30,
+  //   • PRESSURE PLATE behind the wall.
+  GHOST_PLATE_SEG_BEHIND:       -50,
+  //
+  // Hold time for the plate to activate (seconds).
+  GHOST_PLATE_HOLD_TIME:        0.6,
+  //
+  // Reverse-distance threshold for the "try backward" hint.
+  GHOST_HINT_REVERSE_DIST:      250,
+  // ═════════════════════════════════════════════════════
+
+  // ═════════════════════════════════════════════════════
+  // MONSTERS — kill radii (used by collisionSystem)
+  // ═════════════════════════════════════════════════════
+  MONSTER_KILL_RADIUS_Z:   120,
+  MONSTER_KILL_RADIUS_X:   0.45,
 };
 
 C.STEP      = 1 / C.FPS;
@@ -53,22 +81,6 @@ C.STEER_MIN_FAC = 0.35;
 
 C.FORK_Z = C.FORK_SEG * C.SEG_LEN;
 
-// ═══════════════════════════════════════════════════════
-// JUMP PHYSICS — tune these to change how jumping feels.
-// ─────────────────────────────────────────────────────
-// JUMP_BASE_VY        : minimum upward velocity when player just
-//                       barely rolls over a ramp at low speed.
-// JUMP_SPEED_VY       : extra upward velocity at full normal speed.
-//                       Total takeoff Vy = BASE + (speed01 * SPEED) * liftFactor
-// JUMP_GRAVITY        : pulls car back down. Bigger = shorter air time.
-// JUMP_MIN_SPEED_FRAC : fraction of NORMAL_MAX below which the ramp
-//                       is treated as a small bump (no real launch).
-// JUMP_AIR_STEER      : how much the player can steer mid-air (0..1).
-// JUMP_AIR_DRAG       : forward speed loss per second while airborne.
-// JUMP_LANDING_BOUNCE : bounce ratio on first landing.
-// BOOSTPAD_KICK       : multiplier on speed when crossing a boost
-//                       arrow pad (no jump, just nitro-style kick).
-// ═══════════════════════════════════════════════════════
 C.JUMP_BASE_VY        = 50;
 C.JUMP_SPEED_VY       = 420;
 C.JUMP_GRAVITY        = 1750;
@@ -78,15 +90,8 @@ C.JUMP_AIR_DRAG       = 0.06;
 C.JUMP_LANDING_BOUNCE = 0.18;
 C.BOOSTPAD_KICK       = 5.18;
 
-// Visual scale: airborne Y in pixels = P.airY * JUMP_VISUAL_SCALE.
-// The renderer multiplies by getRes() automatically.
 C.JUMP_VISUAL_SCALE   = 0.90;
-
-// ═══════════════════════════════════════════════════════
-// JUMP CAMERA FOLLOW (AAA camera jump system)
-// ═══════════════════════════════════════════════════════
-
-C.JUMP_CAMERA_FOLLOW = 7.15;
+C.JUMP_CAMERA_FOLLOW       = 7.15;
 C.JUMP_CAMERA_VISUAL_SCALE = 0.10;
 
 export const COL = {
@@ -109,39 +114,34 @@ export const LCOL = {
 export const HORIZON_FRAMES = {
   A: { sx: 2, sy: 2,    sw: 1536, sh: 336 },
   B: { sx: 2, sy: 342,  sw: 1536, sh: 336 },
-  C: { sx: 2, sy: 682,  sw: 1536, sh: 336 }, // backward secret road
+  C: { sx: 2, sy: 682,  sw: 1536, sh: 336 },
   D: { sx: 2, sy: 1022, sw: 1536, sh: 336 },
-  E: { sx: 2, sy: 1362, sw: 1536, sh: 336 }, // forward road
+  E: { sx: 2, sy: 1362, sw: 1536, sh: 336 },
 };
 
 export const HORIZON_FRAME = HORIZON_FRAMES.E;
 
 export const SEG_TEX = {
-  Segment_1:  { sx: 1,   sy: 131,  sw: 1024, sh: 128 },
-  Segment_2:  { sx: 1,   sy: 781,  sw: 1024, sh: 128 },
-  Segment_3:  { sx: 1,   sy: 911,  sw: 1024, sh: 128 },
-  Segment_4:  { sx: 1,   sy: 1041, sw: 1024, sh: 128 },
-  Segment_5:  { sx: 1,   sy: 1171, sw: 1024, sh: 128 },
-  Segment_6:  { sx: 1,   sy: 1301, sw: 1024, sh: 128 },
-  Segment_7:  { sx: 1,   sy: 1431, sw: 1024, sh: 128 },
-  Segment_8:  { sx: 1,   sy: 1561, sw: 1024, sh: 128 },
-  Segment_9:  { sx: 1,   sy: 1691, sw: 1024, sh: 128 },
-  Segment_10: { sx: 1,   sy: 261,  sw: 1024, sh: 128 },
-  Segment_11: { sx: 1,   sy: 391,  sw: 1024, sh: 128 },
-  Segment_12: { sx: 1,   sy: 521,  sw: 1024, sh: 128 },
-  Segment_13: { sx: 1,   sy: 651,  sw: 1024, sh: 128 },
-  FinishLine: { sx: 1,   sy: 1,    sw: 1024, sh: 128 },
-  Boost:      { sx: 1,   sy: 1821, sw: 512,  sh: 128 },
-  Grid:       { sx: 515, sy: 1821, sw: 512,  sh: 128 },
+  Segment_1:  { sx: 1, sy: 131,  sw: 1024, sh: 128 },
+  Segment_2:  { sx: 1, sy: 781,  sw: 1024, sh: 128 },
+  Segment_3:  { sx: 1, sy: 911,  sw: 1024, sh: 128 },
+  Segment_4:  { sx: 1, sy: 1041, sw: 1024, sh: 128 },
+  Segment_5:  { sx: 1, sy: 1171, sw: 1024, sh: 128 },
+  Segment_6:  { sx: 1, sy: 1301, sw: 1024, sh: 128 },
+  Segment_7:  { sx: 1, sy: 1431, sw: 1024, sh: 128 },
+  Segment_8:  { sx: 1, sy: 1561, sw: 1024, sh: 128 },
+  Segment_9:  { sx: 1, sy: 1691, sw: 1024, sh: 128 },
+  Segment_10: { sx: 1, sy: 261,  sw: 1024, sh: 128 },
+  Segment_11: { sx: 1, sy: 391,  sw: 1024, sh: 128 },
+  Segment_12: { sx: 1, sy: 521,  sw: 1024, sh: 128 },
+  Segment_13: { sx: 1, sy: 651,  sw: 1024, sh: 128 },
+  FinishLine: { sx: 1, sy: 1,    sw: 1024, sh: 128 },
+  Boost:      { sx: 1, sy: 1821, sw: 512,  sh: 128 },
+  Grid:       { sx: 515, sy: 1821, sw: 512, sh: 128 },
 };
 
-export const SEG_TEX_CYCLE_ROAD1 = [
-  SEG_TEX.Segment_1,
-];
-
-export const SEG_TEX_CYCLE_ROAD2 = [
-  SEG_TEX.Segment_5,
-];
+export const SEG_TEX_CYCLE_ROAD1 = [SEG_TEX.Segment_1];
+export const SEG_TEX_CYCLE_ROAD2 = [SEG_TEX.Segment_5];
 
 export const SEG_TEX_CYCLE = SEG_TEX_CYCLE_ROAD1;
 export const SEG_TEX_RUN   = 10;
