@@ -163,12 +163,14 @@ export class CareerScene {
           </div>` : ''}
       `;
 
-      // Render the procedural mini-map
+      // Render the procedural mini-map (now uses the real
+      // road shape from `lvl.module.buildRoads()` when available).
       const mount = card.querySelector('.lc-preview');
       renderLevelPreview(mount, {
         seed: lvl.num * 17 + 3,
         biome: lvl.biome,
         levelNum: lvl.num,
+        module: lvl.module,
       });
 
       if (unlocked) {

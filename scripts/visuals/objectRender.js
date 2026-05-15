@@ -72,7 +72,7 @@ const DEFAULT_LEVEL_IMAGES = {
 
   // ── LEVEL 1 — Ghost Start monster spritesheet (2×3, 512×512) ──
 monsters: [
-  'assets/monster/gorila.jpeg',
+  'assets/monster/gorila2.jpeg',
   'assets/gorila.jpeg',
   'gorila.jpeg',
 ],

@@ -1,6 +1,15 @@
 // ═══════════════════════════════════════════════════════
 // ROAD & PHYSICS CONFIGURATION
 // LEVEL 1 — "THE GHOST START": What you see is a beautiful lie.
+//
+// REWORKED PUZZLE (v3 — wall trigger):
+//   FORWARD on Road1 → fake door + Gorilla Boss NEAR THE END.
+//                      Fake door is a permanent trap.
+//   BACKWARD from spawn → at ~100 m behind spawn, a FAKE WALL.
+//                         It has no collision; crossing it
+//                         unlocks Road 2.
+//   FORWARD on Road2 → big jump ramp before the finish lets
+//                      the player fly over the end-gorillas.
 // ═══════════════════════════════════════════════════════
 export const C = {
   ROAD_W    : 1200,
@@ -15,46 +24,100 @@ export const C = {
   STAR_N    : 200,
   FPS       : 60,
 
-  // ── Reverse / secret-road puzzle (KEPT) ─────────────
-  REVERSE_SECRET_DISTANCE: 2200,
-  REVERSE_HINT_DISTANCE:   700,
-  REVERSE_CAMERA_TIME:     2.2,
+  // ═════════════════════════════════════════════════════
+  // REVERSE / SECRET ROAD SYSTEM
+  // ═════════════════════════════════════════════════════
+  // Old reverse-distance unlock disabled.
+  // Road2 opens ONLY by crossing fake backward wall.
+  REVERSE_SECRET_DISTANCE: 999999,
+  REVERSE_HINT_DISTANCE:  999999,
+  REVERSE_CAMERA_TIME:    2.2,
+
+  // ═════════════════════════════════════════════════════
+  // CAMERA INTRO
+  // ═════════════════════════════════════════════════════
+  START_CAM_INTRO_TIME: 2.4,
+  START_CAM_BACK_Z:     3.5 * 240,
+
+  // ═════════════════════════════════════════════════════
+  // LEVEL 1 START POSITION
+  // ═════════════════════════════════════════════════════
+  // Countdown start:
+  // cars behind starting line
+  // starting line visible in front of cars
+  LEVEL1_START_BEFORE_LINE: 2500,
 
   KEYS_REQUIRED: 0,
   FORK_SEG: 69,
 
   // ═════════════════════════════════════════════════════
-  // GHOST START PUZZLE — diagram-accurate positions
-  // ─────────────────────────────────────────────────────
-  // FORWARD path objects (seen on spawn, looking ahead):
-  //   • REAL KEY appears at this segment AFTER plate activates
-  //     (hidden at the start of the game).
-  GHOST_KEY_SPAWN_SEG_FORWARD:  14,
-  //   • FAKE DOOR + MONSTERS guard the trap zone here.
-  //     Monsters spawn ~6 segments before this so they form
-  //     the visible wall the player sees first.
-  GHOST_FAKE_DOOR_SEG_FORWARD:  38,
-  //
-  // BACKWARD path objects (wrap to near end of track, so
-  // driving backward physically takes you to them):
-  //   • FAKE WALL — looks 100% real but has NO collision.
-  //     Drive through it. Sits a short distance behind spawn.
-  GHOST_FAKE_WALL_SEG_BEHIND:   -30,
-  //   • PRESSURE PLATE behind the wall.
-  GHOST_PLATE_SEG_BEHIND:       -50,
-  //
-  // Hold time for the plate to activate (seconds).
-  GHOST_PLATE_HOLD_TIME:        0.6,
-  //
-  // Reverse-distance threshold for the "try backward" hint.
-  GHOST_HINT_REVERSE_DIST:      250,
+  // LEVEL 1 — GHOST START PUZZLE
   // ═════════════════════════════════════════════════════
 
+  // ────────────────────────────────────────────────────
+  // ROAD 1 TRAP ZONE (FORWARD PATH)
+  // ────────────────────────────────────────────────────
+  // Player forward drive kare:
+  // fake door → gorilla → instant death
+  // NO WIN possible on Road1
+
+  // Fake visual door before gorilla
+  GHOST_FAKE_DOOR_SEG_FROM_END: -20,
+
+  // Gorilla placed much farther behind
+  // so reverse fake wall comes BEFORE gorilla
+  GHOST_MONSTER_SEG_FROM_END: -25,
+
+  // ────────────────────────────────────────────────────
+  // FAKE WALL (BACKWARD SOLUTION)
+  // ────────────────────────────────────────────────────
+  // Player reverse kare:
+  // fake wall cross → Road2 opens
+
+  GHOST_FAKE_WALL_METERS_BEHIND: 100,
+
+  // IMPORTANT:
+  // negative = behind spawn
+  //
+  // -6  = close
+  // -8  = medium
+  // -12 = good
+  // -14 = best
+  // -18 = very far
+  //
+  // Recommended final:
+  GHOST_FAKE_WALL_SEG_BEHIND: -14,
+
+  // Old unused legacy plate
+  GHOST_PLATE_SEG_BEHIND: -15,
+
+  // Hint banner:
+  // "Try driving backward..."
+  GHOST_HINT_REVERSE_DIST: 250,
+
+  // Legacy old system (unused)
+  GHOST_PLATE_HOLD_TIME: 0.6,
+
   // ═════════════════════════════════════════════════════
-  // MONSTERS — kill radii (used by collisionSystem)
+  // ROAD 2 — REAL WIN PATH
   // ═════════════════════════════════════════════════════
-  MONSTER_KILL_RADIUS_Z:   120,
-  MONSTER_KILL_RADIUS_X:   0.45,
+
+  // End of Road2:
+  // big jump → jump over gorilla → finish → WIN
+
+  // Road2 end gorilla
+  GHOST_ROAD2_MONSTER_SEG_FROM_END: -10,
+
+  // Big jump before gorilla
+  GHOST_ROAD2_JUMP_SEG_FROM_END: -16,
+
+  // ═════════════════════════════════════════════════════
+  // MONSTER COLLISION
+  // ═════════════════════════════════════════════════════
+
+  // Kill trigger distance
+  MONSTER_KILL_RADIUS_Z: 120,
+  MONSTER_KILL_RADIUS_X: 0.45,
 };
 
 C.STEP      = 1 / C.FPS;

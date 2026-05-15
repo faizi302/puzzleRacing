@@ -103,7 +103,18 @@ export function setForkWarnCallback(cb) {
 }
 
 export function resetPhys() {
-  P.pos = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
+
+
+  const lvl = getActiveLevel?.();
+
+  if (lvl?.id === 'level1') {
+    const startBack = C.LEVEL1_START_BEFORE_LINE ?? 650;
+    P.pos = Math.max(0, (trackLen || 0) - startBack);
+  } else {
+    P.pos = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
+  }
+
+
   P.speed = 0;
   P.playerX = 0;
   P.cameraX = 0;
@@ -171,9 +182,9 @@ export function resetPhys() {
 
   // If active level has its own puzzle reset hook, call it.
   // (Used by level1/logic.js — mirrors level2's resetLevel2Puzzle.)
-  const lvl = getActiveLevel?.();
+  // const lvl = getActiveLevel?.();
   if (lvl && typeof lvl.resetPuzzle === 'function') {
-    try { lvl.resetPuzzle(); } catch (e) {}
+    try { lvl.resetPuzzle(); } catch (e) { }
   }
 }
 
@@ -337,7 +348,7 @@ async function getSceneryObjs() {
 }
 
 // Resolve scenery + level1 logic at module load.
-getSceneryObjs().catch(() => {});
+getSceneryObjs().catch(() => { });
 
 function tickLevel1Puzzle(d) {
   const lvl = getActiveLevel();
@@ -349,64 +360,116 @@ function tickLevel1Puzzle(d) {
 
   // Forward the tick to the level's logic module.
   if (typeof lvl.updatePuzzle === 'function') {
-    try { lvl.updatePuzzle(d, list); } catch (e) {}
+    try { lvl.updatePuzzle(d, list); } catch (e) { }
   }
 }
 
 function tickLevel1Monsters(d) {
-  const lvl = getActiveLevel();
-  if (lvl?.id !== 'level1') return;
-  if (!_sceneryObjsRef) return;
+  try {
+    const lvl = getActiveLevel();
+    if (lvl?.id !== 'level1') return;
+    if (!_sceneryObjsRef) return;
 
-  const list = _sceneryObjsRef.sceneryObjs;
-  if (!list || !list.length) return;
+    const list = _sceneryObjsRef.sceneryObjs;
+    if (!list || !list.length) return;
 
-  // 1) Forward AI update to the level's monster module.
-  if (typeof lvl.updateMonsters === 'function') {
-    const monsters = [];
-    for (const o of list) {
-      if (o.isMonster && !o._dead) monsters.push(o);
+    const monsters = list.filter(o => o.isMonster && !o._dead);
+
+    // DEBUG every 30 frames
+    P._dbgMonsterTick = (P._dbgMonsterTick || 0) + 1;
+    const debugNow = P._dbgMonsterTick % 30 === 0;
+
+    if (debugNow) {
+      console.log('[L1 MONSTER DEBUG]', {
+        pos: Math.round(P.pos),
+        speed: Math.round(P.speed),
+        onRoad2: P.onRoad2,
+        secretUnlocked: P.secretUnlocked,
+        wallCrossed: P.ghostWallCrossed,
+        monsterCount: monsters.length,
+      });
     }
-    if (monsters.length) {
-      try { lvl.updateMonsters(monsters, P.pos, d); } catch (e) {}
+
+    // IMPORTANT:
+    // Road1 reverse puzzle = monster must NOT kill or show logic.
+    // Player is going backward to fake wall, not to gorilla.
+    if (!P.onRoad2 && !P.secretUnlocked && P.speed < -5) {
+      if (debugNow) {
+        console.log('[L1 MONSTER SKIP] Road1 reverse mode: monster disabled while finding fake wall.');
+      }
+      return;
     }
-  }
 
-  // 2) Lethal contact check.
-  if (P.ghostDead) return;
-  if (typeof lvl.isMonsterLethal === 'function' && !lvl.isMonsterLethal()) {
-    return;
-  }
+    // AI update
+    if (typeof lvl.updateMonsters === 'function' && monsters.length) {
+      try {
+        lvl.updateMonsters(monsters, P.pos, d);
+      } catch (e) {
+        console.error('[L1 MONSTER ERROR] updateMonsters failed:', e);
+      }
+    }
 
-  const killZ = C.MONSTER_KILL_RADIUS_Z || 120;
-  const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
+    if (P.ghostDead) return;
+    if (typeof lvl.isMonsterLethal === 'function' && !lvl.isMonsterLethal()) return;
 
-  for (const m of list) {
-    if (!m.isMonster || m._dead) continue;
-    if (m.isLethal === false) continue;
-    if (!m.active && m.aiState !== 'chase') continue;
+    const killZ = C.MONSTER_KILL_RADIUS_Z || 120;
+    const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
 
-    let dz = m.z - P.pos;
-    while (dz < -trackLen / 2) dz += trackLen;
-    while (dz >  trackLen / 2) dz -= trackLen;
+    for (const m of monsters) {
+      if (m.isLethal === false) continue;
 
-    const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
+      let dz = m.z - P.pos;
+      while (dz < -trackLen / 2) dz += trackLen;
+      while (dz >  trackLen / 2) dz -= trackLen;
 
-if (
-  Math.abs(dz) < killZ &&
-  dxLane < killX &&
-  m.aiState === 'attack' &&
-  m.isPunchHitFrame &&
-  !m.hasHitPlayer
-) {
-  m.hasHitPlayer = true;
+      const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
+      const nearMonster = Math.abs(dz) < killZ && dxLane < killX;
 
-  if (typeof lvl.triggerMonsterKill === 'function') {
-    try { lvl.triggerMonsterKill(); } catch (e) {}
-  }
+      if (debugNow) {
+        console.log('[L1 MONSTER CHECK]', {
+          road: P.onRoad2 ? 'ROAD2' : 'ROAD1',
+          monsterZ: Math.round(m.z),
+          playerPos: Math.round(P.pos),
+          dz: Math.round(dz),
+          dxLane: dxLane.toFixed(2),
+          aiState: m.aiState,
+          active: m.active,
+          airborne: P.isAirborne,
+          airY: Math.round(P.airY || 0),
+          nearMonster,
+        });
+      }
 
-  break;
-}
+      if (!nearMonster || m.hasHitPlayer) continue;
+
+      // Road2: jump can save player
+      if (P.onRoad2 && (P.isAirborne || (P.airY || 0) > 30)) {
+        console.log('[L1 MONSTER SAFE] Player jumped over Road2 gorilla.');
+        continue;
+      }
+
+      // Road1 forward OR Road2 without jump = dead
+      console.warn('[L1 MONSTER KILL]', {
+        road: P.onRoad2 ? 'ROAD2' : 'ROAD1',
+        reason: P.onRoad2 ? 'missed jump' : 'Road1 trap gorilla',
+        dz: Math.round(dz),
+        dxLane,
+      });
+
+      m.hasHitPlayer = true;
+
+      if (typeof lvl.triggerMonsterKill === 'function') {
+        try {
+          lvl.triggerMonsterKill();
+        } catch (e) {
+          console.error('[L1 MONSTER ERROR] triggerMonsterKill failed:', e);
+        }
+      }
+
+      break;
+    }
+  } catch (e) {
+    console.error('[L1 MONSTER FATAL ERROR]', e);
   }
 }
 
@@ -508,137 +571,137 @@ export function updatePhys(inp, dt, len) {
 
   P.roadCurve += (curveNow - P.roadCurve) * 0.10;
 
-// ═══════════════════════════════════════════════════════
-// ASPHALT LEGENDS STYLE DRIFT
-// Control:
-//   Hold Left/Right + single tap Down = start drift
-//   Release Down, keep Left/Right = keep drift
-//   Switch Left/Right = control drift direction
-//   Collision/offroad = drift cancels
-// ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════
+  // ASPHALT LEGENDS STYLE DRIFT
+  // Control:
+  //   Hold Left/Right + single tap Down = start drift
+  //   Release Down, keep Left/Right = keep drift
+  //   Switch Left/Right = control drift direction
+  //   Collision/offroad = drift cancels
+  // ═══════════════════════════════════════════════════════
 
-const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
-const steerInput = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-const downTap = consumeDownPress();
+  const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
+  const steerInput = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+  const downTap = consumeDownPress();
 
-const canDrive = P.speed > 80;
-const canStartDrift =
-  canDrive &&
-  steerInput !== 0 &&
-  downTap &&
-  speedAbsFrac > 0.35;
+  const canDrive = P.speed > 80;
+  const canStartDrift =
+    canDrive &&
+    steerInput !== 0 &&
+    downTap &&
+    speedAbsFrac > 0.35;
 
-// start drift from single Down tap
-if (canStartDrift) {
-  P.driftActive = true;
-  P.driftDir = steerInput;
-  P.driftTimer = 0;
-}
-
-// keep drift while player keeps steering
-if (P.driftActive) {
-  P.driftTimer += d;
-
-  if (steerInput !== 0) {
+  // start drift from single Down tap
+  if (canStartDrift) {
+    P.driftActive = true;
     P.driftDir = steerInput;
+    P.driftTimer = 0;
   }
 
-  // cancel drift if no steering, too slow, collision, or outside road
-  if (
-    steerInput === 0 ||
-    P.speed < 60 ||
-    P.hitCooldown > 0 ||
-    Math.abs(P.playerX) > 1.05
-  ) {
-    P.driftActive = false;
-  }
-}
-
-P.isManualDrifting = P.driftActive;
-P.steerVisual = steerInput;
-
-// curve force
-const curvePower = Math.min(Math.abs(speedFrac), 1);
-
-// normal curve push should be controlled
-const CENTRIFUGAL_NORMAL = 2.80;
-
-// during drift, curve push becomes weaker
-const CENTRIFUGAL_DRIFT = 0.75;
-
-const curvePush =
-  P.roadCurve *
-  curvePower *
-  (P.driftActive ? CENTRIFUGAL_DRIFT : CENTRIFUGAL_NORMAL) *
-  d;
-
-P.playerX -= curvePush;
-
-// manual steering speed
-// decrease NORMAL_STEER_MULT if left/right still too fast
-const NORMAL_STEER_MULT = 0.55;
-const DRIFT_STEER_MULT = 0.95;
-
-const baseSteer =
-  d *
-  C.STEER_SPD *
-  Math.max(speedAbsFrac, C.STEER_MIN_FAC);
-
-const normalSteer = baseSteer * NORMAL_STEER_MULT;
-const driftSteer = baseSteer * DRIFT_STEER_MULT;
-
-if (canDrive) {
+  // keep drift while player keeps steering
   if (P.driftActive) {
-    // drift control
-    P.playerX += steerInput * driftSteer;
+    P.driftTimer += d;
 
-    // slow down softly during drift
-    P.speed *= Math.pow(0.992, d * 60);
-
-    P.manualDriftVelocity = steerInput * driftSteer * 60;
-
-    const targetSmoke = Math.min(1, 0.35 + speedAbsFrac * 0.65);
-    P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
-
-    // small camera yaw feeling
-    P.cameraCurve += steerInput * 0.004;
-
-    // save tire line points
-    if (!P.driftLines) P.driftLines = [];
-
-    P.driftLines.push({
-      x: P.playerX,
-      z: P.pos,
-      life: 1.0,
-      off: P.isOffTrack,
-    });
-
-    if (P.driftLines.length > 90) {
-      P.driftLines.shift();
+    if (steerInput !== 0) {
+      P.driftDir = steerInput;
     }
 
-  } else {
-    // normal lane movement
-    P.playerX += steerInput * normalSteer;
+    // cancel drift if no steering, too slow, collision, or outside road
+    if (
+      steerInput === 0 ||
+      P.speed < 60 ||
+      P.hitCooldown > 0 ||
+      Math.abs(P.playerX) > 1.05
+    ) {
+      P.driftActive = false;
+    }
+  }
 
+  P.isManualDrifting = P.driftActive;
+  P.steerVisual = steerInput;
+
+  // curve force
+  const curvePower = Math.min(Math.abs(speedFrac), 1);
+
+  // normal curve push should be controlled
+  const CENTRIFUGAL_NORMAL = 2.80;
+
+  // during drift, curve push becomes weaker
+  const CENTRIFUGAL_DRIFT = 0.75;
+
+  const curvePush =
+    P.roadCurve *
+    curvePower *
+    (P.driftActive ? CENTRIFUGAL_DRIFT : CENTRIFUGAL_NORMAL) *
+    d;
+
+  P.playerX -= curvePush;
+
+  // manual steering speed
+  // decrease NORMAL_STEER_MULT if left/right still too fast
+  const NORMAL_STEER_MULT = 0.55;
+  const DRIFT_STEER_MULT = 0.95;
+
+  const baseSteer =
+    d *
+    C.STEER_SPD *
+    Math.max(speedAbsFrac, C.STEER_MIN_FAC);
+
+  const normalSteer = baseSteer * NORMAL_STEER_MULT;
+  const driftSteer = baseSteer * DRIFT_STEER_MULT;
+
+  if (canDrive) {
+    if (P.driftActive) {
+      // drift control
+      P.playerX += steerInput * driftSteer;
+
+      // slow down softly during drift
+      P.speed *= Math.pow(0.992, d * 60);
+
+      P.manualDriftVelocity = steerInput * driftSteer * 60;
+
+      const targetSmoke = Math.min(1, 0.35 + speedAbsFrac * 0.65);
+      P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
+
+      // small camera yaw feeling
+      P.cameraCurve += steerInput * 0.004;
+
+      // save tire line points
+      if (!P.driftLines) P.driftLines = [];
+
+      P.driftLines.push({
+        x: P.playerX,
+        z: P.pos,
+        life: 1.0,
+        off: P.isOffTrack,
+      });
+
+      if (P.driftLines.length > 90) {
+        P.driftLines.shift();
+      }
+
+    } else {
+      // normal lane movement
+      P.playerX += steerInput * normalSteer;
+
+      P.manualDriftVelocity *= Math.pow(0.05, d);
+      P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
+    }
+  } else {
+    P.driftActive = false;
     P.manualDriftVelocity *= Math.pow(0.05, d);
     P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
   }
-} else {
-  P.driftActive = false;
-  P.manualDriftVelocity *= Math.pow(0.05, d);
-  P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
-}
 
-// fade tyre lines
-if (P.driftLines?.length) {
-  for (let i = P.driftLines.length - 1; i >= 0; i--) {
-    P.driftLines[i].life -= d * 0.22;
-    if (P.driftLines[i].life <= 0) {
-      P.driftLines.splice(i, 1);
+  // fade tyre lines
+  if (P.driftLines?.length) {
+    for (let i = P.driftLines.length - 1; i >= 0; i--) {
+      P.driftLines[i].life -= d * 0.22;
+      if (P.driftLines[i].life <= 0) {
+        P.driftLines.splice(i, 1);
+      }
     }
   }
-}
 
   const camFollow = 1 - Math.pow(0.001, d);
   P.cameraX += (P.playerX - P.cameraX) * camFollow;
@@ -684,19 +747,35 @@ if (P.driftLines?.length) {
   // ── Win logic ───────────────────────────────────────
   // Road1 never wins. Road2 wins after one full secret-road lap.
   if (crossedForward) {
-    if (P._firstCrossing) {
-      P._firstCrossing = false;
-      P.lapTime = 0;
-    } else {
-      P.lapCount++;
-      P.lapTimes.push(P.lapTime);
-      P.lapTime = 0;
+    const lvl = getActiveLevel?.();
 
+    // Level 1: Road1 finish never wins. Road2 finish wins in one lap.
+    if (lvl?.id === 'level1') {
       if (P.onRoad2 && P.secretUnlocked) {
-        P.raceFinished = true;
-        P.endPhase = 1;
-        P.endTime = 0;
+        P.lapCount = 1;
+        P.lapTimes.push(P.lapTime);
+        P.lapTime = 0;
+
+        if (typeof lvl.triggerWin === 'function') {
+          try { lvl.triggerWin(); } catch (e) { }
+        } else {
+          P.raceFinished = true;
+          P.endPhase = 1;
+          P.endTime = 0;
+        }
       }
+      return;
+    }
+
+    // Other levels normal one-lap finish
+    P.lapCount++;
+    P.lapTimes.push(P.lapTime);
+    P.lapTime = 0;
+
+    if (P.lapCount >= (C.TOTAL_LAPS || 1)) {
+      P.raceFinished = true;
+      P.endPhase = 1;
+      P.endTime = 0;
     }
   }
 }

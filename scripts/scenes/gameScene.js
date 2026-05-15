@@ -50,6 +50,21 @@ import {
 
 import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 
+// ── Minimap (real-road-shape mini map painted each frame) ──
+import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
+
+// Try to import a "list opponents" helper without breaking on
+// engines that don't expose one. Resolved lazily so a missing
+// export doesn't crash the module-load phase.
+let _listOpponents = null;
+import('../systems/opponentSystem.js').then((mod) => {
+  // Recognize any of these export names; first one wins.
+  _listOpponents = mod.getOpponents
+                || mod.listOpponents
+                || mod.getOpponentList
+                || null;
+}).catch(() => { /* fine — fall back to count-only */ });
+
 export class GameScene {
   constructor(sceneManager) {
     this.scenes = sceneManager;
@@ -78,6 +93,10 @@ export class GameScene {
 
     this._raceDistance = 0;
     this._lastProgressPos = 0;
+
+    // ── Minimap canvas (built on first enter, painted each frame) ──
+    this._minimapCanvas = null;
+    this._minimapCtx    = null;
 
     // ── Reverse-road hint trigger ──────────────────────────────
     // The visible reminder for this is the orange race-start banner
@@ -164,14 +183,38 @@ export class GameScene {
 
     document.getElementById('s-win')?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
+    document.getElementById('s-gameover')?.classList.remove('on');
 
     buildTrack(buildScenery);
     resetPhys();
     resetParts();
 
     if (this.level?.resetPuzzle) {
-  this.level.resetPuzzle();
-}
+      this.level.resetPuzzle();
+    }
+
+    // ── Wire up Level-1-style callbacks (defensive — no-op
+    //    for levels that don't expose these hooks) ───────────
+    if (this.level?.setRoad2UnlockCallback) {
+      this.level.setRoad2UnlockCallback(() => {
+        try {
+          notify(this.level.road2UnlockMessage
+            || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!');
+        } catch (e) {}
+        try {
+          if (getSetting('soundOn')) playSfx('nitro');
+        } catch (e) {}
+      });
+    }
+    if (this.level?.setDeathCallback) {
+      this.level.setDeathCallback(() => this.endGameOver());
+    }
+    this._gameOverShown = false;
+
+    // ── Rebuild minimap cache (road shape may differ per
+    //    level / per active road) ─────────────────────────
+    try { clearMinimapCache(); } catch (e) {}
+    this._ensureMinimap();
     this._raceDistance = 0;
     this._lastProgressPos = P.pos || 0;
 
@@ -189,6 +232,9 @@ export class GameScene {
     buildRaceHUD({ onPause: () => this.pause() });
     showRaceHUD();
     hideRaceHint();
+
+    // Show the minimap (created in _ensureMinimap() earlier).
+    this._showMinimap();
 
     // Force countdown ranking: 6/6
     this._showStartRank = true;
@@ -226,6 +272,72 @@ export class GameScene {
     hideRaceHUD();
   }
 
+  // ════════════════════════════════════════════════════
+  // MINIMAP — create the canvas element once, then paint
+  // it from the loop with a snapshot of player/opponent
+  // positions. Positioned top-right by default; the inline
+  // styles keep it self-contained so no CSS changes needed.
+  // ════════════════════════════════════════════════════
+  _ensureMinimap() {
+    if (this._minimapCanvas && document.body.contains(this._minimapCanvas)) {
+      return;
+    }
+    const host = document.getElementById('s-game') || document.body;
+    let cv = document.getElementById('mini-map');
+    if (!cv) {
+      cv = document.createElement('canvas');
+      cv.id = 'mini-map';
+      cv.width  = 180;
+      cv.height = 120;
+      cv.style.cssText = [
+        'position:absolute',
+        'right:14px',
+        'top:64px',
+        'width:180px',
+        'height:120px',
+        'pointer-events:none',
+        'z-index:40',
+        'border-radius:10px',
+        'box-shadow:0 4px 14px rgba(0,0,0,0.45)',
+        'image-rendering:auto',
+      ].join(';');
+      host.appendChild(cv);
+    }
+    this._minimapCanvas = cv;
+    this._minimapCtx    = cv.getContext('2d');
+  }
+
+  _hideMinimap() {
+    if (this._minimapCanvas) this._minimapCanvas.style.display = 'none';
+  }
+  _showMinimap() {
+    if (this._minimapCanvas) this._minimapCanvas.style.display = 'block';
+  }
+
+  _paintMinimap() {
+    if (!this._minimapCanvas) return;
+
+    // Best-effort opponent listing. If opponentSystem.js exposes
+    // a function that returns the raw opponent array, we use it
+    // for accurate map dots; otherwise the map just omits them.
+    let opps = [];
+    if (_listOpponents) {
+      try {
+        const raw = _listOpponents();
+        if (Array.isArray(raw)) opps = raw;
+      } catch (e) { opps = []; }
+    }
+
+    renderInGameMinimap(this._minimapCanvas, {
+      level:      this.level,
+      trackLen,
+      playerPos:  P.pos || 0,
+      playerLane: P.playerX || 0,
+      onRoad2:    !!P.onRoad2,
+      opponents:  opps,
+    });
+  }
+
   pause() {
     if (!this.running) return;
     this.paused = true;
@@ -247,6 +359,7 @@ export class GameScene {
     this.paused = false;
     stopAll();
     hideRaceHUD();
+    this._hideMinimap();
   }
 
   restart() {
@@ -255,15 +368,18 @@ export class GameScene {
     this.running = false;
     this.paused = false;
     this.winShown = false;
+    this._gameOverShown = false;
     this._showStartRank = false;
 
     stopAll();
     stopMusic();
     hideRaceHUD();
     hideRaceHint();
+    this._hideMinimap();
 
     document.getElementById('s-pause')?.classList.remove('on');
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-gameover')?.classList.remove('on');
 
     this.enter(this.level);
   }
@@ -288,6 +404,37 @@ export class GameScene {
     document.getElementById('ws-l').textContent = String(P.lapCount);
     show('win');
     hideRaceHUD();
+    this._hideMinimap();
+    P.endPhase = 2;
+  }
+
+  // ════════════════════════════════════════════════════
+  // GAME OVER — shown when the player is killed (e.g. by
+  // the gorilla on Level 1).  Distinct from endRace():
+  //   • Does NOT mark the level as complete.
+  //   • Does NOT persist coins/keys earned this run.
+  //   • Shows the #s-gameover modal which offers ONLY
+  //     Restart + Menu — no "next level" button.
+  // ════════════════════════════════════════════════════
+  endGameOver() {
+    if (this._gameOverShown) return;
+    this._gameOverShown = true;
+
+    lockInput(true);
+    stopMusic();
+    try { stopAll(); } catch (e) {}
+    if (getSetting('soundOn')) {
+      try { playSfx('crash', { volume: 1.0 }); } catch (e) {}
+    }
+
+    hideRaceHint();
+    hideRaceHUD();
+    this._hideMinimap();
+
+    // Belt-and-suspenders: directly toggle the .on class in
+    // case the SceneManager doesn't have 'gameover' registered.
+    document.getElementById('s-gameover')?.classList.add('on');
+    try { show('gameover'); } catch (e) { /* not a registered scene */ }
     P.endPhase = 2;
   }
 
@@ -388,10 +535,22 @@ export class GameScene {
     // ── Drive the Asphalt-style HUD ──
     updateRaceHUD(this._hudSnapshot());
 
+    // ── Drive the minimap (real-road shape) ──
+    this._paintMinimap();
+
     this.fpsT += dtRaw; this.fpsN++;
     if (this.fpsT >= 0.5) { this.fps = (this.fpsN / this.fpsT) | 0; this.fpsT = 0; this.fpsN = 0; }
 
-    if (P.raceFinished && !this.winShown) this.endRace();
+    // ── End-of-race resolution ──────────────────────────
+    //   • P.ghostDead     → Game Over modal (Restart / Menu)
+    //   • P.raceFinished  → Win modal
+    // Death is checked FIRST so a simultaneous death+finish
+    // never credits a win.
+    if (P.ghostDead && !this._gameOverShown) {
+      this.endGameOver();
+    } else if (P.raceFinished && !this.winShown && !P.ghostDead) {
+      this.endRace();
+    }
 
     requestAnimationFrame(this.loop);
   };

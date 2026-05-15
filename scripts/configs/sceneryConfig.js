@@ -37,24 +37,17 @@ export const SPR = {
   totemOnly: { sx: 1325, sy: 12,   sw: 500, sh: 525, scale: .60, anchorY: 1.00 },
   booster:   { sx: 368,  sy: 1090, sw: 210, sh: 260, scale: 1,   anchorY: 1 },
 
-  // ── KEYS ────────────────────────────────────────────
-  // Generic key (legacy)
+  // ── KEYS (legacy — Level 1 no longer spawns these) ──
   key: { sx: 1680, sy: 760, sw: 128, sh: 128, scale: 1, anchorY: 1,
          renderBase: 80, renderMin: 22, renderMax: 130 },
 
-  // GHOST START real key — same sprite, larger so it's an
-  // obvious gold pickup the player can see from far.
   realKey: {
     sx: 1680, sy: 760, sw: 128, sh: 128,
     scale: 1, anchorY: 1,
     renderBase: 110, renderMin: 30, renderMax: 200,
   },
 
-  // ── PRESSURE PLATE ──────────────────────────────────
-  // The renderer draws this as a procedural disc (ellipse +
-  // glow), but we still need a valid sprite entry so the
-  // resolveSprite() lookup succeeds. We point at any harmless
-  // atlas tile (startBanner) — it never actually gets drawn.
+  // ── PRESSURE PLATE (legacy, kept for renderer safety) ──
   pressurePlate: {
     sx: 0, sy: 800, sw: 640, sh: 300,
     scale: 0.7, anchorY: 0.92,
@@ -96,25 +89,47 @@ export const JUMP_KINDS = new Set(Object.keys(JUMP_SPR));
 export const JUMP_ATLAS_PATH = 'assets/level/level2/jumps.png';
 
 // ═══════════════════════════════════════════════════════
-// MONSTER ATLAS (Level 1 only)
-// monster.webp — 512×512, 2 rows × 3 cols.
-//   ┌─────┬─────┬─────┐
-//   │  0  │  1  │  2  │  ← crawl A/B/C
-//   ├─────┼─────┼─────┤
-//   │  3  │  4  │  5  │  ← crawl D/E + lunge
-//   └─────┴─────┴─────┘
-// Each cell is 512/3 ≈ 170 wide, 512/2 = 256 tall.
+// MONSTER ATLAS — GORILLA BOSS (gorila.jpeg)
+// ─────────────────────────────────────────────────────
+// Spritesheet is 2752 × 1536, laid out as 5 columns × 4 rows = 20 frames.
+//
+//   ┌─────┬─────┬─────┬─────┬─────┐
+//   │  0  │  1  │  2  │  3  │  4  │   ← Row 0: IDLE / stomp
+//   ├─────┼─────┼─────┼─────┼─────┤
+//   │  5  │  6  │  7  │  8  │  9  │   ← Row 1: ROAR (arms up)
+//   ├─────┼─────┼─────┼─────┼─────┤
+//   │ 10  │ 11  │ 12  │ 13  │ 14  │   ← Row 2: CHASE / run
+//   ├─────┼─────┼─────┼─────┼─────┤
+//   │ 15  │ 16  │ 17  │ 18  │ 19  │   ← Row 3: ATTACK / ground-pound
+//   └─────┴─────┴─────┴─────┴─────┘
+//
+// Each cell is exactly 2752/5 = 550.4 × 1536/4 = 384 px.
+// monsterRender.js consumes these dimensions to compute frame
+// rectangles automatically; do not hand-edit individual cells.
 // ═══════════════════════════════════════════════════════
 export const MONSTER_SPR = {
   sx: 0,
   sy: 0,
-  cols: 3,
-  rows: 2,
-  frameW: 170,
-  frameH: 256,
+  cols: 5,
+  rows: 4,
+  // Sheet is 2752 × 1536 → 550.4 × 384 per frame.
+  // We round to 550 / 384 — the 0.4-px difference is invisible
+  // and avoids fractional bleed at high zoom.
+  frameW: 550,
+  frameH: 384,
+
+  // Approximate transparent / blue-background padding inside
+  // each cell. The gorilla art doesn't reach the cell edges;
+  // these insets crop the visible rectangle so the rendered
+  // sprite scales as just the gorilla, not the surrounding
+  // empty blue. Tune if you replace the spritesheet.
+  insetL: 30,
+  insetR: 30,
+  insetT: 18,
+  insetB: 6,
 };
 
-export const MONSTER_ATLAS_PATH = 'assets/level/level1/monster.webp';
+export const MONSTER_ATLAS_PATH = 'assets/monster/gorila.jpeg';
 
 export const SPR_BY_LEVEL = {
   level1: SPR,

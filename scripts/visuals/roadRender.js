@@ -30,12 +30,17 @@ export let _visibleSegs = [];
 
 // ── Texture frame selector ─────────────────────────────
 function pickSegTex(segIndex) {
-  if (segIndex < C.RUMBLE * 2) return SEG_TEX.FinishLine;
-  const cycle = getActiveTrack() === 2 ? SEG_TEX_CYCLE_ROAD2 : SEG_TEX_CYCLE_ROAD1;
+  if (segIndex === 0) {
+    return SEG_TEX.Grid;
+  }
+
+  const cycle = getActiveTrack() === 2
+    ? SEG_TEX_CYCLE_ROAD2
+    : SEG_TEX_CYCLE_ROAD1;
+
   const i = Math.floor(segIndex / SEG_TEX_RUN) % cycle.length;
   return cycle[i];
 }
-
 // ── Main road draw ─────────────────────────────────────
 export function drawRoad() {
   const ctx = getCtx();
@@ -273,8 +278,10 @@ function drawNearestRoadExtension(ctx, W, H) {
     return;
   }
 
-  const frame = pickSegTex(near.index);
-  const segH = H + 4 - yTop;
+const frame = near.index === 0
+  ? SEG_TEX_CYCLE_ROAD1[0]
+  : pickSegTex(near.index);
+    const segH = H + 4 - yTop;
   if (segH <= 0) return;
 
   const fullTopW = (near.w1 * 2) / ROAD_TEX_FRAC;
