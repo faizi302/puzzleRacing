@@ -14,7 +14,7 @@
 //     and only on an actual Spacebar press.
 // ═══════════════════════════════════════════════════════
 
-const BASE = 'assets/fassets/audio/';
+const BASE = 'assets/audio/';
 
 const BANK = {
   menuMusic: ['MusicMenu.ogg'],
@@ -237,20 +237,10 @@ export function stopAll() {
 // the existing loop just has its volume/rate updated — we never
 // spawn a second engine source.
 export function setEngineSpeed(speed01) {
-  if (_muted || !_unlocked) return;
-
-  speed01 = Math.max(0, Math.min(1, speed01));
-
-  if (speed01 < 0.04) {
-    playSfx('engine', { stop: true, key: 'engine' });
-    return;
-  }
-
+  // Completely disable engine sound on movement / key press
   playSfx('engine', {
-    loop: true,
+    stop: true,
     key: 'engine',
-    volume: 0.12 + speed01 * 0.35,
-    rate: 0.85 + speed01 * 0.55,
   });
 }
 
@@ -259,7 +249,7 @@ export function setBrakeLoop(active) {
     playSfx('brake', {
       loop: true,
       key: 'brake',
-      volume: 0.35,
+      volume: 0.06,
     });
   } else {
     playSfx('brake', {
@@ -276,7 +266,7 @@ export function initGlobalAudioButtons() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('button, .btn, [data-sound="button"]');
     if (!el) return;
-    playSfx('button', { volume: 0.65 });
+    playSfx('button', { volume: 0.16 });
   });
 
   document.addEventListener('visibilitychange', () => {

@@ -99,12 +99,12 @@ export function buildSceneryObjects() {
   // 3) SMALL WOODEN POLES / SIDE OBJECTS — close to road
   // =====================================================
   for (let i = 6; i < total - 25; i += 8) {
-    addSide('Bumper2', i, -1, 1.15, 0.62, {
+    addSide('Bumper2', i, -1, 1.34, 0.62, {
       small: true,
       isBoundaryPole: true,
     });
 
-    addSide('Bumper2', i + 4, 1, 1.15, 0.62, {
+    addSide('Bumper2', i + 4, 1, 1.34, 0.62, {
       small: true,
       isBoundaryPole: true,
     });
@@ -112,12 +112,12 @@ export function buildSceneryObjects() {
 
   // second outer row, slightly farther, gives natural border
   for (let i = 12; i < total - 25; i += 16) {
-    addSide('Bumper1', i, -1, 1.55, 0.52, {
+    addSide('Bumper1', i, -1, 2.10, 0.52, {
       small: true,
       isBoundaryPole: true,
     });
 
-    addSide('Bumper1', i + 8, 1, 1.55, 0.52, {
+    addSide('Bumper1', i + 8, 1, 2.10, 0.52, {
       small: true,
       isBoundaryPole: true,
     });

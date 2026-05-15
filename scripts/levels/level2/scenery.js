@@ -77,8 +77,8 @@ export function buildSceneryObjects() {
   // ─── SIDE BUMPERS / POLES ────────────────────────────
   for (let i = 3; i < total - 25; i += 10) {
     const z = i * C.SEG_LEN;
-    addSide('bumper1', z + 30,  -1, 1.20, 0.75, { small: true, isBoundaryPole: true });
-    addSide('bumper2', z + 110,  1, 1.20, 0.75, { small: true, isBoundaryPole: true });
+    addSide('bumper1', z + 30,  -1, 1.38, 1.00, { small: true, isBoundaryPole: true });
+    addSide('bumper2', z + 110,  1, 1.38, 1.00, { small: true, isBoundaryPole: true });
   }
 
   // ─── CITY BUILDINGS ──────────────────────────────────

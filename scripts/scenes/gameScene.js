@@ -175,8 +175,8 @@ export class GameScene {
     resetParts();
 
     if (this.level?.resetPuzzle) {
-  this.level.resetPuzzle();
-}
+      this.level.resetPuzzle();
+    }
     this._raceDistance = 0;
     this._lastProgressPos = P.pos || 0;
 
@@ -203,14 +203,26 @@ export class GameScene {
     renderFrame(0);
 
     await playIntro();
-    if (getSetting('soundOn')) playSfx('start');
+
+    /* Engine ignition sound ONCE before countdown */
+    if (getSetting('soundOn')) {
+      playSfx('engine', {
+        volume: 0.35
+      });
+    }
+
+    /* Countdown */
     await countdown();
 
     this._showStartRank = false;
     updateRaceHUD(this._hudSnapshot());
 
     lockInput(false);
-    if (getSetting('musicOn')) startMusic();
+
+    /* After countdown → start race music loop */
+    if (getSetting('musicOn')) {
+      startMusic(); // plays raceMusic: MusicGameModeRace.ogg
+    }
 
     // ── Race-start HINT (one-shot, replaces the old notify call) ──
     // Title  = the dramatic headline
@@ -330,23 +342,23 @@ export class GameScene {
     // Compute level progress as a percentage of the track lap-distance
     // the player has covered so far. Caps at 100%.
     const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
-    const lapsDone  = Math.max(0, P.lapCount || 0);
-    const lapFrac   = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
-    const progress  = Math.min(1, (lapsDone + lapFrac) / totalLaps);
-    const pct       = Math.round(progress * 100);
+    const lapsDone = Math.max(0, P.lapCount || 0);
+    const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct = Math.round(progress * 100);
 
     // Stats
     const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
-    const posTxt   = `${this._position} / ${this._opponents}`;
+    const posTxt = `${this._position} / ${this._opponents}`;
 
     // Populate DOM
     const reasonEl = document.getElementById('ls-reason');
     if (reasonEl && reason) reasonEl.textContent = reason;
-    else if (reasonEl)      reasonEl.textContent = "You didn't make it this time";
+    else if (reasonEl) reasonEl.textContent = "You didn't make it this time";
 
-    document.getElementById('ls-t').textContent  = fmtT(P.raceTime || 0);
-    document.getElementById('ls-l').textContent  = `${lapShown} / ${totalLaps}`;
-    document.getElementById('ls-p').textContent  = posTxt;
+    document.getElementById('ls-t').textContent = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent = posTxt;
     document.getElementById('ls-prog-pct').textContent = `${pct}%`;
 
     // Hide HUD before the panel slides in
@@ -426,24 +438,24 @@ export class GameScene {
 
 
     while (this.accum >= STEP) {
-  updatePhys(inp, STEP, trackLen);
+      updatePhys(inp, STEP, trackLen);
 
-  this._tickRaceDistance();
+      this._tickRaceDistance();
 
-  if (this.level?.updatePuzzle) {
-    this.level.updatePuzzle(STEP, sceneryObjs);
-  }
+      if (this.level?.updatePuzzle) {
+        this.level.updatePuzzle(STEP, sceneryObjs);
+      }
 
-  updateOpponents(STEP, sceneryObjs);
+      updateOpponents(STEP, sceneryObjs);
 
-  this._position = getPlayerRacePosition();
-  this._opponents = getOpponentCount();
+      this._position = getPlayerRacePosition();
+      this._opponents = getOpponentCount();
 
-  const a = getCarAnchor();
-  checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
+      const a = getCarAnchor();
+      checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
 
-  this.accum -= STEP;
-}
+      this.accum -= STEP;
+    }
 
     this._trackPickups();
 
@@ -457,7 +469,6 @@ export class GameScene {
     tickParts(dtRaw);
     tickCamAnim(dtRaw);
     tickEdgeScrape();
-    setEngineSpeed(Math.min(1, P.speed / C.NITRO_MAX));
 
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);

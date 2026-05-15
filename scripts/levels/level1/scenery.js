@@ -15,7 +15,7 @@ export function buildSceneryObjects() {
   // When secret road is discovered, left/right scenery is mirrored.
   const sideFlip = P.reverseMode ? -1 : 1;
 
-  function addBoundaryPoles(startSeg, endSeg, stepSeg, offset = 1.10) {
+  function addBoundaryPoles(startSeg, endSeg, stepSeg, offset = 1.35) {
     const poleKinds = ['poleStump'];
 
     for (let i = startSeg, n = 0; i < Math.min(total - 10, endSeg); i += stepSeg, n++) {
@@ -44,7 +44,7 @@ export function buildSceneryObjects() {
   }
 
   // Boundary poles for Road1 fake road and Road2 winning road
-  addBoundaryPoles(-25, total - 25, onRoad2 ? 1 : 1, onRoad2 ? 1.10 : 1.10);
+  addBoundaryPoles(-25, total - 25, onRoad2 ? 1 : 1, onRoad2 ? 1.30 : 1.30);
 
   // ── START BANNER exactly above starting line ─────────────
   if (!onRoad2) {
@@ -86,7 +86,7 @@ export function buildSceneryObjects() {
       kind: 'totemOnly',
       z: z + 40,
       side: -1 * sideFlip,
-      offset: onRoad2 ? 1.45 : 1.55,
+      offset: onRoad2 ? 1.70 : 1.70,
       small: false,
       isTotem: true,
     });
@@ -95,7 +95,7 @@ export function buildSceneryObjects() {
       kind: 'totemOnly',
       z: z + 220,
       side: 1 * sideFlip,
-      offset: onRoad2 ? 1.45 : 1.55,
+      offset: onRoad2 ? 1.70 : 1.70,
       small: false,
       isTotem: true,
     });
@@ -108,13 +108,13 @@ export function buildSceneryObjects() {
       kind: 'bridge',
       z,
       side: -1 * sideFlip,
-      offset: onRoad2 ? 2.55 : 3.0,
+      offset: onRoad2 ? 3.99 : 3.99,
     });
     objs.push({
       kind: 'bridge',
       z: z + 240,
       side: 1 * sideFlip,
-      offset: onRoad2 ? 2.35 : 2.62,
+      offset: onRoad2 ? 3.78 : 3.78,
     });
   }
 

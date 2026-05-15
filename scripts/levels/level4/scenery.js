@@ -85,11 +85,11 @@ export function buildSceneryObjects() {
 
   // side boundary poles
   for (let i = 5; i < total - 20; i += 8) {
-    addSide('Bumper1', i, -1, 1.18, 0.7, {
+    addSide('Bumper1', i, -1, 1.33, 0.7, {
       small: true,
       isBoundaryPole: true,
     });
-    addSide('Bumper2', i + 4, 1, 1.18, 0.7, {
+    addSide('Bumper2', i + 4, 1, 1.33, 0.7, {
       small: true,
       isBoundaryPole: true,
     });
