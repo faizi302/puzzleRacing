@@ -430,59 +430,53 @@ let _fxClock = 0;
 function drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH) {
   if (!P.nitroActive || P.nitroStored <= 0) return;
 
+  // Smooth ramp-in when nitro first activates (same as before)
   const ramp = Math.min(1, P._nitroActivationT * 7);
+
+  // Subtle size pulse so the flame "breathes"
   const pulse = 0.92 + Math.sin(_fxClock * 40) * 0.08;
 
-  // exhaust/silencer point — center backside of car
-  const startX = anchorX;
-  const startY = anchorY + drawH * 0.16;
+  // Anchor at the rear/exhaust point of the car (same as before)
+  const baseX = anchorX;
+  const baseY = anchorY + drawH * 0.16;
 
-  // long backward beam
-  const endY = startY + drawH * 4.8 * pulse;
+  // ── Stack of boost-sprite puffs behind the car ──
+  // Each puff is a separate boost animation, staggered in time so they
+  // overlap into a continuous streaming flame jet (instead of one
+  // synchronized pulse).
+  //
+  //   dy   — distance behind the car (multiplied by drawH)
+  //   size — width/height of this puff (multiplied by drawW)
+  //   a    — opacity multiplier for this puff
+  //   off  — phase shift into the 16-frame loop (in frames)
+  const puffs = [
+    { dy: 0.10, size: 1.10, a: 1.00, off: 0  },
+    { dy: 0.55, size: 1.30, a: 0.95, off: 4  },
+    { dy: 1.10, size: 1.45, a: 0.85, off: 8  },
+    { dy: 1.70, size: 1.40, a: 0.65, off: 12 },
+    { dy: 2.30, size: 1.25, a: 0.45, off: 14 },
+  ];
 
-  // very thin at car, slightly wider at end
-  const startW = drawW * 0.045;
-  const endW   = drawW * 0.34;
+  // Boost animation plays back at ~26 fps and loops continuously.
+  // FX_ATLAS.animations.Boost has 16 frames.
+  const fps       = 26;
+  const totalFr   = 16;
+  const baseFrame = _fxClock * fps;
 
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = ramp;
+  for (const p of puffs) {
+    const cx   = baseX;
+    const cy   = baseY + drawH * p.dy * pulse;
+    const size = drawW * p.size * pulse;
 
-  // outer glow
-  let g = ctx.createLinearGradient(startX, startY, startX, endY);
-  g.addColorStop(0.00, 'rgba(180,240,255,0.95)');
-  g.addColorStop(0.25, 'rgba(60,170,255,0.55)');
-  g.addColorStop(1.00, 'rgba(20,80,255,0.00)');
+    // Each puff loops independently; the offset is what makes the
+    // stream look continuous instead of a single synchronized burst.
+    const frame = (baseFrame + p.off) % totalFr;
 
-  ctx.beginPath();
-  ctx.moveTo(startX - startW, startY);
-  ctx.lineTo(startX + startW, startY);
-  ctx.lineTo(startX + endW, endY);
-  ctx.lineTo(startX - endW, endY);
-  ctx.closePath();
-  ctx.fillStyle = g;
-  ctx.fill();
-
-  // bright inner core
-  const coreEndW = endW * 0.36;
-  const coreStartW = startW * 0.45;
-
-  let cg = ctx.createLinearGradient(startX, startY, startX, endY);
-  cg.addColorStop(0.00, 'rgba(255,255,255,1)');
-  cg.addColorStop(0.22, 'rgba(120,230,255,0.9)');
-  cg.addColorStop(0.75, 'rgba(40,120,255,0.35)');
-  cg.addColorStop(1.00, 'rgba(40,120,255,0)');
-
-  ctx.beginPath();
-  ctx.moveTo(startX - coreStartW, startY);
-  ctx.lineTo(startX + coreStartW, startY);
-  ctx.lineTo(startX + coreEndW, endY);
-  ctx.lineTo(startX - coreEndW, endY);
-  ctx.closePath();
-  ctx.fillStyle = cg;
-  ctx.fill();
-
-  ctx.restore();
+    drawFxFrame(ctx, 'Boost', frame, cx, cy, size, {
+      alpha: ramp * p.a,
+      blend: 'lighter',
+    });
+  }
 }
 
 function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
@@ -756,4 +750,86 @@ export function getPlayerCollisionInfo() {
 
 export function forceStopNitro() {
   stopNitro();
+}
+
+// ═══════════════════════════════════════════════════════
+// FULLSCREEN NITRO SPEED-LINE OVERLAY
+// Called by render.js once per frame, AFTER the world has
+// been drawn but BEFORE the HUD / fade overlay.
+// ═══════════════════════════════════════════════════════
+let _nitroStreakAlpha = 0;   // fades in/out so it doesn't pop
+
+export function drawNitroSpeedLines(ctx, W, H) {
+  // Target visibility: visible while nitro is active, hidden otherwise
+  const target = (P.nitroActive && P.nitroStored > 0) ? 1 : 0;
+
+  // Smooth fade in (~150 ms) / fade out (~250 ms)
+  const fadeSpeed = target > _nitroStreakAlpha ? 7 : 4;
+  // We don't have dt here, so approximate using _fxClock delta.
+  // _fxClock is incremented every frame in updateNitro() via dt,
+  // so the difference between calls is one frame.
+  // For a stable 60fps that's ~0.016s; we just clamp the step.
+  const step = 1 / 60 * fadeSpeed;
+  if (_nitroStreakAlpha < target)      _nitroStreakAlpha = Math.min(target, _nitroStreakAlpha + step);
+  else if (_nitroStreakAlpha > target) _nitroStreakAlpha = Math.max(target, _nitroStreakAlpha - step);
+
+  if (_nitroStreakAlpha <= 0.001) return;
+  if (!FX_READY || !IMG.effects?.ready) return;
+
+  // The Streaks sprite is 480x270 (16:9). We want it to cover the
+  // ENTIRE screen and overflow a bit on every side so the radial
+  // streaks reach all the way to the edges.
+  // Pick whichever scale makes the sprite cover the screen, then
+  // multiply by an overscan factor so edges are guaranteed covered.
+  const SPRITE_W = 480;
+  const SPRITE_H = 270;
+  const overscan = 1.15;
+  const scale = Math.max(W / SPRITE_W, H / SPRITE_H) * overscan;
+
+  const dispW = SPRITE_W * scale;
+  const dispH = SPRITE_H * scale;
+
+  // Anchor point on screen — the player car is around 78% down
+  // the canvas, horizontally centered. The Streaks center will sit
+  // exactly there, so the lines look like they radiate from the car.
+  const cx = W * 0.5;
+  const cy = H * 0.78;
+
+  // ── Subtle pulse so streaks "breathe" while boosting ──
+  const pulse = 0.97 + Math.sin(_fxClock * 18) * 0.03;
+  const drawW = dispW * pulse;
+  const drawH = dispH * pulse;
+
+  // Animation: 10 frames at ~24 fps, looping
+  const FPS = 24;
+  const TOTAL = 10;
+  const frame = (_fxClock * FPS) % TOTAL;
+
+  // Use drawFxFrame's `size` arg only handles square sizing, so for
+  // the wide 16:9 sprite we draw it directly to control aspect ratio.
+  const list = FX_ATLAS?.animations?.Streaks || [];
+  if (!list.length) return;
+  const id = list[Math.floor(frame) % list.length];
+  const data = FX_ATLAS.frames[id];
+  if (!data) return;
+
+  const fr = data.frame;
+  const ss = data.spriteSourceSize;
+  const src = data.sourceSize;
+
+  // Match the math used by drawFxFrame so trimmed sprites still align
+  const sx = drawW / src.w;
+  const sy = drawH / src.h;
+  const baseX = cx - drawW * 0.5;
+  const baseY = cy - drawH * 0.5;
+  const dx = baseX + ss.x * sx;
+  const dy = baseY + ss.y * sy;
+  const dw = fr.w * sx;
+  const dh = fr.h * sy;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.55 * _nitroStreakAlpha;   // overall intensity
+  ctx.drawImage(IMG.effects, fr.x, fr.y, fr.w, fr.h, dx, dy, dw, dh);
+  ctx.restore();
 }

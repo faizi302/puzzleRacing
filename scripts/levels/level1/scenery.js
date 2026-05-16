@@ -277,47 +277,49 @@ function buildGhostStartObjects(objs, total, wallSeg) {
 // ROAD 2 WIN PATH — big jump ramp + finish-line arch
 // ═══════════════════════════════════════════════════════
 function buildRoad2WinPath(objs, total) {
-  // BIG JUMP RAMP — sits BEFORE the gorilla so the player
-  // flies OVER. Strongest ramp available.
-  const rampSeg = clampSeg(
-    total + (C.GHOST_ROAD2_JUMP_SEG_FROM_END ?? -16),
+  const monsterSeg = clampSeg(
+    total + (C.GHOST_ROAD2_MONSTER_SEG_FROM_END ?? -10),
     total
   );
 
-  objs.push({
-    kind:      'megaRamp',
-    z:         rampSeg * C.SEG_LEN,
-    side:      0,
-    offset:    0,
-    isJump:    true,
-    size:      1.40,
-    hitBackZ:  -90,
-    hitFrontZ:  200,
-    hitHalfW:   0.65,
-  });
+  // Jump must be BEFORE gorilla
+  // Example: gorilla = 50, jump = 45
+  const jumpBefore = C.GHOST_ROAD2_JUMP_BEFORE_MONSTER_SEGS ?? 5;
+  const rampSeg = clampSeg(monsterSeg - jumpBefore, total);
 
-  // Wider fallback ramps either side in case player swerved.
-  const fallbackSeg = Math.max(8, rampSeg - 2);
-  objs.push({
-    kind: 'boostPad', z: fallbackSeg * C.SEG_LEN,
-    side: 0, offset: -0.55, isJump: true, size: 1.15,
-  });
-  objs.push({
-    kind: 'boostPad', z: fallbackSeg * C.SEG_LEN,
-    side: 0, offset:  0.55, isJump: true, size: 1.15,
-  });
+  const lanes = [-0.66, 0.00, 0.66];
 
-  // FINISH-LINE ARCH — green-tinted woodArch past the gorilla.
+for (const lane of lanes) {
+  objs.push({
+    kind: 'megaRamp',
+    z: rampSeg * C.SEG_LEN,
+    side: 0,
+    offset: lane,
+    isJump: true,
+
+    size: 1.55,
+
+    hitBackZ: -180,
+    hitFrontZ: 340,
+    hitHalfW: 0.46,
+
+    liftFactor: 1.50,
+    jumpBaseVy: 200,
+    jumpSpeedVy: 900,
+    speedKickKmh: 95,
+    forwardKick: 1.75,
+  });
+}
   const finishArchSeg = clampSeg(total - 3, total);
   objs.push({
-    kind:        'woodArch',
-    z:           finishArchSeg * C.SEG_LEN,
-    side:        0,
-    offset:      0,
-    overhead:    true,
-    isWinGate:   true,
+    kind: 'woodArch',
+    z: finishArchSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    overhead: true,
+    isWinGate: true,
     noCollision: true,
-    forkTint:    'road2',
+    forkTint: 'road2',
   });
 }
 

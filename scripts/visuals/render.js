@@ -7,7 +7,7 @@ import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG } from './BackgroundRender.js';
 import { drawRoad } from './roadRender.js';
 import { drawScenery, sceneryObjs } from './sceneryRender.js';
-import { drawCar } from '../player/player.js';
+import { drawCar, drawNitroSpeedLines } from '../player/player.js';
 import { drawParts } from '../systems/collisionSystem.js';
 import { drawFadeOverlay } from '../player/playerAnimation.js';
 import { drawOpponents } from './opponentRender.js';
@@ -88,6 +88,7 @@ export function renderFrame(steerVisual) {
   ctx.restore();
 
   // Collision white flash
+// Collision white flash
   if (P.impactFlash > 0.01) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.12, P.impactFlash * 0.10);
@@ -95,6 +96,9 @@ export function renderFrame(steerVisual) {
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
+
+  // 9. Fullscreen nitro speed-lines (over world, under fade/HUD)
+  drawNitroSpeedLines(ctx, W, H);
 
   // Fade overlay / intro / outro
   drawFadeOverlay();
