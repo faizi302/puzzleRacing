@@ -81,6 +81,10 @@ document.getElementById('btn-again') ?.addEventListener('click', () => scenes.go
 document.getElementById('btn-tomenu')?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
 document.getElementById('pbtn')      ?.addEventListener('click', () => gameScene.pause());
 
+// ── Lose modal buttons ─────────────────────────────────
+document.getElementById('btn-lose-restart')?.addEventListener('click', () => gameScene.restart());
+document.getElementById('btn-lose-menu')   ?.addEventListener('click', () => { gameScene.quit(); scenes.go('menu'); });
+
 // Pause hotkeys
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' || e.code === 'KeyP') {

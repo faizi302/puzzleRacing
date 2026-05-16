@@ -417,6 +417,38 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════════════════════════════
+       LOSE  — shown when the race is failed (time-out, finished
+       last, crashed out, etc). Mirrors #s-win but with a level
+       progress bar and red/orange theme.
+       ════════════════════════════════════════════════════════ -->
+  <div id="s-lose" class="scr ov">
+    <div class="mbox lose">
+      <div class="troph lose-icon">💥</div>
+      <h2>RACE FAILED</h2>
+      <p class="lose-sub" id="ls-reason">You didn't make it this time</p>
+
+      <div id="ls-progress-wrap">
+        <div class="ls-prog-head">
+          <span>LEVEL PROGRESS</span>
+          <b id="ls-prog-pct">0%</b>
+        </div>
+        <div class="ls-prog-track">
+          <div class="ls-prog-fill" id="ls-prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div id="ls">
+        <div class="wr"><span>Time</span><b id="ls-t">—</b></div>
+        <div class="wr"><span>Lap</span><b id="ls-l">—</b></div>
+        <div class="wr"><span>Position</span><b id="ls-p">—</b></div>
+      </div>
+
+      <button id="btn-lose-restart" class="mb pr">🔄 RESTART</button>
+      <button id="btn-lose-menu" class="mb">🏠 MAIN MENU</button>
+    </div>
+  </div>
+
   <script type="module" src="scripts/main.js"></script>
 </body>
 

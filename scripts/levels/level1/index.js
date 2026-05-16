@@ -7,16 +7,14 @@
 //   • systems/roadSystem.js    → meta + puzzle hooks
 //   • systems/collisionSystem  → puzzle hooks (via logic.js)
 //
-// The dedicated logic.js (similar to level2's) holds ALL
-// puzzle state and transitions. Other engine files just
-// call into the exported functions instead of re-implementing
-// the rules themselves.
-//
-// REWORKED DESIGN (diagram-accurate):
-//   • Pressure plate unlocks ROAD2 (the real winning path).
+// REWORKED DESIGN (v4):
+//   • Wall pass-through unlocks ROAD 2 (the real winning path).
 //   • Fake door is a permanent trap — it never opens.
-//   • Monsters guard the end of BOTH roads, but Road2 has
-//     a big jump ramp so the player can fly over them.
+//   • ONE gorilla guards the trap zone at end of both roads.
+//     Road 2 has a big jump ramp so the player can fly over.
+//   • ONE LAP ONLY — the engine wins on the first Road 2
+//     finish-line crossing; totalLaps:1 is exported below so
+//     the HUD reads "1 / 1" and never bumps to lap 2.
 // ═══════════════════════════════════════════════════════
 import { LEVEL_META }          from './levelConfig.js';
 import { buildRoads }          from './roadMap.js';
@@ -42,6 +40,17 @@ import {
 
 export default {
   ...LEVEL_META,
+
+  // Lock Level 1 to a single lap regardless of what
+  // levelConfig.js says — the user explicitly asked for
+  // "only one lap in forward as well as backward". This
+  // is read by gameScene.js's HUD snapshot.
+  totalLaps: 1,
+
+  // UI strings used by gameScene's race-start banner & lose modal.
+  startMessage:       'GHOST START',
+  hintMessage:        'Looks easy. Try driving BACKWARD…',
+  road2UnlockMessage: 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!',
 
   // Geometry / props
   buildRoads,

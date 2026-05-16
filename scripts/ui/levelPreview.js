@@ -1,133 +1,358 @@
-// ════════════════════════════════════════════════════════════════
-// LEVEL PREVIEW — Procedural SVG mini-map for level cards
-// ─────────────────────────────────────────────────────────────────
-// Each level gets a unique-but-deterministic preview based on a
-// seed (level number). Biome controls the color theme.
+// ═══════════════════════════════════════════════════════
+// LEVEL PREVIEW / MINIMAP  —  Real-road-shape renderer
+// ─────────────────────────────────────────────────────
+// Two public functions, both driven by the SAME shape-extraction
+// pipeline so the career-card preview matches what the player
+// sees in-game:
 //
-// Public API:
-//   renderLevelPreview(mountEl, { seed, biome, levelNum })
+//   renderLevelPreview(mountEl, opts)
+//     Static SVG preview used by CareerScene cards. Reads
+//     `opts.module.buildRoads()` to derive the real geometry.
+//     Biome-tinted, includes start/finish markers.
 //
-// Mount target should be the .lc-preview element of a level card.
-// ════════════════════════════════════════════════════════════════
+//   renderInGameMinimap(canvas, snapshot)
+//     Canvas-2D HUD minimap painted each frame. Same shape,
+//     plus a moving player dot, opponent dots, finish pin,
+//     and start dot.
+// ═══════════════════════════════════════════════════════
 
-const BIOMES = {
-  forest : { tint: '#2cf08a', accent: '#00e8ff', sky: 'rgba(44,240,138,0.10)' },
-  desert : { tint: '#ffd84a', accent: '#ffb547', sky: 'rgba(255,216,74,0.12)' },
-  ice    : { tint: '#9ad8ff', accent: '#00e8ff', sky: 'rgba(154,216,255,0.14)' },
-  city   : { tint: '#ff2dd1', accent: '#7b3dff', sky: 'rgba(255,45,209,0.10)' },
-  default: { tint: '#00e8ff', accent: '#7b3dff', sky: 'rgba(0,232,255,0.10)' },
+// ── Biome palette ──────────────────────────────────────
+const BIOME_COLORS = {
+  forest:  { road: '#5fd17a', grass: '#1b3a1f', accent: '#a0ff8c' },
+  city:    { road: '#7ec8ff', grass: '#1f2735', accent: '#9be1ff' },
+  desert:  { road: '#ffd07a', grass: '#3a2c14', accent: '#ffe2a0' },
+  ice:     { road: '#a9e8ff', grass: '#1c2b3a', accent: '#dff4ff' },
+  default: { road: '#a0c0ff', grass: '#1f2630', accent: '#d4e3ff' },
 };
 
-// Mulberry32 — small, fast seeded RNG
-function mulberry32(seed) {
-  let t = (seed >>> 0) || 1;
-  return () => {
-    t = (t + 0x6D2B79F5) >>> 0;
-    let r = t;
-    r = Math.imul(r ^ (r >>> 15), r | 1);
-    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
+// ═══════════════════════════════════════════════════════
+// SHAPE EXTRACTOR
+// ─────────────────────────────────────────────────────
+// Walks the segments produced by a level's buildRoads() and
+// integrates per-segment curvature into a 2-D polyline. Not a
+// true 3-D projection, but accurate enough that the shape on
+// the card matches what the player drives.
+// ═══════════════════════════════════════════════════════
+function extractRoadShape(segs) {
+  if (!segs || !segs.length) return [];
+
+  const FWD_STEP   = 1.0;
+  const CURVE_RATE = 0.018;
+
+  let x = 0, y = 0, ang = -Math.PI / 2;     // start heading "up"
+  const pts = [[x, y]];
+
+  for (let i = 0; i < segs.length; i++) {
+    const cv = segs[i].curve || 0;
+    ang += cv * CURVE_RATE;
+    x += Math.cos(ang) * FWD_STEP;
+    y += Math.sin(ang) * FWD_STEP;
+    pts.push([x, y]);
+  }
+  return pts;
 }
 
-export function renderLevelPreview(mount, { seed = 1, biome = 'default', levelNum = 1 } = {}) {
-  if (!mount) return;
-  const theme = BIOMES[biome] || BIOMES.default;
-  const rand  = mulberry32(seed * 9301 + 49297);
+function fitShape(pts, boxW, boxH, pad = 14) {
+  if (!pts.length) return { pts: [], scale: 1, ox: 0, oy: 0 };
 
-  const W = 320, H = 160;
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of pts) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const scale = Math.min((boxW - pad * 2) / w, (boxH - pad * 2) / h);
 
-  // Build a smooth track polyline (8 control points across the width)
-  const POINTS = 9;
-  const pts = [];
-  for (let i = 0; i < POINTS; i++) {
-    const x = (i / (POINTS - 1)) * (W - 40) + 20;
-    const y = 30 + rand() * (H - 60);
-    pts.push({ x, y });
+  const ox = (boxW - w * scale) / 2 - minX * scale;
+  const oy = (boxH - h * scale) / 2 - minY * scale;
+
+  const scaled = pts.map(([x, y]) => [x * scale + ox, y * scale + oy]);
+  return { pts: scaled, scale, ox, oy };
+}
+
+// ═══════════════════════════════════════════════════════
+// CAREER CARD PREVIEW (SVG)
+// ═══════════════════════════════════════════════════════
+export function renderLevelPreview(mountEl, opts = {}) {
+  if (!mountEl) return;
+
+  const biome    = opts.biome    || 'default';
+  const palette  = BIOME_COLORS[biome] || BIOME_COLORS.default;
+  const levelNum = opts.levelNum || 1;
+  const module   = opts.module   || null;
+
+  const W = mountEl.clientWidth  || 320;
+  const H = mountEl.clientHeight || 180;
+
+  // Try the real shape from the level module.
+  let segs = null;
+  try {
+    if (module && typeof module.buildRoads === 'function') {
+      const roads = module.buildRoads();
+      segs = roads?.road1?.segs || null;
+    }
+  } catch (e) { segs = null; }
+
+  // Fallback if level didn't provide buildRoads.
+  if (!segs) segs = fallbackShape(opts.seed || levelNum * 17);
+
+  const rawPts = extractRoadShape(segs);
+  const fit    = fitShape(rawPts, W, H, 18);
+  const pts    = fit.pts;
+
+  let d = '';
+  for (let i = 0; i < pts.length; i++) {
+    d += (i === 0 ? 'M' : 'L') + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1) + ' ';
   }
 
-  // Smooth path via quadratic curves through midpoints
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const mx = (pts[i].x + pts[i + 1].x) / 2;
-    const my = (pts[i].y + pts[i + 1].y) / 2;
-    d += ` Q ${pts[i].x} ${pts[i].y} ${mx} ${my}`;
-  }
-  d += ` T ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`;
+  const startPt  = pts[0]              || [W / 2, H - 16];
+  const finishPt = pts[pts.length - 1] || [W / 2, 16];
 
-  // Waypoint dots — pick 3-4 random points along the path
-  const waypoints = [];
-  const wpCount = 3 + Math.floor(rand() * 2);
-  for (let i = 0; i < wpCount; i++) {
-    const idx = 2 + Math.floor(rand() * (pts.length - 4));
-    waypoints.push(pts[idx]);
-  }
+  // Preserve the badge elements the card builder appended.
+  const numBadge  = mountEl.querySelector('.num-badge')?.outerHTML  || '';
+  const biomeTag  = mountEl.querySelector('.biome-tag')?.outerHTML  || '';
 
-  // Background grid
-  const gridLines = [];
-  for (let gx = 0; gx <= W; gx += 32) {
-    gridLines.push(`<line x1="${gx}" y1="0" x2="${gx}" y2="${H}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`);
-  }
-  for (let gy = 0; gy <= H; gy += 32) {
-    gridLines.push(`<line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`);
-  }
-
-  // Decorative ambient dots
-  const ambient = [];
-  for (let i = 0; i < 14; i++) {
-    const x = rand() * W;
-    const y = rand() * H;
-    const r = 0.6 + rand() * 1.4;
-    const a = 0.08 + rand() * 0.18;
-    ambient.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${theme.tint}" opacity="${a.toFixed(2)}"/>`);
-  }
-
-  const start = pts[0];
-  const end   = pts[pts.length - 1];
-
-  const svg = `
-    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  mountEl.innerHTML = `
+    ${biomeTag}
+    ${numBadge}
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+         xmlns="http://www.w3.org/2000/svg"
+         style="position:absolute;inset:0;width:100%;height:100%;display:block">
       <defs>
-        <linearGradient id="lp-bg-${seed}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stop-color="${theme.sky}"/>
-          <stop offset="100%" stop-color="rgba(5,6,13,0.65)"/>
-        </linearGradient>
-        <linearGradient id="lp-track-${seed}" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"  stop-color="${theme.accent}"/>
-          <stop offset="100%" stop-color="${theme.tint}"/>
-        </linearGradient>
-        <filter id="lp-glow-${seed}">
-          <feGaussianBlur stdDeviation="2.2" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        <radialGradient id="lp-bg-${levelNum}" cx="50%" cy="50%" r="65%">
+          <stop offset="0%"  stop-color="${palette.grass}" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="#0a0e15"        stop-opacity="0.95"/>
+        </radialGradient>
+        <filter id="lp-glow-${levelNum}" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="2.2" />
         </filter>
       </defs>
 
-      <rect width="${W}" height="${H}" fill="url(#lp-bg-${seed})"/>
-      ${gridLines.join('')}
-      ${ambient.join('')}
+      <rect x="0" y="0" width="${W}" height="${H}"
+            fill="url(#lp-bg-${levelNum})" />
 
-      <!-- Track shadow -->
-      <path d="${d}" stroke="rgba(0,0,0,0.45)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(0,2)"/>
-      <!-- Track main -->
-      <path d="${d}" stroke="url(#lp-track-${seed})" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#lp-glow-${seed})"/>
-      <!-- Track centerline dashes -->
-      <path d="${d}" stroke="rgba(255,255,255,0.55)" stroke-width="1" fill="none" stroke-linecap="round" stroke-dasharray="3 6"/>
+      <!-- Glow underlay -->
+      <path d="${d}" fill="none"
+            stroke="${palette.road}" stroke-opacity="0.35"
+            stroke-width="9" stroke-linecap="round"
+            stroke-linejoin="round"
+            filter="url(#lp-glow-${levelNum})" />
 
-      <!-- Waypoint dots -->
-      ${waypoints.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${theme.accent}" opacity="0.85"/>`).join('')}
+      <!-- Main road -->
+      <path d="${d}" fill="none"
+            stroke="${palette.road}" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
 
-      <!-- Start marker -->
-      <circle cx="${start.x}" cy="${start.y}" r="6" fill="#ffffff" stroke="${theme.tint}" stroke-width="2"/>
-      <circle cx="${start.x}" cy="${start.y}" r="2.4" fill="${theme.tint}"/>
+      <!-- Center dashes -->
+      <path d="${d}" fill="none"
+            stroke="${palette.accent}" stroke-opacity="0.75"
+            stroke-width="1" stroke-dasharray="3 5"
+            stroke-linecap="round" stroke-linejoin="round" />
 
-      <!-- End marker (checker) -->
-      <g transform="translate(${end.x - 6} ${end.y - 6})">
-        <rect width="12" height="12" fill="#ffffff" rx="2"/>
-        <rect x="0" y="0" width="6" height="6" fill="#000"/>
-        <rect x="6" y="6" width="6" height="6" fill="#000"/>
+      <!-- Start dot -->
+      <circle cx="${startPt[0].toFixed(1)}" cy="${startPt[1].toFixed(1)}"
+              r="4.5" fill="#3df56a" stroke="#fff" stroke-width="1.2" />
+
+      <!-- Finish pin -->
+      <g transform="translate(${finishPt[0].toFixed(1)},${finishPt[1].toFixed(1)})">
+        <circle r="6" fill="#1a1a1a" stroke="#fff" stroke-width="1.5"/>
+        <path d="M-3,-3 h3 v3 h-3 z M0,0 h3 v3 h-3 z" fill="#fff"/>
       </g>
     </svg>
   `;
+}
 
-  mount.innerHTML = svg;
+// ═══════════════════════════════════════════════════════
+// IN-GAME MINIMAP (Canvas 2D)  — painted each frame.
+// ─────────────────────────────────────────────────────
+// snapshot = {
+//   level,        // active level module
+//   trackLen,     // total Z length
+//   playerPos,    // P.pos
+//   playerLane,   // P.playerX  (-1..1)
+//   onRoad2,      // bool
+//   opponents,    // [{pos|z, ...}, ...]
+// }
+// ═══════════════════════════════════════════════════════
+const _miniCache = new Map();
+
+function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
+  const lvlId = snapshot.level?.id || 'level1';
+  const key   = lvlId + '|' + (snapshot.onRoad2 ? 'r2' : 'r1') + '|' + canvasW + 'x' + canvasH;
+  if (_miniCache.has(key)) return _miniCache.get(key);
+
+  let segs = null;
+  try {
+    if (snapshot.level?.buildRoads) {
+      const roads = snapshot.level.buildRoads();
+      segs = snapshot.onRoad2 ? roads?.road2?.segs : roads?.road1?.segs;
+    }
+  } catch (e) { segs = null; }
+
+  if (!segs) segs = fallbackShape(11);
+
+  const raw = extractRoadShape(segs);
+  const fit = fitShape(raw, canvasW, canvasH, 10);
+  const built = { pts: fit.pts };
+  _miniCache.set(key, built);
+  return built;
+}
+
+export function clearMinimapCache() {
+  _miniCache.clear();
+}
+
+export function renderInGameMinimap(canvas, snapshot) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Card background ─────────────────────────────────
+  ctx.fillStyle = 'rgba(8, 12, 20, 0.72)';
+  roundRect(ctx, 0, 0, W, H, 10);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(120,180,255,0.35)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 0.5, 0.5, W - 1, H - 1, 10);
+  ctx.stroke();
+
+  // ── Road shape ──────────────────────────────────────
+  const built = getOrBuildMiniShape(snapshot, W, H);
+  const pts = built.pts;
+  if (!pts.length) return;
+
+  // Glow under-stroke
+  ctx.strokeStyle = 'rgba(120, 200, 255, 0.30)';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.stroke();
+
+  // Main road
+  ctx.strokeStyle = snapshot.onRoad2 ? '#9eff9e' : '#a0c0ff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.stroke();
+
+  // ── Start dot ───────────────────────────────────────
+  const start = pts[0];
+  ctx.fillStyle = '#3df56a';
+  ctx.beginPath();
+  ctx.arc(start[0], start[1], 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── Finish marker ───────────────────────────────────
+  const finish = pts[pts.length - 1];
+  drawCheckerPin(ctx, finish[0], finish[1]);
+
+  // ── Helper: Z pos → point on polyline ───────────────
+  const posToPt = (zPos) => {
+    if (!snapshot.trackLen || snapshot.trackLen <= 0) return start;
+    const tn = Math.max(0, Math.min(1, zPos / snapshot.trackLen));
+    const f = tn * (pts.length - 1);
+    const i = Math.floor(f);
+    const t = f - i;
+    const a = pts[i] || start;
+    const b = pts[Math.min(pts.length - 1, i + 1)] || a;
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  };
+
+  // ── Opponents (yellow dots) ─────────────────────────
+  if (Array.isArray(snapshot.opponents)) {
+    ctx.fillStyle = '#ffd14a';
+    for (const op of snapshot.opponents) {
+      if (op == null) continue;
+      const z = (typeof op === 'number') ? op : (op.pos ?? op.z ?? 0);
+      const [x, y] = posToPt(z);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── Player (cyan dot w/ halo) ───────────────────────
+  if (typeof snapshot.playerPos === 'number') {
+    const [px, py] = posToPt(snapshot.playerPos);
+
+    const now = performance.now() * 0.005;
+    const pulse = 0.7 + 0.3 * Math.sin(now);
+    ctx.fillStyle = `rgba(80, 220, 255, ${0.35 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(px, py, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#5cd6ff';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // ── Label ───────────────────────────────────────────
+  ctx.fillStyle = 'rgba(180,210,255,0.78)';
+  ctx.font = 'bold 9px Rajdhani, Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(snapshot.onRoad2 ? 'MAP · ROAD 2' : 'MAP', 6, 5);
+}
+
+// ── Helpers ────────────────────────────────────────────
+function drawCheckerPin(ctx, x, y) {
+  ctx.fillStyle = '#1a1a1a';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x - 2.5, y - 2.5, 1.7, 1.7);
+  ctx.fillRect(x - 0.8, y - 0.8, 1.7, 1.7);
+  ctx.fillRect(x + 0.9, y - 2.5, 1.7, 1.7);
+  ctx.fillRect(x - 2.5, y + 0.9, 1.7, 1.7);
+  ctx.fillRect(x + 0.9, y + 0.9, 1.7, 1.7);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function fallbackShape(seed) {
+  const segs = [];
+  let phase = (seed % 100) / 100 * Math.PI * 2;
+  const total = 280;
+  for (let i = 0; i < total; i++) {
+    const t = i / total;
+    const curve = Math.sin(phase + t * Math.PI * 6) * 1.4
+                + Math.cos(phase * 1.3 + t * Math.PI * 4) * 0.7;
+    segs.push({ curve });
+  }
+  return segs;
 }

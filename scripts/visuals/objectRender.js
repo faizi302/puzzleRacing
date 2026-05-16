@@ -70,12 +70,18 @@ const DEFAULT_LEVEL_IMAGES = {
     'assets/level/level3/puzzle_sequence.png',
   ],
 
-  // ── LEVEL 1 — Ghost Start monster spritesheet (2×3, 512×512) ──
-monsters: [
-  'assets/monster/gorila.jpeg',
-  'assets/gorila.jpeg',
-  'gorila.jpeg',
-],
+  // ── LEVEL 1 — Gorilla Boss spritesheet (gorila3.png, 600×334, 5×4) ──
+  monsters: [
+    'assets/monster/gorila3.png',
+    'assets/level/level1/gorila3.png',
+    'assets/gorila3.png',
+    'gorila3.png',
+    // Fallbacks to older filenames in case the new sheet hasn't been
+    // copied into place yet — keeps the monster from going invisible.
+    'assets/monster/gorila.jpeg',
+    'assets/gorila.jpeg',
+    'gorila.jpeg',
+  ],
 };
 
 export const IMG = {

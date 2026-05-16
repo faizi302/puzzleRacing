@@ -395,8 +395,6 @@ function tickLevel1Monsters(d) {
 if (
   Math.abs(dz) < killZ &&
   dxLane < killX &&
-  m.aiState === 'attack' &&
-  m.isPunchHitFrame &&
   !m.hasHitPlayer
 ) {
   m.hasHitPlayer = true;
@@ -455,15 +453,14 @@ export function updatePhys(inp, dt, len) {
     return;
   }
 
+  // Nitro is now controlled by player.js storage/burn system.
+  // Do NOT reset P.nitroActive here, otherwise Space nitro stops early.
   if (P.nitroTime > 0) {
     P.nitroTime -= d;
-    P.nitroActive = true;
+
     if (P.nitroTime <= 0) {
       P.nitroTime = 0;
-      P.nitroActive = false;
     }
-  } else {
-    P.nitroActive = false;
   }
 
   const speedCap = P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX;
@@ -508,137 +505,137 @@ export function updatePhys(inp, dt, len) {
 
   P.roadCurve += (curveNow - P.roadCurve) * 0.10;
 
-// ═══════════════════════════════════════════════════════
-// ASPHALT LEGENDS STYLE DRIFT
-// Control:
-//   Hold Left/Right + single tap Down = start drift
-//   Release Down, keep Left/Right = keep drift
-//   Switch Left/Right = control drift direction
-//   Collision/offroad = drift cancels
-// ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════
+  // ASPHALT LEGENDS STYLE DRIFT
+  // Control:
+  //   Hold Left/Right + single tap Down = start drift
+  //   Release Down, keep Left/Right = keep drift
+  //   Switch Left/Right = control drift direction
+  //   Collision/offroad = drift cancels
+  // ═══════════════════════════════════════════════════════
 
-const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
-const steerInput = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-const downTap = consumeDownPress();
+  const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
+  const steerInput = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+  const downTap = consumeDownPress();
 
-const canDrive = P.speed > 80;
-const canStartDrift =
-  canDrive &&
-  steerInput !== 0 &&
-  downTap &&
-  speedAbsFrac > 0.35;
+  const canDrive = P.speed > 80;
+  const canStartDrift =
+    canDrive &&
+    steerInput !== 0 &&
+    downTap &&
+    speedAbsFrac > 0.35;
 
-// start drift from single Down tap
-if (canStartDrift) {
-  P.driftActive = true;
-  P.driftDir = steerInput;
-  P.driftTimer = 0;
-}
-
-// keep drift while player keeps steering
-if (P.driftActive) {
-  P.driftTimer += d;
-
-  if (steerInput !== 0) {
+  // start drift from single Down tap
+  if (canStartDrift) {
+    P.driftActive = true;
     P.driftDir = steerInput;
+    P.driftTimer = 0;
   }
 
-  // cancel drift if no steering, too slow, collision, or outside road
-  if (
-    steerInput === 0 ||
-    P.speed < 60 ||
-    P.hitCooldown > 0 ||
-    Math.abs(P.playerX) > 1.05
-  ) {
-    P.driftActive = false;
-  }
-}
-
-P.isManualDrifting = P.driftActive;
-P.steerVisual = steerInput;
-
-// curve force
-const curvePower = Math.min(Math.abs(speedFrac), 1);
-
-// normal curve push should be controlled
-const CENTRIFUGAL_NORMAL = 2.80;
-
-// during drift, curve push becomes weaker
-const CENTRIFUGAL_DRIFT = 0.75;
-
-const curvePush =
-  P.roadCurve *
-  curvePower *
-  (P.driftActive ? CENTRIFUGAL_DRIFT : CENTRIFUGAL_NORMAL) *
-  d;
-
-P.playerX -= curvePush;
-
-// manual steering speed
-// decrease NORMAL_STEER_MULT if left/right still too fast
-const NORMAL_STEER_MULT = 0.55;
-const DRIFT_STEER_MULT = 0.95;
-
-const baseSteer =
-  d *
-  C.STEER_SPD *
-  Math.max(speedAbsFrac, C.STEER_MIN_FAC);
-
-const normalSteer = baseSteer * NORMAL_STEER_MULT;
-const driftSteer = baseSteer * DRIFT_STEER_MULT;
-
-if (canDrive) {
+  // keep drift while player keeps steering
   if (P.driftActive) {
-    // drift control
-    P.playerX += steerInput * driftSteer;
+    P.driftTimer += d;
 
-    // slow down softly during drift
-    P.speed *= Math.pow(0.992, d * 60);
-
-    P.manualDriftVelocity = steerInput * driftSteer * 60;
-
-    const targetSmoke = Math.min(1, 0.35 + speedAbsFrac * 0.65);
-    P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
-
-    // small camera yaw feeling
-    P.cameraCurve += steerInput * 0.004;
-
-    // save tire line points
-    if (!P.driftLines) P.driftLines = [];
-
-    P.driftLines.push({
-      x: P.playerX,
-      z: P.pos,
-      life: 1.0,
-      off: P.isOffTrack,
-    });
-
-    if (P.driftLines.length > 90) {
-      P.driftLines.shift();
+    if (steerInput !== 0) {
+      P.driftDir = steerInput;
     }
 
-  } else {
-    // normal lane movement
-    P.playerX += steerInput * normalSteer;
+    // cancel drift if no steering, too slow, collision, or outside road
+    if (
+      steerInput === 0 ||
+      P.speed < 60 ||
+      P.hitCooldown > 0 ||
+      Math.abs(P.playerX) > 1.05
+    ) {
+      P.driftActive = false;
+    }
+  }
 
+  P.isManualDrifting = P.driftActive;
+  P.steerVisual = steerInput;
+
+  // curve force
+  const curvePower = Math.min(Math.abs(speedFrac), 1);
+
+  // normal curve push should be controlled
+  const CENTRIFUGAL_NORMAL = 2.80;
+
+  // during drift, curve push becomes weaker
+  const CENTRIFUGAL_DRIFT = 0.75;
+
+  const curvePush =
+    P.roadCurve *
+    curvePower *
+    (P.driftActive ? CENTRIFUGAL_DRIFT : CENTRIFUGAL_NORMAL) *
+    d;
+
+  P.playerX -= curvePush;
+
+  // manual steering speed
+  // decrease NORMAL_STEER_MULT if left/right still too fast
+  const NORMAL_STEER_MULT = 0.55;
+  const DRIFT_STEER_MULT = 0.95;
+
+  const baseSteer =
+    d *
+    C.STEER_SPD *
+    Math.max(speedAbsFrac, C.STEER_MIN_FAC);
+
+  const normalSteer = baseSteer * NORMAL_STEER_MULT;
+  const driftSteer = baseSteer * DRIFT_STEER_MULT;
+
+  if (canDrive) {
+    if (P.driftActive) {
+      // drift control
+      P.playerX += steerInput * driftSteer;
+
+      // slow down softly during drift
+      P.speed *= Math.pow(0.992, d * 60);
+
+      P.manualDriftVelocity = steerInput * driftSteer * 60;
+
+      const targetSmoke = Math.min(1, 0.35 + speedAbsFrac * 0.65);
+      P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
+
+      // small camera yaw feeling
+      P.cameraCurve += steerInput * 0.004;
+
+      // save tire line points
+      if (!P.driftLines) P.driftLines = [];
+
+      P.driftLines.push({
+        x: P.playerX,
+        z: P.pos,
+        life: 1.0,
+        off: P.isOffTrack,
+      });
+
+      if (P.driftLines.length > 90) {
+        P.driftLines.shift();
+      }
+
+    } else {
+      // normal lane movement
+      P.playerX += steerInput * normalSteer;
+
+      P.manualDriftVelocity *= Math.pow(0.05, d);
+      P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
+    }
+  } else {
+    P.driftActive = false;
     P.manualDriftVelocity *= Math.pow(0.05, d);
     P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
   }
-} else {
-  P.driftActive = false;
-  P.manualDriftVelocity *= Math.pow(0.05, d);
-  P.driftSmokePower += (0 - (P.driftSmokePower || 0)) * 0.12;
-}
 
-// fade tyre lines
-if (P.driftLines?.length) {
-  for (let i = P.driftLines.length - 1; i >= 0; i--) {
-    P.driftLines[i].life -= d * 0.22;
-    if (P.driftLines[i].life <= 0) {
-      P.driftLines.splice(i, 1);
+  // fade tyre lines
+  if (P.driftLines?.length) {
+    for (let i = P.driftLines.length - 1; i >= 0; i--) {
+      P.driftLines[i].life -= d * 0.22;
+      if (P.driftLines[i].life <= 0) {
+        P.driftLines.splice(i, 1);
+      }
     }
   }
-}
 
   const camFollow = 1 - Math.pow(0.001, d);
   P.cameraX += (P.playerX - P.cameraX) * camFollow;
@@ -646,25 +643,27 @@ if (P.driftLines?.length) {
   const curveFollow = 1 - Math.pow(0.015, d);
   P.cameraCurve += (P.roadCurve - P.cameraCurve) * curveFollow;
 
-  const hitL = P.playerX < -1;
-  const hitR = P.playerX > 1;
+  const ROAD_EDGE_LIMIT = 1.15;
+
+  const hitL = P.playerX < -ROAD_EDGE_LIMIT;
+  const hitR = P.playerX > ROAD_EDGE_LIMIT;
   P.isOffTrack = hitL || hitR;
 
   if (P.isOffTrack) {
     const dirBack = hitL ? 1 : -1;
-    const outside = Math.abs(P.playerX) - 1;
+    const outside = Math.abs(P.playerX) - ROAD_EDGE_LIMIT;
 
     P.playerX += dirBack * (0.020 + outside * 0.018);
     if (P.speed > C.OFFRD_LIM) {
       P.speed += C.OFFRD_DC * d * (0.28 + outside * 0.5);
     }
 
-    if (Math.abs(P.playerX) > 1.02 && P.hitCooldown <= 0) {
+    if (Math.abs(P.playerX) > ROAD_EDGE_LIMIT + 0.02 && P.hitCooldown <= 0) {
       applyCollisionImpact('wall', dirBack);
     }
   }
 
-  P.playerX = clamp(P.playerX, -1.18, 1.18);
+  P.playerX = clamp(P.playerX, -1.25, 1.25);
 
   P._prevPos = P.pos;
 
@@ -682,23 +681,25 @@ if (P.driftLines?.length) {
   P.raceTime += d;
 
   // ── Win logic ───────────────────────────────────────
-  // Road1 never wins. Road2 wins after one full secret-road lap.
-  if (crossedForward) {
-    if (P._firstCrossing) {
-      P._firstCrossing = false;
-      P.lapTime = 0;
-    } else {
-      P.lapCount++;
-      P.lapTimes.push(P.lapTime);
-      P.lapTime = 0;
+// ── Win logic ───────────────────────────────────────
+// Road1 never wins.
+// Road2 wins on FIRST finish crossing only.
+if (crossedForward) {
+  if (P.onRoad2 && P.secretUnlocked) {
+    P.lapCount = 1;
+    P.lapTimes.push(P.lapTime);
+    P.lapTime = 0;
 
-      if (P.onRoad2 && P.secretUnlocked) {
-        P.raceFinished = true;
-        P.endPhase = 1;
-        P.endTime = 0;
-      }
-    }
+    P.raceFinished = true;
+    P.endPhase = 1;
+    P.endTime = 0;
+    return;
   }
+
+  // Road1 finish crossing is fake/trap route, not win.
+  P._firstCrossing = false;
+  P.lapTime = 0;
+}
 }
 
 export const kmh = () => {

@@ -2335,3 +2335,165 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 .level-nav-right {
   right: 28px;
 }
+/* ════════════════════════════════════════════════════════════════
+   LOSE PANEL — shown when race is failed
+   Mirrors the win .mbox structure but recoloured red/orange so the
+   player feels the difference at a glance. Includes a level-progress
+   bar that fills based on how far the player got around the track.
+   ════════════════════════════════════════════════════════════════ */
+#s-lose .mbox.lose {
+  border: 1px solid rgba(255, 80, 80, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(255, 80, 80, 0.18) inset,
+    0 24px 80px rgba(255, 60, 60, 0.18),
+    0 0 90px rgba(255, 100, 60, 0.12);
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(255, 80, 80, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(20, 8, 10, 0.95), rgba(10, 6, 12, 0.95));
+}
+
+#s-lose h2 {
+  background: linear-gradient(180deg, #ff6a3d 0%, #ff2d55 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 24px rgba(255, 80, 80, 0.35);
+  letter-spacing: 2px;
+}
+
+.lose-icon {
+  filter: drop-shadow(0 0 18px rgba(255, 80, 60, 0.65));
+  animation: lose-shake 0.6s ease-out 1;
+}
+
+@keyframes lose-shake {
+  0%   { transform: translateX(0)   rotate(0deg); }
+  15%  { transform: translateX(-6px) rotate(-4deg); }
+  30%  { transform: translateX(6px)  rotate(4deg); }
+  45%  { transform: translateX(-4px) rotate(-2deg); }
+  60%  { transform: translateX(4px)  rotate(2deg); }
+  100% { transform: translateX(0)   rotate(0deg); }
+}
+
+.lose-sub {
+  color: rgba(255, 200, 200, 0.75);
+  font-size: 13px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin: -4px 0 14px;
+  text-align: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+}
+
+/* ── Level progress bar ─────────────────────────────────────── */
+#ls-progress-wrap {
+  width: 100%;
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ls-prog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ls-prog-head b {
+  font-size: 16px;
+  color: #ff6a3d;
+  font-weight: 700;
+}
+
+.ls-prog-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.ls-prog-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2d55 0%, #ff6a3d 60%, #ffb547 100%);
+  box-shadow: 0 0 14px rgba(255, 80, 60, 0.55);
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.ls-prog-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  animation: ls-shimmer 2.2s linear infinite;
+}
+
+@keyframes ls-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Stat rows — reuse .wr from win panel via #ls */
+#ls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+#ls .wr {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+#ls .wr span {
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#ls .wr b {
+  color: #ffd84a;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Restart button — red accent to match the panel */
+#btn-lose-restart {
+  background: linear-gradient(180deg, #ff6a3d 0%, #ff2d55 100%);
+  border-color: rgba(255, 80, 80, 0.55);
+  box-shadow:
+    0 6px 18px rgba(255, 60, 60, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#btn-lose-restart:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}

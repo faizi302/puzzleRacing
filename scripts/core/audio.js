@@ -14,28 +14,28 @@
 //     and only on an actual Spacebar press.
 // ═══════════════════════════════════════════════════════
 
-const BASE = 'assets/fassets/audio/';
+const BASE = 'assets/audio/';
 
 const BANK = {
-  menuMusic : ['MusicMenu.ogg'],
-  raceMusic : ['MusicGameModeRace.ogg'],
-  raceOutro : ['MusicGameModeRaceOutro.ogg'],
+  menuMusic: ['MusicMenu.ogg'],
+  raceMusic: ['MusicGameModeRace.ogg'],
+  raceOutro: ['MusicGameModeRaceOutro.ogg'],
 
-  button    : ['ButtonClick.ogg'],
-  sceneOpen : ['ModalIn.ogg'],
+  button: ['ButtonClick.ogg'],
+  sceneOpen: ['ModalIn.ogg'],
   sceneClose: ['ModalOut.ogg'],
-  invalid   : ['ButtonInvalid.ogg'],
+  invalid: ['ButtonInvalid.ogg'],
 
-  start     : ['GameStart1.ogg', 'GameStart2.ogg', 'GameStart3.ogg'],
-  coin      : ['Coin1.ogg', 'Coin2.ogg', 'Coin3.ogg', 'Coin4.ogg'],
-  nitro     : ['BoostActivate1.ogg', 'BoostActivate2.ogg', 'BoostActivate3.ogg', 'BoostActivate4.ogg'],
+  start: ['GameStart1.ogg', 'GameStart2.ogg', 'GameStart3.ogg'],
+  coin: ['Coin1.ogg', 'Coin2.ogg', 'Coin3.ogg', 'Coin4.ogg'],
+  nitro: ['BoostActivate1.ogg', 'BoostActivate2.ogg', 'BoostActivate3.ogg', 'BoostActivate4.ogg'],
 
-  engine    : ['UnitBIgnition.ogg'],
-  brake     : ['HudDriftLoop.ogg'],
-  screech   : ['HudDriftLoop.ogg'],
-  crash     : ['UnitCollision1.ogg', 'UnitCollision2.ogg', 'UnitCollision3.ogg', 'UnitCollision4.ogg'],
+  engine: ['UnitBIgnition.ogg'],
+  brake: ['HudDriftLoop.ogg'],
+  screech: ['HudDriftLoop.ogg'],
+  crash: ['UnitCollision1.ogg', 'UnitCollision2.ogg', 'UnitCollision3.ogg', 'UnitCollision4.ogg'],
 
-  win       : ['Stars3.ogg'],
+  win: ['Stars3.ogg'],
 };
 
 const _cache = new Map();
@@ -43,11 +43,27 @@ const _loops = new Map();
 
 let _unlocked = false;
 let _muted = false;
-let _musicVolume = 0.35;
-let _sfxVolume = 0.75;
+let _musicVolume = 0.22;
+let _sfxVolume = 0.35;
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+export function preloadAudioBank() {
+  for (const key of Object.keys(BANK)) {
+    const files = BANK[key];
+
+    for (const file of files) {
+      const src = BASE + file;
+
+      if (!_cache.has(src)) {
+        const a = makeAudio(src);
+        a.load();
+        _cache.set(src, a);
+      }
+    }
+  }
 }
 
 function getFile(name) {
@@ -78,6 +94,8 @@ function getBaseAudio(name) {
 
 export function unlockAudio() {
   _unlocked = true;
+
+  preloadAudioBank();
 
   // tiny silent unlock attempt
   const a = getBaseAudio('button');
@@ -135,7 +153,7 @@ export function playSfx(name, opts = {}) {
       try {
         loop.pause();
         loop.currentTime = 0;
-      } catch (e) {}
+      } catch (e) { }
       _loops.delete(key);
     }
     return;
@@ -161,10 +179,10 @@ export function playSfx(name, opts = {}) {
     }
 
     if (opts.volume !== undefined) loop.volume = opts.volume;
-    if (opts.rate)                 loop.playbackRate = opts.rate;
+    if (opts.rate) loop.playbackRate = opts.rate;
 
     if (loop.paused) {
-      loop.play().catch(() => {});
+      loop.play().catch(() => { });
     }
 
     return loop;
@@ -175,7 +193,7 @@ export function playSfx(name, opts = {}) {
   inst.volume = opts.volume ?? _sfxVolume;
   inst.playbackRate = opts.rate ?? 1;
   inst.muted = _muted;
-  inst.play().catch(() => {});
+  inst.play().catch(() => { });
 }
 
 export function startMenuMusic() {
@@ -208,7 +226,7 @@ export function stopAll() {
     try {
       a.pause();
       a.currentTime = 0;
-    } catch (e) {}
+    } catch (e) { }
   }
   _loops.clear();
 }
@@ -219,20 +237,10 @@ export function stopAll() {
 // the existing loop just has its volume/rate updated — we never
 // spawn a second engine source.
 export function setEngineSpeed(speed01) {
-  if (_muted || !_unlocked) return;
-
-  speed01 = Math.max(0, Math.min(1, speed01));
-
-  if (speed01 < 0.04) {
-    playSfx('engine', { stop: true, key: 'engine' });
-    return;
-  }
-
+  // Completely disable engine sound on movement / key press
   playSfx('engine', {
-    loop: true,
+    stop: true,
     key: 'engine',
-    volume: 0.12 + speed01 * 0.35,
-    rate: 0.85 + speed01 * 0.55,
   });
 }
 
@@ -241,7 +249,7 @@ export function setBrakeLoop(active) {
     playSfx('brake', {
       loop: true,
       key: 'brake',
-      volume: 0.35,
+      volume: 0.06,
     });
   } else {
     playSfx('brake', {
@@ -258,7 +266,7 @@ export function initGlobalAudioButtons() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('button, .btn, [data-sound="button"]');
     if (!el) return;
-    playSfx('button', { volume: 0.65 });
+    playSfx('button', { volume: 0.16 });
   });
 
   document.addEventListener('visibilitychange', () => {

@@ -50,6 +50,20 @@ import {
 
 import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 
+// ── Minimap (real-road-shape mini map painted each frame) ──
+import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
+
+// Lazily resolve an "enumerate opponents" helper if the
+// opponentSystem exposes one — minimap dots use it. Falls back
+// to count-only if none of the names are present.
+let _listOpponents = null;
+import('../systems/opponentSystem.js').then((mod) => {
+  _listOpponents = mod.getOpponents
+                || mod.listOpponents
+                || mod.getOpponentList
+                || null;
+}).catch(() => { /* no enumeration available */ });
+
 export class GameScene {
   constructor(sceneManager) {
     this.scenes = sceneManager;
@@ -61,6 +75,8 @@ export class GameScene {
     this.fpsT = 0;
     this.fpsN = 0;
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this.level = null;
 
     // Track stats for THIS race only — committed on win.
@@ -74,6 +90,10 @@ export class GameScene {
     // this._position from your race-position system each frame.
     this._opponents = 6;   // shows "1/6" like Asphalt
     this._position = 1;
+
+    // ── Minimap canvas (created lazily on first enter) ──
+    this._minimapCanvas = null;
+    this._minimapCtx    = null;
 
 
     this._raceDistance = 0;
@@ -156,6 +176,8 @@ export class GameScene {
 
     unlockAudio();
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._raceCoins = 0;
     this._raceKeys = 0;
     this._lastKeyCount = 0;
@@ -163,6 +185,7 @@ export class GameScene {
     this._position = 1;
 
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
 
     buildTrack(buildScenery);
@@ -170,8 +193,35 @@ export class GameScene {
     resetParts();
 
     if (this.level?.resetPuzzle) {
-  this.level.resetPuzzle();
-}
+      this.level.resetPuzzle();
+    }
+
+    // ── Wire Level-1-style callbacks (no-op for levels that
+    //    don't expose these hooks) ──────────────────────────
+    if (this.level?.setRoad2UnlockCallback) {
+      this.level.setRoad2UnlockCallback(() => {
+        try {
+          notify(this.level.road2UnlockMessage
+            || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!');
+        } catch (e) {}
+        try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) {}
+      });
+    }
+    if (this.level?.setDeathCallback) {
+      // The level fires this when the player dies. The actual
+      // lose modal is driven by P.raceFailed which logic.js sets
+      // at the same time, so this callback is mostly a no-op /
+      // optional hook for future SFX-only feedback.
+      this.level.setDeathCallback(() => { /* lose-modal handled via P.raceFailed */ });
+    }
+
+    // Rebuild minimap shape cache (road may differ per level
+    // and after a Road1→Road2 fork). Also create the canvas
+    // element once and show it for this race.
+    try { clearMinimapCache(); } catch (e) {}
+    this._ensureMinimap();
+    this._showMinimap();
+
     this._raceDistance = 0;
     this._lastProgressPos = P.pos || 0;
 
@@ -198,14 +248,26 @@ export class GameScene {
     renderFrame(0);
 
     await playIntro();
-    if (getSetting('soundOn')) playSfx('start');
+
+    /* Engine ignition sound ONCE before countdown */
+    if (getSetting('soundOn')) {
+      playSfx('engine', {
+        volume: 0.35
+      });
+    }
+
+    /* Countdown */
     await countdown();
 
     this._showStartRank = false;
     updateRaceHUD(this._hudSnapshot());
 
     lockInput(false);
-    if (getSetting('musicOn')) startMusic();
+
+    /* After countdown → start race music loop */
+    if (getSetting('musicOn')) {
+      startMusic(); // plays raceMusic: MusicGameModeRace.ogg
+    }
 
     // ── Race-start HINT (one-shot, replaces the old notify call) ──
     // Title  = the dramatic headline
@@ -224,6 +286,69 @@ export class GameScene {
 
   exit() {
     hideRaceHUD();
+  }
+
+  // ════════════════════════════════════════════════════
+  // MINIMAP — create one canvas element, then paint it
+  // each frame from the loop with a snapshot of player/
+  // opponent positions. Positioned top-right of #s-game.
+  // ════════════════════════════════════════════════════
+  _ensureMinimap() {
+    if (this._minimapCanvas && document.body.contains(this._minimapCanvas)) {
+      return;
+    }
+    const host = document.getElementById('s-game') || document.body;
+    let cv = document.getElementById('mini-map');
+    if (!cv) {
+      cv = document.createElement('canvas');
+      cv.id = 'mini-map';
+      cv.width  = 180;
+      cv.height = 120;
+      cv.style.cssText = [
+        'position:absolute',
+        'right:14px',
+        'top:64px',
+        'width:180px',
+        'height:120px',
+        'pointer-events:none',
+        'z-index:40',
+        'border-radius:10px',
+        'box-shadow:0 4px 14px rgba(0,0,0,0.45)',
+      ].join(';');
+      host.appendChild(cv);
+    }
+    this._minimapCanvas = cv;
+    this._minimapCtx    = cv.getContext('2d');
+  }
+
+  _showMinimap() {
+    if (this._minimapCanvas) this._minimapCanvas.style.display = 'block';
+  }
+
+  _hideMinimap() {
+    if (this._minimapCanvas) this._minimapCanvas.style.display = 'none';
+  }
+
+  _paintMinimap() {
+    if (!this._minimapCanvas) return;
+
+    // Best-effort opponent enumeration — falls back silently.
+    let opps = [];
+    if (_listOpponents) {
+      try {
+        const raw = _listOpponents();
+        if (Array.isArray(raw)) opps = raw;
+      } catch (e) { opps = []; }
+    }
+
+    renderInGameMinimap(this._minimapCanvas, {
+      level:      this.level,
+      trackLen,
+      playerPos:  P.pos || 0,
+      playerLane: P.playerX || 0,
+      onRoad2:    !!P.onRoad2,
+      opponents:  opps,
+    });
   }
 
   pause() {
@@ -247,6 +372,7 @@ export class GameScene {
     this.paused = false;
     stopAll();
     hideRaceHUD();
+    this._hideMinimap();
   }
 
   restart() {
@@ -255,15 +381,25 @@ export class GameScene {
     this.running = false;
     this.paused = false;
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._showStartRank = false;
 
+    // Clear engine-side flags so the new race starts clean.
+    P.raceFailed = false;
+    P.raceFinished = false;
+    P._failReason = null;
+    P.ghostDead = false;       // logic.js flag — also reset here
+                                // in case puzzle reset is skipped.
     stopAll();
     stopMusic();
     hideRaceHUD();
     hideRaceHint();
+    this._hideMinimap();
 
     document.getElementById('s-pause')?.classList.remove('on');
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
 
     this.enter(this.level);
   }
@@ -288,7 +424,77 @@ export class GameScene {
     document.getElementById('ws-l').textContent = String(P.lapCount);
     show('win');
     hideRaceHUD();
+    this._hideMinimap();
     P.endPhase = 2;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // LOSE FLOW
+  // ───────────────────────────────────────────────────────────
+  // Mirrors endRace() but for failure cases. No rewards are
+  // persisted (player did not complete the level), and the
+  // lose panel is shown with the player's progress so they can
+  // see how close they got.
+  //
+  // Triggered either by:
+  //   • `P.raceFailed` flag set by any engine system, OR
+  //   • calling `gameScene.fail(reason)` from anywhere
+  //     (timer, AI rivals, health system, etc.)
+  // ═══════════════════════════════════════════════════════════
+  async loseRace(reason) {
+    this.loseShown = true;
+    lockInput(true);
+    stopMusic();
+    // Reuse 'coin' as a soft negative cue — swap to a dedicated
+    // 'lose' sfx if you add one to the audio system.
+    if (getSetting('soundOn')) {
+      try { playSfx('coin'); } catch (e) { }
+    }
+
+    // Compute level progress as a percentage of the track lap-distance
+    // the player has covered so far. Caps at 100%.
+    const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
+    const lapsDone = Math.max(0, P.lapCount || 0);
+    const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct = Math.round(progress * 100);
+
+    // Stats
+    const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
+    const posTxt = `${this._position} / ${this._opponents}`;
+
+    // Populate DOM
+    const reasonEl = document.getElementById('ls-reason');
+    if (reasonEl && reason) reasonEl.textContent = reason;
+    else if (reasonEl) reasonEl.textContent = "You didn't make it this time";
+
+    document.getElementById('ls-t').textContent = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent = posTxt;
+    document.getElementById('ls-prog-pct').textContent = `${pct}%`;
+
+    // Hide HUD before the panel slides in
+    hideRaceHUD();
+    hideRaceHint();
+    this._hideMinimap();
+
+    show('lose');
+
+    // Animate the bar fill on next frame so the CSS transition runs.
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('ls-prog-fill');
+      if (fill) fill.style.width = `${pct}%`;
+    });
+
+    P.endPhase = 2;
+  }
+
+  // Public trigger — call from anywhere to force a loss.
+  // Example: gameScene.fail('Time ran out!')
+  fail(reason) {
+    if (this.winShown || this.loseShown) return;
+    P.raceFailed = true;
+    this._failReason = reason || null;
   }
 
   // Track coin/key gain during the race
@@ -345,24 +551,24 @@ export class GameScene {
 
 
     while (this.accum >= STEP) {
-  updatePhys(inp, STEP, trackLen);
+      updatePhys(inp, STEP, trackLen);
 
-  this._tickRaceDistance();
+      this._tickRaceDistance();
 
-  if (this.level?.updatePuzzle) {
-    this.level.updatePuzzle(STEP, sceneryObjs);
-  }
+      if (this.level?.updatePuzzle) {
+        this.level.updatePuzzle(STEP, sceneryObjs);
+      }
 
-  updateOpponents(STEP, sceneryObjs);
+      updateOpponents(STEP, sceneryObjs);
 
-  this._position = getPlayerRacePosition();
-  this._opponents = getOpponentCount();
+      this._position = getPlayerRacePosition();
+      this._opponents = getOpponentCount();
 
-  const a = getCarAnchor();
-  checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
+      const a = getCarAnchor();
+      checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
 
-  this.accum -= STEP;
-}
+      this.accum -= STEP;
+    }
 
     this._trackPickups();
 
@@ -376,7 +582,6 @@ export class GameScene {
     tickParts(dtRaw);
     tickCamAnim(dtRaw);
     tickEdgeScrape();
-    setEngineSpeed(Math.min(1, P.speed / C.NITRO_MAX));
 
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
@@ -388,10 +593,19 @@ export class GameScene {
     // ── Drive the Asphalt-style HUD ──
     updateRaceHUD(this._hudSnapshot());
 
+    // ── Drive the minimap (real-road shape) ──
+    this._paintMinimap();
+
     this.fpsT += dtRaw; this.fpsN++;
     if (this.fpsT >= 0.5) { this.fps = (this.fpsN / this.fpsT) | 0; this.fpsT = 0; this.fpsN = 0; }
 
     if (P.raceFinished && !this.winShown) this.endRace();
+    else if (P.raceFailed && !this.loseShown && !this.winShown) {
+      // Prefer a reason set by puzzle logic (P._failReason) over the
+      // one cached when gameScene.fail() was called externally.
+      const reason = P._failReason || this._failReason;
+      this.loseRace(reason);
+    }
 
     requestAnimationFrame(this.loop);
   };

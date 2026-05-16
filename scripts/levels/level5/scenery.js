@@ -55,12 +55,12 @@ export function buildSceneryObjects() {
 
   // road side bumpers / boundary poles
   for (let i = 6; i < total - 20; i += 10) {
-    addSide('Bumper1', i, -1, 1.18, 0.75, {
+    addSide('Bumper1', i, -1, 1.38, 1.00, {
       small: true,
       isBoundaryPole: true,
     });
 
-    addSide('Bumper2', i + 5, 1, 1.18, 0.75, {
+    addSide('Bumper2', i + 5, 1, 1.38, 1.00, {
       small: true,
       isBoundaryPole: true,
     });

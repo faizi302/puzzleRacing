@@ -1,48 +1,32 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 1 — "THE GHOST START" PUZZLE LOGIC  (REWORKED)
+// LEVEL 1 — "THE GHOST START" PUZZLE LOGIC  (v4 — wall + lose)
 // ─────────────────────────────────────────────────────
-// Mirrors the structure of levels/level2/logic.js so the
-// rest of the engine has a consistent place to plug into.
+// FLOW:
 //
-// ─── THE CORRECT STORY (diagram-accurate) ─────────────
+//   1. Player spawns on Road1 facing forward. Looks normal.
+//   2. Drive forward → at the END of Road1, a Gorilla Boss
+//      stands in front of a FAKE DOOR. Door is ALWAYS a trap;
+//      touching the gorilla on the ground = race FAILED.
+//   3. Real solution: TURN AROUND and drive backward.
+//   4. ~100 m behind the start line sits a FAKE WALL — looks
+//      100 % solid stone but has NO collision. Drive through.
+//   5. Crossing the wall flips the engine's "secret road"
+//      pipeline: the track auto-switches to Road 2, the
+//      camera does its slow 180° flip, and the player resumes
+//      driving forward on the real winning path.
+//   6. Road 2 forward → big jump ramp launches the car OVER
+//      the end-of-road gorilla. Land and cross the finish to
+//      win. Touching the gorilla on the ground (not airborne)
+//      is still a FAIL.
+//   7. ONLY ONE LAP — the engine already wins on the first
+//      Road 2 crossing, so Level 1 = 1 lap forward OR 1 lap
+//      backward-through-the-wall-then-forward. No multi-lap.
 //
-//   1. Player spawns FACING FORWARD on Road1. Road looks
-//      completely normal and safe.
-//   2. Most players drive forward expecting the goal.
-//   3. At the END of Road1 (near finish), a wall of IRON
-//      BRUTE monsters stands in front of a FAKE DOOR.
-//      The fake door is ALWAYS A TRAP — it never opens,
-//      it never becomes safe.  Touching the monsters or
-//      crossing into the trap zone = GAME OVER.
-//   4. The real solution: TURN AROUND.
-//   5. Behind the start line is a FAKE WALL — looks 100%
-//      real, but has NO COLLISION. Drive straight through.
-//   6. Behind the wall: a hidden PRESSURE PLATE. Drive over
-//      it and hold for ~0.6 s.
-//   7. Plate activates → the SECRET ROAD (Road2) opens.
-//      This is the REAL winning path.
-//   8. Player drives FORWARD on Road2. Road2 ALSO has
-//      monsters near the finish — but Road2 has a BIG JUMP
-//      RAMP. Use the ramp to fly OVER the monsters and land
-//      safely past them.
-//   9. Crossing Road2's finish line = WIN.
-//
-// IMPORTANT INVARIANTS (do not regress):
-//   • The fake door NEVER opens. It is purely decorative
-//     red-skull warning art. The monster does the killing.
-//   • Monsters are ONLY lethal inside the trap zone (the
-//     segments around the fake door / Road2 finish). If
-//     the player jumps over them in the air, they survive.
-//   • The plate's job is to UNLOCK ROAD2, nothing else.
-//
-// STATE MACHINE
-// ─────────────────────────────────────────────────────
-//   spawn         → just dropped in; no movement yet
-//   exploring     → driving (forward or backward)
-//   plate-held    → wheels on the plate; accumulating time
-//   road2-open    → plate hit; Road2 (secret path) unlocked
-//   complete      → crossed the win line on Road2
-//   dead          → killed by a monster (Game Over)
+// INVARIANTS:
+//   • Fake door NEVER opens.
+//   • Gorilla is permanently lethal on the ground.
+//   • Wall pass-through is the SOLE Road 2 unlock trigger.
+//   • Player death → P.raceFailed (engine's lose modal).
 // ═══════════════════════════════════════════════════════
 import { P, addCameraShake, applyCollisionImpact } from '../../systems/roadSystem.js';
 import { trackLen } from '../../core/roadMap.js';
@@ -51,31 +35,32 @@ import { playSfx } from '../../core/audio.js';
 
 // ── Public state container ─────────────────────────────
 export const L1_GHOST = {
-  phase     : 'spawn',
-  timer     : 0,
-  plateHeld : 0,
-  hintShown : false,
-  monsterTriggered : false,
+  phase       : 'spawn',
+  timer       : 0,
+  hintShown   : false,
+  wallCrossed : false,
+  prevDz      : null,    // wrap-aware dz from last tick (sign-change → crossed)
 };
 
 // ── Reset (called when entering Level 1) ───────────────
 export function resetLevel1Puzzle() {
-  L1_GHOST.phase     = 'spawn';
-  L1_GHOST.timer     = 0;
-  L1_GHOST.plateHeld = 0;
-  L1_GHOST.hintShown = false;
-  L1_GHOST.monsterTriggered = false;
+  L1_GHOST.phase       = 'spawn';
+  L1_GHOST.timer       = 0;
+  L1_GHOST.hintShown   = false;
+  L1_GHOST.wallCrossed = false;
+  L1_GHOST.prevDz      = null;
 
   // Mirror onto P for HUD / render / collision.
   P.ghostPhase        = 'spawn';
   P.ghostPlateHeld    = 0;
-  P.ghostPlateActive  = false;     // plate fully activated?
-  P.ghostKeyRevealed  = false;     // legacy: always false now
-  P.ghostKeyCollected = false;     // legacy: always false now
-  P.ghostDoorOpen     = false;     // INVARIANT: stays false FOREVER
-  P.ghostRoad2Open    = false;     // NEW: Road2 unlocked?
+  P.ghostPlateActive  = false;
+  P.ghostKeyRevealed  = false;
+  P.ghostKeyCollected = false;
+  P.ghostDoorOpen     = false;     // INVARIANT: stays false forever
+  P.ghostRoad2Open    = false;
   P.ghostDead         = false;
   P.ghostWon          = false;
+  P.ghostWallCrossed  = false;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -87,45 +72,58 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
 
   L1_GHOST.timer += dt;
 
+  // Move out of 'spawn' as soon as player starts moving.
+  if (L1_GHOST.phase === 'spawn' && Math.abs(P.speed) > 5) {
+    L1_GHOST.phase = 'exploring';
+    P.ghostPhase   = 'exploring';
+  }
+
   // ─────────────────────────────────────────────────────
-  // 1) PRESSURE PLATE handling
+  // 1) WALL CROSSING — the SOLE Road2 unlock trigger.
   // ─────────────────────────────────────────────────────
-  if (L1_GHOST.phase !== 'road2-open') {
-    let plate = null;
+  // The fake wall sits ~100 m behind the start line. Because
+  // P.pos wraps modulo trackLen, "behind spawn" maps to near
+  // end-of-track in seg space.
+  //
+  // We detect a crossing by watching the sign of the wrap-aware
+  // dz (wall.z − player.pos). When `prevDz` and `currDz` have
+  // opposite signs AND the magnitude is small (we didn't just
+  // wrap teleport), the player has just passed the wall plane.
+  // This is direction-agnostic — works whether they reverse INTO
+  // the wall and through it, or come back forward later.
+  if (!L1_GHOST.wallCrossed && !P.onRoad2 && !P.secretUnlocked) {
+    let wall = null;
     for (const o of sceneryObjs) {
-      if (o.isPressurePlate) { plate = o; break; }
+      if (o.isFakeWall) { wall = o; break; }
     }
 
-    if (plate) {
-      // Wrap-aware distance to plate.
-      let dz = plate.z - P.pos;
+    if (wall) {
+      let dz = wall.z - P.pos;
       while (dz < -trackLen / 2) dz += trackLen;
       while (dz >  trackLen / 2) dz -= trackLen;
 
-      const onPlateZ = Math.abs(dz) < C.SEG_LEN * 1.5;
-      const onPlateX = Math.abs((P.playerX || 0) - (plate.offset || 0)) < 0.48;
+      const prev = L1_GHOST.prevDz;
+      const crossingWindow = C.SEG_LEN * 2.0;  // accept ±2 segs of slop
 
-      if (onPlateZ && onPlateX) {
-        plate.held         = (plate.held || 0) + dt;
-        L1_GHOST.plateHeld = plate.held;
-        P.ghostPlateHeld   = plate.held;
-        L1_GHOST.phase     = 'plate-held';
-        P.ghostPhase       = 'plate-held';
+      let crossed = false;
 
-        const need = plate.activateHoldTime || C.GHOST_PLATE_HOLD_TIME || 0.6;
-        if (plate.held >= need) {
-          activatePlate(sceneryObjs);
-        }
-      } else {
-        // Decay if rolled off (don't reset to 0 instantly).
-        plate.held = Math.max(0, (plate.held || 0) - dt * 1.5);
-        L1_GHOST.plateHeld = plate.held;
-        P.ghostPlateHeld   = plate.held;
-        if (L1_GHOST.phase === 'plate-held' && plate.held <= 0.01) {
-          L1_GHOST.phase = 'exploring';
-          P.ghostPhase   = 'exploring';
-        }
+      // Sign-change detection — most reliable.
+      if (prev != null && Math.sign(prev) !== Math.sign(dz)
+          && Math.abs(prev) < crossingWindow
+          && Math.abs(dz)   < crossingWindow) {
+        crossed = true;
       }
+
+      // Fallback: very close to the wall AND moving.
+      if (!crossed && Math.abs(dz) < C.SEG_LEN * 0.6 && Math.abs(P.speed || 0) > 1) {
+        crossed = true;
+      }
+
+      if (crossed) {
+        triggerWallCrossing(sceneryObjs);
+      }
+
+      L1_GHOST.prevDz = dz;
     }
   }
 
@@ -137,51 +135,44 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
     L1_GHOST.hintShown = true;
     if (_hintCb) try { _hintCb(); } catch (e) {}
   }
-
-  // Move out of 'spawn' as soon as player starts moving.
-  if (L1_GHOST.phase === 'spawn' && Math.abs(P.speed) > 5) {
-    L1_GHOST.phase = 'exploring';
-    P.ghostPhase   = 'exploring';
-  }
 }
 
 // ═══════════════════════════════════════════════════════
-// PLATE ACTIVATION — fires once when the plate hold completes.
+// WALL CROSSING — fires once when the player passes through
+// the fake wall. This is what unlocks Road 2.
 // ─────────────────────────────────────────────────────
-// CORRECT behaviour (diagram-accurate):
-//   • Plate visually turns green (handled by renderer reading
-//     `o.activated`).
-//   • Fake wall behind it becomes "dissolved" — semi-transparent
-//     so the player can see the trick is broken.
-//   • Road2 is UNLOCKED. This is what `P.ghostRoad2Open` does.
-//     The road switcher (roadSystem) reads this flag to allow
-//     the secret-road transition.
-//   • The FAKE DOOR is NOT touched. It stays red. It stays a
-//     trap. It NEVER becomes safe. This is intentional.
+// Side effects:
+//   • Wall's `dissolved` flag is set so the renderer fades it.
+//   • P.reverseDistance is bumped past REVERSE_SECRET_DISTANCE,
+//     which makes the ENGINE's tickReversePuzzle() trigger
+//     `unlockReverseSecret()` on the next physics tick. That
+//     function handles the actual track switch (Road 2), the
+//     camera 180° flip, and resetting the lap counter — we get
+//     all of that for free instead of re-implementing it.
+//   • Local flags also set in case the engine's threshold was
+//     tweaked or removed.
+//   • The fake door is NOT touched. It stays a trap.
 // ═══════════════════════════════════════════════════════
-function activatePlate(sceneryObjs) {
-  L1_GHOST.phase     = 'road2-open';
-  P.ghostPhase       = 'road2-open';
-  P.ghostPlateActive = true;
-  P.ghostRoad2Open   = true;
+function triggerWallCrossing(sceneryObjs) {
+  if (L1_GHOST.wallCrossed) return;
 
-  // ── Hook into the existing road-fork / win pipeline ──
-  // The engine's race-loop wins the race when the player crosses
-  // the finish line WHILE `P.onRoad2 && P.secretUnlocked` is true.
-  // We piggy-back on `secretUnlocked` so we don't have to duplicate
-  // that wiring — pressing the plate is what unlocks the "secret"
-  // road in the reworked design. The road-fork itself is still
-  // handled by the engine when the player drives onto Road2.
-  P.secretUnlocked = true;
+  L1_GHOST.wallCrossed = true;
+  L1_GHOST.phase       = 'wall-touched';
+  P.ghostPhase         = 'wall-touched';
+  P.ghostWallCrossed   = true;
+  P.ghostPlateActive   = true;     // legacy flag — keeps HUD compatible
+  P.ghostRoad2Open     = true;
 
-  // INVARIANT: do NOT open the fake door.
-  // INVARIANT: do NOT reveal a "real key".
-  // The plate's only job is to unlock Road2.
+  // ── Engine-pipeline trigger ──
+  // The engine auto-unlocks the secret road when
+  // P.reverseDistance ≥ C.REVERSE_SECRET_DISTANCE while the
+  // player is reversing. Bumping the counter past the threshold
+  // forces unlockReverseSecret() to fire on the next tick.
+  const need = (C.REVERSE_SECRET_DISTANCE || 2200);
+  P.reverseDistance = Math.max(P.reverseDistance || 0, need + 1);
 
   for (const o of sceneryObjs) {
-    if (o.isPressurePlate) o.activated  = true;
-    if (o.isFakeWall)      o.dissolved  = true;
-    // Do NOT touch o.isFakeDoor here. It stays a trap.
+    if (o.isFakeWall) o.dissolved = true;
   }
 
   try { playSfx('nitro', { volume: 0.85 }); } catch (e) {}
@@ -193,29 +184,24 @@ function activatePlate(sceneryObjs) {
 }
 
 // ═══════════════════════════════════════════════════════
-// LEGACY KEY HOOK — kept so collisionSystem.js doesn't crash
-// if it still calls level.collectKey. In the new design there
-// is no real key, so this is a no-op.
+// LEGACY KEY HOOK — no-op in v4.
 // ═══════════════════════════════════════════════════════
-export function collectLevel1Key() {
-  // Intentionally empty in the reworked design.
-  // The pressure plate is what unlocks the win condition,
-  // not a key pickup.
-}
+export function collectLevel1Key() { /* no real key any more */ }
 
 // ═══════════════════════════════════════════════════════
-// MONSTER KILL — called when a monster touches the player.
+// MONSTER KILL — called when the gorilla touches the player.
 // ─────────────────────────────────────────────────────
-// In the new design the monster is lethal whenever the player
-// is inside the trap zone AND not airborne. Whether the plate
-// has been pressed does NOT save them — they still have to
-// physically clear the monsters via the Road2 jump ramp.
+// Airborne players (mid-jump on the Road 2 ramp) are immune so
+// the intended strategy works. Otherwise the gorilla is lethal.
+//
+// Death → engine's LOSE pipeline (P.raceFailed). gameScene.js
+// already polls P.raceFailed and shows the #s-lose modal with
+// progress %, lap count, etc.
 // ═══════════════════════════════════════════════════════
 export function triggerLevel1MonsterKill() {
   if (P.ghostDead || P.ghostWon) return;
 
-  // Airborne players (mid-jump) are immune — they're flying
-  // over the monster.
+  // Airborne immunity — fly over the gorilla.
   if (P.isAirborne || (P.airY || 0) > 30) return;
 
   P.ghostDead       = true;
@@ -226,11 +212,12 @@ export function triggerLevel1MonsterKill() {
   P.cameraShake     = 1.0;
   P.cameraShakeTime = 1.5;
 
-  // Stop the race loop (gameScene reads these and shows
-  // the Game Over modal because P.ghostDead is true).
+  // Fire the engine's LOSE flow (not the win flow).
+  // gameScene.loop() reads P.raceFailed and shows #s-lose.
+  P.raceFailed   = true;
+  P._failReason  = 'The Gorilla Boss caught you.';
   P.endPhase     = 1;
   P.endTime      = 0;
-  P.raceFinished = true;
 
   try { playSfx('crash', { volume: 1.0 }); } catch (e) {}
   try { applyCollisionImpact('deadly', 0); } catch (e) {}
@@ -239,8 +226,8 @@ export function triggerLevel1MonsterKill() {
 }
 
 // ═══════════════════════════════════════════════════════
-// WIN — called by roadSystem when the player crosses Road2's
-// finish line. The fake door is never a win condition.
+// WIN — called explicitly if needed (engine already wins on
+// Road 2 finish-line cross). Kept for completeness.
 // ═══════════════════════════════════════════════════════
 export function triggerLevel1Win() {
   if (P.ghostWon || P.ghostDead) return;
@@ -256,49 +243,27 @@ export function triggerLevel1Win() {
 }
 
 // ═══════════════════════════════════════════════════════
-// FAKE-DOOR proximity — collisionSystem calls this when the
-// player approaches the fake door. There is nothing for us
-// to "open" — the door is a permanent trap. We just mark
-// the monsters as triggered so they lunge more aggressively.
+// FAKE-DOOR proximity — no-op in v4.
 // ═══════════════════════════════════════════════════════
-export function nudgeFakeDoorTrap(o) {
-  if (!L1_GHOST.monsterTriggered) {
-    L1_GHOST.monsterTriggered = true;
-  }
-}
+export function nudgeFakeDoorTrap(/* o */) { /* no-op */ }
 
 // ═══════════════════════════════════════════════════════
-// FAKE-WALL is always pass-through.
+// FAKE-WALL pass-through — always true.
 // ═══════════════════════════════════════════════════════
-export function isFakeWallPassThrough(/* o */) {
-  return true;
-}
+export function isFakeWallPassThrough(/* o */) { return true; }
 
 // ═══════════════════════════════════════════════════════
 // QUERIES
 // ═══════════════════════════════════════════════════════
-
-/** True while the monster should still be lethal.
- *  Diagram rule: the monster is the trap guard.
- *  - Always lethal while the player is alive and not yet won.
- *  - The plate does NOT make the monster harmless; the player
- *    must JUMP OVER them via the Road2 ramp.
- */
 export function isLevel1MonsterLethal() {
   return !P.ghostDead && !P.ghostWon;
 }
-
-/** True if the trap zone (forward end / fake door) is deadly.
- *  Always true in the new design — the fake door never opens.
- */
 export function isLevel1TrapActive() {
   return !P.ghostDead && !P.ghostWon;
 }
-
 export function isLevel1Road2Unlocked() {
   return !!P.ghostRoad2Open;
 }
-
 export function getLevel1Phase() {
   return L1_GHOST.phase;
 }
@@ -306,9 +271,9 @@ export function getLevel1Phase() {
 // ═══════════════════════════════════════════════════════
 // CALLBACK HOOKS — UI / banner display
 // ═══════════════════════════════════════════════════════
-let _hintCb         = null;
-let _road2UnlockCb  = null;
-let _deathCb        = null;
+let _hintCb        = null;
+let _road2UnlockCb = null;
+let _deathCb       = null;
 
 export function setLevel1HintCallback(cb)        { _hintCb        = cb; }
 export function setLevel1Road2UnlockCallback(cb) { _road2UnlockCb = cb; }

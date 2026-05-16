@@ -6,13 +6,14 @@
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG } from './BackgroundRender.js';
 import { drawRoad } from './roadRender.js';
-import { drawScenery } from './sceneryRender.js';
+import { drawScenery, sceneryObjs } from './sceneryRender.js';
 import { drawCar } from '../player/player.js';
 import { drawParts } from '../systems/collisionSystem.js';
 import { drawFadeOverlay } from '../player/playerAnimation.js';
 import { drawOpponents } from './opponentRender.js';
-import { drawMonsters } from './monsterRender.js';   // NEW — Level 1 lethal crawlers
+import { drawMonsters } from './monsterRender.js';
 import { P } from '../systems/roadSystem.js';
+import { drawCheckpoints } from '../levels/level2/checkpointRender.js';
 
 function getShakeOffset() {
   if (P.cameraShakeTime <= 0 || P.cameraShake <= 0) {
@@ -39,19 +40,17 @@ export function renderFrame(steerVisual) {
 
   if (!W || !H) return;
 
-  // Clear screen
   ctx.clearRect(0, 0, W, H);
 
-  // Background / horizon
+  // 1. Background / horizon
   drawBG(steerVisual);
 
-  // Camera shake
   const s = getShakeOffset();
 
   ctx.save();
   ctx.translate(s.x, s.y);
 
-  // During reverse-camera turning animation
+  // Reverse-camera turning shake
   if (P.cameraTurning) {
     const t = Math.sin((P.cameraFlip || 0) * Math.PI);
 
@@ -62,42 +61,38 @@ export function renderFrame(steerVisual) {
   }
 
   // ─────────────────────────────────────────
-  // WORLD RENDER ORDER (VERY IMPORTANT)
+  // WORLD RENDER ORDER
   // ─────────────────────────────────────────
 
-  // 1. Road base
+  // 2. Road base
   drawRoad();
 
-  // 2. World scenery / trees / arches / ghost puzzle objects
+  // 3. Level 2 checkpoint arrows / marks
+  drawCheckpoints(ctx, sceneryObjs);
+
+  // 4. World scenery / trees / arches / puzzle objects
   drawScenery();
 
-  // 3. Opponent AI Cars
+  // 5. Opponent AI cars
   drawOpponents();
 
-  // 4. MONSTERS — drawn after scenery so they overlap props,
-  //    before particles + player so impacts read correctly.
+  // 6. Level 1 monsters
   drawMonsters();
 
-  // 5. Collision particles / sparks / impacts
+  // 7. Collision particles / sparks / impacts
   drawParts(ctx);
 
-  // 6. Player Car (always last)
+  // 8. Player car always last
   drawCar(steerVisual);
 
   ctx.restore();
 
-  // White flash on collision
+  // Collision white flash
   if (P.impactFlash > 0.01) {
     ctx.save();
-
-    ctx.globalAlpha = Math.min(
-      0.12,
-      P.impactFlash * 0.10
-    );
-
+    ctx.globalAlpha = Math.min(0.12, P.impactFlash * 0.10);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
-
     ctx.restore();
   }
 
