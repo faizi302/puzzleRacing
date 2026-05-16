@@ -123,11 +123,33 @@ export class CareerScene {
 
     const data = getPlayerData();
 
+    const LEVEL_UNLOCK_MODE = 'all_open';
+    // 'all_open' = all levels open
+    // 'progress' = unlock by completing previous level
+    // 'manual'   = only manual levels open
+    // 'hybrid'   = manual levels open + progress unlock also works
+
+    const MANUAL_UNLOCKED_LEVELS = [1, 2, 4];
+
     for (const lvl of LEVELS) {
       const card = document.createElement('div');
       card.className = 'level-card';
 
-      const unlocked = isLevelUnlocked(lvl.num) && lvl.module !== null;
+      let unlocked = false;
+
+      if (LEVEL_UNLOCK_MODE === 'all_open') {
+        unlocked = true;
+      } else if (LEVEL_UNLOCK_MODE === 'progress') {
+        unlocked = isLevelUnlocked(lvl.num);
+      } else if (LEVEL_UNLOCK_MODE === 'manual') {
+        unlocked = MANUAL_UNLOCKED_LEVELS.includes(lvl.num);
+      } else if (LEVEL_UNLOCK_MODE === 'hybrid') {
+        unlocked =
+          MANUAL_UNLOCKED_LEVELS.includes(lvl.num) ||
+          isLevelUnlocked(lvl.num);
+      }
+
+      unlocked = unlocked && lvl.module !== null;
       const completed = data.completedLevels.includes(lvl.num);
       const best = data.bestTimes['level' + lvl.num];
       const stars = starsForTime(best, lvl);
