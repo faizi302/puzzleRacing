@@ -103,18 +103,7 @@ export function setForkWarnCallback(cb) {
 }
 
 export function resetPhys() {
-
-
-  const lvl = getActiveLevel?.();
-
-  if (lvl?.id === 'level1') {
-    const startBack = C.LEVEL1_START_BEFORE_LINE ?? 650;
-    P.pos = Math.max(0, (trackLen || 0) - startBack);
-  } else {
-    P.pos = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
-  }
-
-
+  P.pos = Math.max(0, (trackLen || 0) - START_PRE_FINISH);
   P.speed = 0;
   P.playerX = 0;
   P.cameraX = 0;
@@ -182,9 +171,9 @@ export function resetPhys() {
 
   // If active level has its own puzzle reset hook, call it.
   // (Used by level1/logic.js — mirrors level2's resetLevel2Puzzle.)
-  // const lvl = getActiveLevel?.();
+  const lvl = getActiveLevel?.();
   if (lvl && typeof lvl.resetPuzzle === 'function') {
-    try { lvl.resetPuzzle(); } catch (e) { }
+    try { lvl.resetPuzzle(); } catch (e) {}
   }
 }
 
@@ -348,7 +337,7 @@ async function getSceneryObjs() {
 }
 
 // Resolve scenery + level1 logic at module load.
-getSceneryObjs().catch(() => { });
+getSceneryObjs().catch(() => {});
 
 function tickLevel1Puzzle(d) {
   const lvl = getActiveLevel();
@@ -360,67 +349,48 @@ function tickLevel1Puzzle(d) {
 
   // Forward the tick to the level's logic module.
   if (typeof lvl.updatePuzzle === 'function') {
-    try { lvl.updatePuzzle(d, list); } catch (e) { }
+    try { lvl.updatePuzzle(d, list); } catch (e) {}
   }
 }
 
 function tickLevel1Monsters(d) {
-  try {
-    const lvl = getActiveLevel();
-    if (lvl?.id !== 'level1') return;
-    if (!_sceneryObjsRef) return;
+  const lvl = getActiveLevel();
+  if (lvl?.id !== 'level1') return;
+  if (!_sceneryObjsRef) return;
 
-    const list = _sceneryObjsRef.sceneryObjs;
-    if (!list || !list.length) return;
+  const list = _sceneryObjsRef.sceneryObjs;
+  if (!list || !list.length) return;
 
-    const monsters = list.filter(o => o.isMonster && !o._dead);
-
-    // DEBUG every 30 frames
-    P._dbgMonsterTick = (P._dbgMonsterTick || 0) + 1;
-    const debugNow = P._dbgMonsterTick % 30 === 0;
-
-    if (debugNow) {
-      console.log('[L1 MONSTER DEBUG]', {
-        pos: Math.round(P.pos),
-        speed: Math.round(P.speed),
-        onRoad2: P.onRoad2,
-        secretUnlocked: P.secretUnlocked,
-        wallCrossed: P.ghostWallCrossed,
-        monsterCount: monsters.length,
-      });
+  // 1) Forward AI update to the level's monster module.
+  if (typeof lvl.updateMonsters === 'function') {
+    const monsters = [];
+    for (const o of list) {
+      if (o.isMonster && !o._dead) monsters.push(o);
     }
-
-    // IMPORTANT:
-    // Road1 reverse puzzle = monster must NOT kill or show logic.
-    // Player is going backward to fake wall, not to gorilla.
-    if (!P.onRoad2 && !P.secretUnlocked && P.speed < -5) {
-      if (debugNow) {
-        console.log('[L1 MONSTER SKIP] Road1 reverse mode: monster disabled while finding fake wall.');
-      }
-      return;
+    if (monsters.length) {
+      try { lvl.updateMonsters(monsters, P.pos, d); } catch (e) {}
     }
+  }
 
-    // AI update
-    if (typeof lvl.updateMonsters === 'function' && monsters.length) {
-      try {
-        lvl.updateMonsters(monsters, P.pos, d);
-      } catch (e) {
-        console.error('[L1 MONSTER ERROR] updateMonsters failed:', e);
-      }
-    }
+  // 2) Lethal contact check.
+  if (P.ghostDead) return;
+  if (typeof lvl.isMonsterLethal === 'function' && !lvl.isMonsterLethal()) {
+    return;
+  }
 
-    if (P.ghostDead) return;
-    if (typeof lvl.isMonsterLethal === 'function' && !lvl.isMonsterLethal()) return;
+  const killZ = C.MONSTER_KILL_RADIUS_Z || 120;
+  const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
 
-    const killZ = C.MONSTER_KILL_RADIUS_Z || 120;
-    const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
+  for (const m of list) {
+    if (!m.isMonster || m._dead) continue;
+    if (m.isLethal === false) continue;
+    if (!m.active && m.aiState !== 'chase') continue;
 
-    for (const m of monsters) {
-      if (m.isLethal === false) continue;
+    let dz = m.z - P.pos;
+    while (dz < -trackLen / 2) dz += trackLen;
+    while (dz >  trackLen / 2) dz -= trackLen;
 
-      let dz = m.z - P.pos;
-      while (dz < -trackLen / 2) dz += trackLen;
-      while (dz >  trackLen / 2) dz -= trackLen;
+    const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
 
 if (
   Math.abs(dz) < killZ &&
@@ -429,51 +399,12 @@ if (
 ) {
   m.hasHitPlayer = true;
 
-      if (debugNow) {
-        console.log('[L1 MONSTER CHECK]', {
-          road: P.onRoad2 ? 'ROAD2' : 'ROAD1',
-          monsterZ: Math.round(m.z),
-          playerPos: Math.round(P.pos),
-          dz: Math.round(dz),
-          dxLane: dxLane.toFixed(2),
-          aiState: m.aiState,
-          active: m.active,
-          airborne: P.isAirborne,
-          airY: Math.round(P.airY || 0),
-          nearMonster,
-        });
-      }
+  if (typeof lvl.triggerMonsterKill === 'function') {
+    try { lvl.triggerMonsterKill(); } catch (e) {}
+  }
 
-      if (!nearMonster || m.hasHitPlayer) continue;
-
-      // Road2: jump can save player
-      if (P.onRoad2 && (P.isAirborne || (P.airY || 0) > 30)) {
-        console.log('[L1 MONSTER SAFE] Player jumped over Road2 gorilla.');
-        continue;
-      }
-
-      // Road1 forward OR Road2 without jump = dead
-      console.warn('[L1 MONSTER KILL]', {
-        road: P.onRoad2 ? 'ROAD2' : 'ROAD1',
-        reason: P.onRoad2 ? 'missed jump' : 'Road1 trap gorilla',
-        dz: Math.round(dz),
-        dxLane,
-      });
-
-      m.hasHitPlayer = true;
-
-      if (typeof lvl.triggerMonsterKill === 'function') {
-        try {
-          lvl.triggerMonsterKill();
-        } catch (e) {
-          console.error('[L1 MONSTER ERROR] triggerMonsterKill failed:', e);
-        }
-      }
-
-      break;
-    }
-  } catch (e) {
-    console.error('[L1 MONSTER FATAL ERROR]', e);
+  break;
+}
   }
 }
 
