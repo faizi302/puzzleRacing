@@ -532,7 +532,12 @@ export class GameScene {
     const distPct = trackLen > 0 ? this._raceDistance / trackLen : 0;
 
     return {
-      speed: Math.abs(P.speed || 0),
+      speed: Math.round(
+        Math.min(
+          Math.abs(P.speed || 0),
+          P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX
+        ) / C.KMH_TO_WORLD
+      ),
       distPct,
       lap,
       totalLaps,

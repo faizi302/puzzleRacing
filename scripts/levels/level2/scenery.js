@@ -166,9 +166,9 @@ export function buildSceneryObjects() {
 
   // ─── NORMAL HURDLES ──────────────────────────────────
   const HURDLES = [
-    { kind: 'barricade1', seg: 110, offset: -0.99, size: 0.88 },
-    { kind: 'barricade1', seg: 200, offset: -0.99, size: 0.88 },
-    { kind: 'barricade1', seg: 310, offset: -0.99, size: 0.88 },
+    { kind: 'barricade1', seg: 110, offset: -1.10, size: 0.76 },
+    { kind: 'barricade1', seg: 200, offset: -1.10, size: 0.80 },
+    { kind: 'barricade1', seg: 310, offset: -0.99, size: 0.80 },
     { kind: 'barricade2', seg: 265, offset:  0.00, size: 0.62 },
     { kind: 'barricade2', seg: 480, offset:  0.00, size: 0.62 },
     { kind: 'barricade3', seg: 290, offset:  0.88, size: 0.60 },

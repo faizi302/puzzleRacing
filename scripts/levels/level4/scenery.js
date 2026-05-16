@@ -128,20 +128,20 @@ export function buildSceneryObjects() {
   // Skip any that fall inside a checkpoint window — we don't want
   // a Barricade obscuring or duplicating the memory platforms.
   const HURDLES = [
-    { kind: 'Barricade1', seg: 150, offset: -0.6, size: 0.72 },
-    { kind: 'Barricade2', seg: 230, offset: 0.6, size: 0.72 },
+    { kind: 'Barricade1', seg: 150, offset: -0.76, size: 0.70 },
+    { kind: 'Barricade2', seg: 230, offset: 0.6, size: 0.70 },
     { kind: 'Barricade3', seg: 340, offset: 0, size: 0.70 },
-    { kind: 'Barricade4', seg: 520, offset: -0.6, size: 0.70 },
-    { kind: 'Barricade1', seg: 610, offset: 0.6, size: 0.72 },
-    { kind: 'Barricade2', seg: 780, offset: -0.6, size: 0.72 },
+    { kind: 'Barricade4', seg: 520, offset: -0.8, size: 0.70 },
+    { kind: 'Barricade1', seg: 610, offset: 0.7, size: 0.72 },
+    { kind: 'Barricade2', seg: 780, offset: -0.8, size: 0.72 },
     { kind: 'Barricade3', seg: 860, offset: 0, size: 0.70 },
-    { kind: 'Barricade4', seg: 940, offset: 0.6, size: 0.70 },
-    { kind: 'Barricade1', seg: 1130, offset: -0.6, size: 0.72 },
-    { kind: 'Barricade2', seg: 1230, offset: 0, size: 0.72 },
-    { kind: 'Barricade3', seg: 1340, offset: 0.6, size: 0.70 },
-    { kind: 'Barricade4', seg: 1510, offset: -0.6, size: 0.70 },
-    { kind: 'Barricade1', seg: 1620, offset: 0.6, size: 0.72 },
-    { kind: 'Barricade2', seg: 1760, offset: 0, size: 0.72 },
+    { kind: 'Barricade4', seg: 940, offset: 0.7, size: 0.70 },
+    { kind: 'Barricade1', seg: 1130, offset: -0.76, size: 0.70 },
+    { kind: 'Barricade2', seg: 1230, offset: 0, size: 0.70 },
+    { kind: 'Barricade3', seg: 1340, offset: 0.8, size: 0.70 },
+    { kind: 'Barricade4', seg: 1510, offset: -0.8, size: 0.70 },
+    { kind: 'Barricade1', seg: 1620, offset: 0.73, size: 0.70 },
+    { kind: 'Barricade2', seg: 1760, offset: 0, size: 0.70 },
   ];
 
   for (const h of HURDLES) {

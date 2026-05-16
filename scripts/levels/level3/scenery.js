@@ -231,16 +231,16 @@ export function buildSceneryObjects() {
 
   const HURDLES = [
     // Left lane hay roll
-    { kind: 'HayRoll', seg: 80, offset: 0.75, size: 0.72 },
+    { kind: 'HayRoll', seg: 80, offset: 1.00, size: 0.65 },
 
     // Center hay blocks
-    { kind: 'HayBlocks', seg: 630, offset: -0.55, size: 0.70 },
-    { kind: 'HayBlocks', seg: 810, offset: -0.55, size: 0.70 },
+    { kind: 'HayBlocks', seg: 630, offset: -0.76, size: 0.70 },
+    { kind: 'HayBlocks', seg: 810, offset: -0.76, size: 0.70 },
 
-    { kind: 'RockFlowers', seg: 240, offset: -0.55, size: 0.75 },
+    { kind: 'RockFlowers', seg: 240, offset: -0.80, size: 0.75 },
     // Right lane fence
-    { kind: 'Fence', seg: 554, offset:  0.89, size: 0.62 },
-    { kind: 'Fence', seg: 810, offset:  0.89, size: 0.62 },
+    { kind: 'Fence', seg: 554, offset:  1.08, size: 0.62 },
+    { kind: 'Fence', seg: 810, offset:  1.08, size: 0.62 },
   ];
 
   for (const h of HURDLES) {

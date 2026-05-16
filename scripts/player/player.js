@@ -267,10 +267,7 @@ function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
   const normalMax = C.NORMAL_MAX || 100;
   const nitroMax  = C.NITRO_MAX  || normalMax + NITRO_SPEED_BONUS;
 
-  P._nitroTargetSpeed = Math.min(
-    nitroMax,
-    Math.max(0, P.speed || 0) + NITRO_SPEED_BONUS
-  );
+  P._nitroTargetSpeed = P._nitroTargetSpeed = nitroMax;
 
   P.speed = Math.max(P.speed || 0, P._nitroTargetSpeed);
 
