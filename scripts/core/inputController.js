@@ -13,40 +13,90 @@
 // ═══════════════════════════════════════════════════════
 
 export const K = {
-  up:false, down:false, left:false, right:false,
-  hand:false, nitro:false, pause:false,
-  _locked: false,downPressed: false,
+  up: false, down: false, left: false, right: false,
+  hand: false, nitro: false, pause: false,
+  _locked: false, downPressed: false,
 
   // ── Edge-detected one-shot flag for Space (nitro) ──
   // Set true on keydown, cleared by consumeNitroPress().
   nitroPressed: false,
 };
 
-const KM = {
-  ArrowUp   : 'up',    ArrowDown  : 'down',
-  ArrowLeft : 'left',  ArrowRight : 'right',
-  KeyW      : 'up',    KeyS       : 'down',
-  KeyA      : 'left',  KeyD       : 'right',
-  Space     : 'nitro',
-  ShiftLeft : 'hand',
-  ShiftRight: 'hand',
-  Escape    : 'pause',
-  KeyP      : 'pause',
+const DEFAULT_KEYMAP = {
+  up: ['ArrowUp', 'KeyW'],
+  down: ['ArrowDown', 'KeyS'],
+  left: ['ArrowLeft', 'KeyA'],
+  right: ['ArrowRight', 'KeyD'],
+  nitro: ['Space'],
+  hand: ['ShiftLeft', 'ShiftRight'],
+  pause: ['Escape', 'KeyP'],
 };
 
-const BLK = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space']);
+let USER_KEYMAP = loadKeyMap();
+
+function loadKeyMap() {
+  try {
+    const raw = localStorage.getItem('puzzleracing_keymap_v1');
+    const saved = raw ? JSON.parse(raw) : {};
+
+    return {
+      up: saved.up || DEFAULT_KEYMAP.up,
+      down: saved.down || DEFAULT_KEYMAP.down,
+      left: saved.left || DEFAULT_KEYMAP.left,
+      right: saved.right || DEFAULT_KEYMAP.right,
+      nitro: saved.nitro || DEFAULT_KEYMAP.nitro,
+      hand: saved.hand || DEFAULT_KEYMAP.hand,
+      pause: saved.pause || DEFAULT_KEYMAP.pause,
+    };
+  } catch {
+    return structuredClone(DEFAULT_KEYMAP);
+  }
+}
+
+function actionForCode(code) {
+  for (const [action, codes] of Object.entries(USER_KEYMAP)) {
+    if (codes.includes(code)) return action;
+  }
+  return null;
+}
+
+export function setControlKey(action, code) {
+  if (!DEFAULT_KEYMAP[action]) return false;
+
+  // remove this key from other actions
+  for (const a of Object.keys(USER_KEYMAP)) {
+    USER_KEYMAP[a] = USER_KEYMAP[a].filter(c => c !== code);
+  }
+
+  USER_KEYMAP[action] = [code];
+  localStorage.setItem('puzzleracing_keymap_v1', JSON.stringify(USER_KEYMAP));
+  return true;
+}
+
+export function resetControls() {
+  USER_KEYMAP = structuredClone(DEFAULT_KEYMAP);
+  localStorage.setItem('puzzleracing_keymap_v1', JSON.stringify(USER_KEYMAP));
+}
+
+export function getControlKeys() {
+  return USER_KEYMAP;
+}
+
+function shouldBlock(code) {
+  return !!actionForCode(code);
+}
 
 // Read snapshot — call this once per physics tick. Returns ZEROED input
 // when locked so the player car doesn't move during cinematics.
 export function readInput() {
   if (K._locked) {
-    return { up:false, down:false, left:false, right:false, hand:false, pause:false };
+    return { up: false, down: false, left: false, right: false, hand: false, pause: false };
   }
-  return { up:K.up, down:K.down, left:K.left, right:K.right, hand:K.hand, pause:K.pause };
+  return { up: K.up, down: K.down, left: K.left, right: K.right, hand: K.hand, pause: K.pause };
 }
 
-export function lockInput(v = true)  { K._locked = !!v; }
-export function isInputLocked()      { return K._locked; }
+export function lockInput(v = true) { K._locked = !!v; }
+export function isInputLocked() { return K._locked; }
 
 // ── Edge-detect helpers ────────────────────────────────
 // Call this from player.js once per tick to atomically read &
@@ -61,9 +111,9 @@ export function consumeNitroPress() {
 
 export function initInput() {
   window.addEventListener('keydown', e => {
-    if (BLK.has(e.code)) e.preventDefault();
+    if (shouldBlock(e.code)) e.preventDefault();
 
-    const action = KM[e.code];
+    const action = actionForCode(e.code);
     if (!action) return;
 
     // Edge detect: only set the one-shot flag on the initial
@@ -73,14 +123,14 @@ export function initInput() {
     }
 
     if (action === 'down' && !K.down && !e.repeat) {
-  K.downPressed = true;
-}
+      K.downPressed = true;
+    }
 
     K[action] = true;
   });
 
   window.addEventListener('keyup', e => {
-    const action = KM[e.code];
+    const action = actionForCode(e.code);
     if (action) K[action] = false;
   });
 
@@ -102,7 +152,7 @@ export function bindTouch(id, key) {
   const el = document.getElementById(id);
   if (!el) return;
 
-  const on  = (e) => {
+  const on = (e) => {
     e.preventDefault();
     // Mirror keydown edge detection for on-screen Space button.
     if (key === 'nitro' && !K.nitro) K.nitroPressed = true;
@@ -115,10 +165,10 @@ export function bindTouch(id, key) {
     el.classList.remove('pr');
   };
 
-  el.addEventListener('touchstart',  on,  {passive:false});
-  el.addEventListener('touchend',    off, {passive:false});
-  el.addEventListener('touchcancel', off, {passive:false});
-  el.addEventListener('mousedown',  on);
-  el.addEventListener('mouseup',    off);
+  el.addEventListener('touchstart', on, { passive: false });
+  el.addEventListener('touchend', off, { passive: false });
+  el.addEventListener('touchcancel', off, { passive: false });
+  el.addEventListener('mousedown', on);
+  el.addEventListener('mouseup', off);
   el.addEventListener('mouseleave', off);
 }

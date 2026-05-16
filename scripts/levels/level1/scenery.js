@@ -37,7 +37,7 @@ import { buildMonsters } from './monster.js';
 export function buildSceneryObjects() {
   const objs = [];
   const onRoad2 = getActiveTrack() === 2;
-  const total   = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
+  const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
   const sideFlip = P.reverseMode ? -1 : 1;
 
   // Trap zone seg index — where the fake door / jump ramp sits.
@@ -47,7 +47,7 @@ export function buildSceneryObjects() {
     ? Math.max(8, total + (C.GHOST_ROAD2_JUMP_SEG_FROM_END ?? -16))
     : Math.max(8, total + (C.GHOST_FAKE_DOOR_SEG_FROM_END ?? -8));
   const TRAP_CLEAR_BEFORE = 22;
-  const TRAP_CLEAR_AFTER  = 6;
+  const TRAP_CLEAR_AFTER = 6;
   const isInTrapZone = (seg) =>
     seg > (trapAnchorSeg - TRAP_CLEAR_BEFORE) &&
     seg < (trapAnchorSeg + TRAP_CLEAR_AFTER);
@@ -164,25 +164,25 @@ export function buildSceneryObjects() {
 
   // ── On-road hurdles ─────────────────────────────────
   const HURDLES = [
-    { kind: 'gorillaRock', seg: 220,  offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 400,  offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1080, offset:  0.00, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1260, offset:  0.00, size: 0.40 },
-    { kind: 'stoneWall',   seg: 700,  offset:  0.70, size: 0.40 },
-    { kind: 'stoneWall',   seg: 930,  offset:  0.00, size: 0.40 },
-    { kind: 'woodFence',   seg: 365,  offset:  0.70, size: 0.70 },
-    { kind: 'woodFence',   seg: 600,  offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset:  0.70, size: 0.70 },
-    { kind: 'stoneBlock',  seg: 320,  offset:  0.00, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 670,  offset:  0.70, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 970,  offset: -0.58, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 1390, offset:  0.00, size: 0.45 },
+    { kind: 'gorillaRock', seg: 220, offset: -0.58, size: 0.40 },
+    { kind: 'gorillaRock', seg: 400, offset: -0.58, size: 0.40 },
+    { kind: 'gorillaRock', seg: 1080, offset: 0.00, size: 0.40 },
+    { kind: 'gorillaRock', seg: 1260, offset: 0.00, size: 0.40 },
+    { kind: 'stoneWall', seg: 700, offset: 0.70, size: 0.40 },
+    { kind: 'stoneWall', seg: 930, offset: 0.00, size: 0.40 },
+    { kind: 'woodFence', seg: 365, offset: 0.70, size: 0.70 },
+    { kind: 'woodFence', seg: 600, offset: -0.58, size: 0.70 },
+    { kind: 'woodFence', seg: 1190, offset: -0.58, size: 0.70 },
+    { kind: 'woodFence', seg: 1190, offset: 0.70, size: 0.70 },
+    { kind: 'stoneBlock', seg: 320, offset: 0.00, size: 0.45 },
+    { kind: 'stoneBlock', seg: 670, offset: 0.70, size: 0.45 },
+    { kind: 'stoneBlock', seg: 970, offset: -0.58, size: 0.45 },
+    { kind: 'stoneBlock', seg: 1390, offset: 0.00, size: 0.45 },
   ];
   for (const h of HURDLES) {
     if (h.seg >= total - 30) continue;
-    if (isInTrapZone(h.seg))  continue;
-    if (isNearWall(h.seg))    continue;
+    if (isInTrapZone(h.seg)) continue;
+    if (isNearWall(h.seg)) continue;
     objs.push({
       kind: h.kind, z: h.seg * C.SEG_LEN, side: 0,
       offset: h.offset, isHurdle: true, size: h.size,
@@ -191,8 +191,8 @@ export function buildSceneryObjects() {
 
   // ── Boost pads (mid-track) ──────────────────────────
   const BOOSTPAD_SPACING = 70;
-  const BOOSTPAD_FIRST   = 100;
-  const BOOSTPAD_LAST    = total - 100;
+  const BOOSTPAD_FIRST = 100;
+  const BOOSTPAD_LAST = total - 100;
   const lanePattern = [0.00, -0.55, 0.55];
   let padIdx = 0;
   for (let s = BOOSTPAD_FIRST; s < BOOSTPAD_LAST; s += BOOSTPAD_SPACING) {
@@ -247,29 +247,39 @@ function buildGhostStartObjects(objs, total, wallSeg) {
   const wallLanes = [-0.66, 0.00, 0.66];
   for (const lane of wallLanes) {
     objs.push({
-      kind:        'stoneWall',
-      z:           wallSeg * C.SEG_LEN,
-      side:        0,
-      offset:      lane,
-      isFakeWall:  true,
+      kind: 'stoneWall',
+      z: wallSeg * C.SEG_LEN,
+      side: 0,
+      offset: lane,
+      isFakeWall: true,
       noCollision: true,
-      size:        0.95,
-      hidden:      false,
+      size: 0.95,
+      hidden: false,
     });
   }
 
   // ── FAKE DOOR — permanent red-skull trap ──
   objs.push({
-    kind:            'stoneArch',
-    z:               fakeDoorSeg * C.SEG_LEN,
-    side:            0,
-    offset:          0,
-    overhead:        true,
-    isFakeDoor:      true,
-    isDoorOpen:      false,        // INVARIANT — stays false forever
+    kind: 'stoneArch',
+    z: fakeDoorSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    overhead: true,
+    isFakeDoor: true,
+    isDoorOpen: false,        // INVARIANT — stays false forever
     isPermanentTrap: true,
-    noCollision:     true,
-    forkTint:        'road1',
+    noCollision: true,
+    forkTint: 'road1',
+  });
+
+  objs.push({
+    kind: 'road2UnlockButton',
+    z: wallSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    isFakeWallButton: true,
+    noCollision: true,
+    size: 1.35,
   });
 }
 
@@ -285,15 +295,15 @@ function buildRoad2WinPath(objs, total) {
   );
 
   objs.push({
-    kind:      'megaRamp',
-    z:         rampSeg * C.SEG_LEN,
-    side:      0,
-    offset:    0,
-    isJump:    true,
-    size:      1.40,
-    hitBackZ:  -90,
-    hitFrontZ:  200,
-    hitHalfW:   0.65,
+    kind: 'megaRamp',
+    z: rampSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    isJump: true,
+    size: 1.40,
+    hitBackZ: -90,
+    hitFrontZ: 200,
+    hitHalfW: 0.65,
   });
 
   // Wider fallback ramps either side in case player swerved.
@@ -304,20 +314,20 @@ function buildRoad2WinPath(objs, total) {
   });
   objs.push({
     kind: 'boostPad', z: fallbackSeg * C.SEG_LEN,
-    side: 0, offset:  0.55, isJump: true, size: 1.15,
+    side: 0, offset: 0.55, isJump: true, size: 1.15,
   });
 
   // FINISH-LINE ARCH — green-tinted woodArch past the gorilla.
   const finishArchSeg = clampSeg(total - 3, total);
   objs.push({
-    kind:        'woodArch',
-    z:           finishArchSeg * C.SEG_LEN,
-    side:        0,
-    offset:      0,
-    overhead:    true,
-    isWinGate:   true,
+    kind: 'woodArch',
+    z: finishArchSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    overhead: true,
+    isWinGate: true,
     noCollision: true,
-    forkTint:    'road2',
+    forkTint: 'road2',
   });
 }
 

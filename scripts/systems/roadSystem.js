@@ -287,6 +287,10 @@ function unlockReverseSecret() {
   if (_reverseUnlockCb) _reverseUnlockCb();
 }
 
+export function forceUnlockReverseSecret() {
+  unlockReverseSecret();
+}
+
 function tickReversePuzzle(d) {
   const lvl = getActiveLevel();
 
@@ -310,9 +314,9 @@ function tickReversePuzzle(d) {
       }
     }
 
-    if (P.reverseDistance >= C.REVERSE_SECRET_DISTANCE) {
-      unlockReverseSecret();
-    }
+    // if (P.reverseDistance >= C.REVERSE_SECRET_DISTANCE) {
+    //   unlockReverseSecret();
+    // }
   }
 }
 

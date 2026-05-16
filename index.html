@@ -353,13 +353,18 @@
 
         <div class="help-card">
           <h3>CONTROLS</h3>
-          <p><span><kbd>↑</kbd> <kbd>W</kbd></span><span>Accelerate</span></p>
-          <p><span><kbd>↓</kbd> <kbd>S</kbd></span><span>Reverse / Brake</span></p>
-          <p><span><kbd>←</kbd> <kbd>→</kbd></span><span>Steer</span></p>
-          <p><span><kbd>SPACE</kbd></span><span>Handbrake</span></p>
-          <p><span><kbd>ESC</kbd></span><span>Pause</span></p>
-          <button id="btn-reset-data" class="mb danger compact" style="margin-top:18px;width:100%">🗑 RESET
-            PROGRESS</button>
+
+          <p><span>Accelerate</span><button class="mb compact control-bind" data-bind="up">Change</button></p>
+          <p><span>Brake / Reverse</span><button class="mb compact control-bind" data-bind="down">Change</button></p>
+          <p><span>Steer Left</span><button class="mb compact control-bind" data-bind="left">Change</button></p>
+          <p><span>Steer Right</span><button class="mb compact control-bind" data-bind="right">Change</button></p>
+          <p><span>Nitro</span><button class="mb compact control-bind" data-bind="nitro">Change</button></p>
+          <p><span>Handbrake</span><button class="mb compact control-bind" data-bind="hand">Change</button></p>
+          <p><span>Pause</span><button class="mb compact control-bind" data-bind="pause">Change</button></p>
+
+          <button id="btn-reset-controls" class="mb compact" style="margin-top:12px;width:100%">
+            🎮 RESET CONTROLS
+          </button>
         </div>
       </div>
     </div>

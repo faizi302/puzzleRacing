@@ -13,7 +13,7 @@
 // Graphics preset  │ graphics       │ (read by render layer)
 // Controls scheme  │ controls       │ (read by input layer)
 // ═══════════════════════════════════════════════════════
-import { show }                                    from '../systems/gameState.js';
+import { show } from '../systems/gameState.js';
 import {
   getSetting, updateSetting, resetPlayerData,
 } from '../player/playerData.js';
@@ -22,6 +22,11 @@ import {
   startMenuMusic, stopMusic, playSfx,
 } from '../core/audio.js';
 import { toast } from '../ui/uiFX.js';
+import {
+  setControlKey,
+  resetControls,
+  getControlKeys,
+} from '../core/inputController.js';
 
 export class SettingsScene {
   constructor(sceneManager) {
@@ -35,7 +40,7 @@ export class SettingsScene {
     this._wireOnce();
   }
 
-  exit() {}
+  exit() { }
 
   _sync() {
     // Toggles
@@ -43,10 +48,10 @@ export class SettingsScene {
       const el = document.getElementById(id);
       if (el) el.classList.toggle('on', !!on);
     };
-    setTog('tog-sound',      getSetting('soundOn'));
-    setTog('tog-music',      getSetting('musicOn'));
+    setTog('tog-sound', getSetting('soundOn'));
+    setTog('tog-music', getSetting('musicOn'));
     setTog('tog-fullscreen', !!document.fullscreenElement);
-    setTog('tog-vibration',  getSetting('vibration'));
+    setTog('tog-vibration', getSetting('vibration'));
 
     // Sliders
     const sfx = document.getElementById('sl-sfx');
@@ -62,6 +67,8 @@ export class SettingsScene {
     setMuted(!getSetting('soundOn'));
     setSfxVolume((getSetting('sfxVolume') ?? 75) / 100);
     setMusicVolume((getSetting('musicVolume') ?? 35) / 100);
+
+    this._syncControlButtons();
   }
 
   _setSeg(segId, attr, value) {
@@ -72,7 +79,45 @@ export class SettingsScene {
     });
   }
 
+  _syncControlButtons() {
+    const keys = getControlKeys();
+
+    document.querySelectorAll('.control-bind').forEach(btn => {
+      const action = btn.dataset.bind;
+      const code = keys[action]?.[0] || 'NONE';
+      btn.textContent = code.replace('Key', '');
+    });
+  }
+
   _wireOnce() {
+
+    // ─ Custom key binding ─
+    document.querySelectorAll('.control-bind').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.bind;
+        btn.textContent = 'Press key...';
+
+        const listen = (e) => {
+          e.preventDefault();
+
+          setControlKey(action, e.code);
+
+          btn.textContent = e.code.replace('Key', '');
+          toast(`${action.toUpperCase()} set to ${e.code}`);
+
+          window.removeEventListener('keydown', listen, true);
+        };
+
+        window.addEventListener('keydown', listen, true);
+      });
+    });
+
+    document.getElementById('btn-reset-controls')?.addEventListener('click', () => {
+      resetControls();
+      toast('Controls reset.');
+      this._syncControlButtons?.();
+    });
+
     if (this._wired) return;
     this._wired = true;
 
@@ -83,7 +128,7 @@ export class SettingsScene {
       e.currentTarget.classList.toggle('on', on);
       setMuted(!on);
       if (on) {
-        try { playSfx('button', { volume: 0.6, force: true }); } catch (_) {}
+        try { playSfx('button', { volume: 0.6, force: true }); } catch (_) { }
       }
     });
 
@@ -94,8 +139,8 @@ export class SettingsScene {
       e.currentTarget.classList.toggle('on', on);
       try {
         if (on) startMenuMusic();
-        else    stopMusic();
-      } catch (_) {}
+        else stopMusic();
+      } catch (_) { }
     });
 
     // ─ Fullscreen toggle ─
@@ -126,7 +171,7 @@ export class SettingsScene {
       updateSetting('vibration', on);
       e.currentTarget.classList.toggle('on', on);
       if (on && navigator.vibrate) {
-        try { navigator.vibrate(60); } catch (_) {}
+        try { navigator.vibrate(60); } catch (_) { }
       }
     });
 
@@ -138,7 +183,7 @@ export class SettingsScene {
       setSfxVolume(v / 100);
     });
     sfx?.addEventListener('change', () => {
-      try { playSfx('coin', { volume: (getSetting('sfxVolume') / 100) }); } catch (_) {}
+      try { playSfx('coin', { volume: (getSetting('sfxVolume') / 100) }); } catch (_) { }
     });
 
     // ─ Music volume slider ─

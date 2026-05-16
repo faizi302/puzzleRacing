@@ -28,39 +28,44 @@
 //   • Wall pass-through is the SOLE Road 2 unlock trigger.
 //   • Player death → P.raceFailed (engine's lose modal).
 // ═══════════════════════════════════════════════════════
-import { P, addCameraShake, applyCollisionImpact } from '../../systems/roadSystem.js';
-import { trackLen , switchToTrack } from '../../core/roadMap.js';
+import {
+  P,
+  addCameraShake,
+  applyCollisionImpact,
+  forceUnlockReverseSecret,
+} from '../../systems/roadSystem.js';
+import { trackLen, switchToTrack } from '../../core/roadMap.js';
 import { C } from '../../configs/roadConfig.js';
 import { playSfx } from '../../core/audio.js';
 
 // ── Public state container ─────────────────────────────
 export const L1_GHOST = {
-  phase       : 'spawn',
-  timer       : 0,
-  hintShown   : false,
-  wallCrossed : false,
-  prevDz      : null,    // wrap-aware dz from last tick (sign-change → crossed)
+  phase: 'spawn',
+  timer: 0,
+  hintShown: false,
+  wallCrossed: false,
+  prevDz: null,    // wrap-aware dz from last tick (sign-change → crossed)
 };
 
 // ── Reset (called when entering Level 1) ───────────────
 export function resetLevel1Puzzle() {
-  L1_GHOST.phase       = 'spawn';
-  L1_GHOST.timer       = 0;
-  L1_GHOST.hintShown   = false;
+  L1_GHOST.phase = 'spawn';
+  L1_GHOST.timer = 0;
+  L1_GHOST.hintShown = false;
   L1_GHOST.wallCrossed = false;
-  L1_GHOST.prevDz      = null;
+  L1_GHOST.prevDz = null;
 
   // Mirror onto P for HUD / render / collision.
-  P.ghostPhase        = 'spawn';
-  P.ghostPlateHeld    = 0;
-  P.ghostPlateActive  = false;
-  P.ghostKeyRevealed  = false;
+  P.ghostPhase = 'spawn';
+  P.ghostPlateHeld = 0;
+  P.ghostPlateActive = false;
+  P.ghostKeyRevealed = false;
   P.ghostKeyCollected = false;
-  P.ghostDoorOpen     = false;     // INVARIANT: stays false forever
-  P.ghostRoad2Open    = false;
-  P.ghostDead         = false;
-  P.ghostWon          = false;
-  P.ghostWallCrossed  = false;
+  P.ghostDoorOpen = false;     // INVARIANT: stays false forever
+  P.ghostRoad2Open = false;
+  P.ghostDead = false;
+  P.ghostWon = false;
+  P.ghostWallCrossed = false;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -75,7 +80,7 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
   // Move out of 'spawn' as soon as player starts moving.
   if (L1_GHOST.phase === 'spawn' && Math.abs(P.speed) > 5) {
     L1_GHOST.phase = 'exploring';
-    P.ghostPhase   = 'exploring';
+    P.ghostPhase = 'exploring';
   }
 
   // ─────────────────────────────────────────────────────
@@ -94,13 +99,16 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
   if (!L1_GHOST.wallCrossed && !P.onRoad2 && !P.secretUnlocked) {
     let wall = null;
     for (const o of sceneryObjs) {
-      if (o.isFakeWall) { wall = o; break; }
+      if (o.isFakeWallButton || o.isFakeWall) {
+        wall = o;
+        break;
+      }
     }
 
     if (wall) {
       let dz = wall.z - P.pos;
       while (dz < -trackLen / 2) dz += trackLen;
-      while (dz >  trackLen / 2) dz -= trackLen;
+      while (dz > trackLen / 2) dz -= trackLen;
 
       const prev = L1_GHOST.prevDz;
       const crossingWindow = C.SEG_LEN * 2.0;  // accept ±2 segs of slop
@@ -109,8 +117,8 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
 
       // Sign-change detection — most reliable.
       if (prev != null && Math.sign(prev) !== Math.sign(dz)
-          && Math.abs(prev) < crossingWindow
-          && Math.abs(dz)   < crossingWindow) {
+        && Math.abs(prev) < crossingWindow
+        && Math.abs(dz) < crossingWindow) {
         crossed = true;
       }
 
@@ -131,9 +139,9 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
   // 2) REVERSE HINT — first time player reverses noticeably
   // ─────────────────────────────────────────────────────
   if (!L1_GHOST.hintShown &&
-      (P.reverseDistance || 0) >= (C.GHOST_HINT_REVERSE_DIST || 250)) {
+    (P.reverseDistance || 0) >= (C.GHOST_HINT_REVERSE_DIST || 250)) {
     L1_GHOST.hintShown = true;
-    if (_hintCb) try { _hintCb(); } catch (e) {}
+    if (_hintCb) try { _hintCb(); } catch (e) { }
   }
 }
 
@@ -157,29 +165,28 @@ function triggerWallCrossing(sceneryObjs) {
   if (L1_GHOST.wallCrossed) return;
 
   L1_GHOST.wallCrossed = true;
-  L1_GHOST.phase       = 'wall-touched';
-  P.ghostPhase         = 'wall-touched';
-  P.ghostWallCrossed   = true;
-  P.ghostPlateActive   = true;     // legacy flag — keeps HUD compatible
-  P.ghostRoad2Open     = true;
+  L1_GHOST.phase = 'wall-touched';
+  P.ghostPhase = 'wall-touched';
+  P.ghostWallCrossed = true;
+  P.ghostPlateActive = true;     // legacy flag — keeps HUD compatible
+  P.ghostRoad2Open = true;
 
   // ── Engine-pipeline trigger ──
   // The engine auto-unlocks the secret road when
   // P.reverseDistance ≥ C.REVERSE_SECRET_DISTANCE while the
   // player is reversing. Bumping the counter past the threshold
   // forces unlockReverseSecret() to fire on the next tick.
-  const need = (C.REVERSE_SECRET_DISTANCE || 2200);
-  P.reverseDistance = Math.max(P.reverseDistance || 0, need + 1);
+  forceUnlockReverseSecret();
 
   for (const o of sceneryObjs) {
     if (o.isFakeWall) o.dissolved = true;
   }
 
-  try { playSfx('nitro', { volume: 0.85 }); } catch (e) {}
+  try { playSfx('nitro', { volume: 0.85 }); } catch (e) { }
   addCameraShake(0.25, 0.35);
 
   if (_road2UnlockCb) {
-    try { _road2UnlockCb(); } catch (e) {}
+    try { _road2UnlockCb(); } catch (e) { }
   }
 }
 
@@ -204,25 +211,25 @@ export function triggerLevel1MonsterKill() {
   // Airborne immunity — fly over the gorilla.
   if (P.isAirborne || (P.airY || 0) > 30) return;
 
-  P.ghostDead       = true;
-  L1_GHOST.phase    = 'dead';
-  P.ghostPhase      = 'dead';
-  P.speed           = 0;
-  P.impactFlash     = 1.0;
-  P.cameraShake     = 1.0;
+  P.ghostDead = true;
+  L1_GHOST.phase = 'dead';
+  P.ghostPhase = 'dead';
+  P.speed = 0;
+  P.impactFlash = 1.0;
+  P.cameraShake = 1.0;
   P.cameraShakeTime = 1.5;
 
   // Fire the engine's LOSE flow (not the win flow).
   // gameScene.loop() reads P.raceFailed and shows #s-lose.
-  P.raceFailed   = true;
-  P._failReason  = 'The Gorilla Boss caught you.';
-  P.endPhase     = 1;
-  P.endTime      = 0;
+  P.raceFailed = true;
+  P._failReason = 'The Gorilla Boss caught you.';
+  P.endPhase = 1;
+  P.endTime = 0;
 
-  try { playSfx('crash', { volume: 1.0 }); } catch (e) {}
-  try { applyCollisionImpact('deadly', 0); } catch (e) {}
+  try { playSfx('crash', { volume: 1.0 }); } catch (e) { }
+  try { applyCollisionImpact('deadly', 0); } catch (e) { }
 
-  if (_deathCb) try { _deathCb(); } catch (e) {}
+  if (_deathCb) try { _deathCb(); } catch (e) { }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -232,14 +239,14 @@ export function triggerLevel1MonsterKill() {
 export function triggerLevel1Win() {
   if (P.ghostWon || P.ghostDead) return;
 
-  P.ghostWon     = true;
+  P.ghostWon = true;
   L1_GHOST.phase = 'complete';
-  P.ghostPhase   = 'complete';
+  P.ghostPhase = 'complete';
   P.raceFinished = true;
-  P.endPhase     = 1;
-  P.endTime      = 0;
+  P.endPhase = 1;
+  P.endTime = 0;
 
-  try { playSfx('win', { volume: 1.0 }); } catch (e) {}
+  try { playSfx('win', { volume: 1.0 }); } catch (e) { }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -271,10 +278,10 @@ export function getLevel1Phase() {
 // ═══════════════════════════════════════════════════════
 // CALLBACK HOOKS — UI / banner display
 // ═══════════════════════════════════════════════════════
-let _hintCb        = null;
+let _hintCb = null;
 let _road2UnlockCb = null;
-let _deathCb       = null;
+let _deathCb = null;
 
-export function setLevel1HintCallback(cb)        { _hintCb        = cb; }
+export function setLevel1HintCallback(cb) { _hintCb = cb; }
 export function setLevel1Road2UnlockCallback(cb) { _road2UnlockCb = cb; }
-export function setLevel1DeathCallback(cb)       { _deathCb       = cb; }
+export function setLevel1DeathCallback(cb) { _deathCb = cb; }

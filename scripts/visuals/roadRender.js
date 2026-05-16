@@ -87,6 +87,13 @@ export function drawRoad() {
       fogA
     );
 
+    drawRoad2UnlockCircle(
+      ctx,
+      seg.index,
+      seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
+      seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w
+    );
+
     // drawLevel2MazeArrows(
     //   ctx,
     //   seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
@@ -278,14 +285,14 @@ function drawNearestRoadExtension(ctx, W, H) {
     return;
   }
 
-const frame = near.index === 0
-  ? SEG_TEX_CYCLE_ROAD1[0]
-  : pickSegTex(near.index);
-    const segH = H + 4 - yTop;
+  const frame = near.index === 0
+    ? SEG_TEX_CYCLE_ROAD1[0]
+    : pickSegTex(near.index);
+  const segH = H + 4 - yTop;
   if (segH <= 0) return;
 
   const fullTopW = (near.w1 * 2) / ROAD_TEX_FRAC;
-  const fullBotW = (bottomW    * 2) / ROAD_TEX_FRAC;
+  const fullBotW = (bottomW * 2) / ROAD_TEX_FRAC;
 
   ctx.save();
   ctx.beginPath();
@@ -307,7 +314,7 @@ const frame = near.index === 0
 
     const y = yTop + segH * t1;
     const cx = near.x1 + (bottomX - near.x1) * tm;
-    const cw = near.w1 + (bottomW    - near.w1) * tm;
+    const cw = near.w1 + (bottomW - near.w1) * tm;
 
     const fullW = (cw * 2) / ROAD_TEX_FRAC;
     const dx = cx - fullW * 0.5;
@@ -321,6 +328,49 @@ const frame = near.index === 0
       dx, y, fullW, sliceH + 1.0
     );
   }
+
+  ctx.restore();
+}
+
+function drawRoad2UnlockCircle(ctx, segIndex, x1, y1, w1, x2, y2, w2) {
+  if (getActiveTrack() !== 1) return;
+  if (P.secretUnlocked || P.onRoad2) return;
+
+  const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
+  const behind = C.GHOST_FAKE_WALL_SEG_BEHIND ?? -6;
+  const targetSeg = Math.max(4, Math.min(total - 4, total + behind));
+
+  if (Math.abs(segIndex - targetSeg) > 1) return;
+
+  const cx = (x1 + x2) * 0.5;
+  const cy = (y1 + y2) * 0.5;
+  const rw = (w1 + w2) * 0.5;
+
+  ctx.save();
+  ctx.globalAlpha = 0.90;
+
+  ctx.fillStyle = 'rgba(0, 220, 255, 0.35)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.lineWidth = Math.max(2, rw * 0.018);
+
+  ctx.beginPath();
+  ctx.ellipse(
+    cx,
+    cy,
+    rw * 0.35,
+    Math.max(10, Math.abs(y1 - y2) * 1.8),
+    0,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.font = `bold ${Math.max(13, rw * 0.08)}px Orbitron, Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ROAD 2', cx, cy);
 
   ctx.restore();
 }
