@@ -87,12 +87,12 @@ export function drawRoad() {
       fogA
     );
 
-    drawLevel2MazeArrows(
-      ctx,
-      seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
-      seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w,
-      seg.index
-    );
+    // drawLevel2MazeArrows(
+    //   ctx,
+    //   seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
+    //   seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w,
+    //   seg.index
+    // );
 
     _visibleSegs.push({
       index: seg.index,
@@ -113,65 +113,65 @@ export function drawRoad() {
   drawNearestRoadExtension(ctx, W, H);
 }
 
-function drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, lane, color) {
-  const cx1 = x1 + w1 * lane;
-  const cx2 = x2 + w2 * lane;
+// function drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, lane, color) {
+//   const cx1 = x1 + w1 * lane;
+//   const cx2 = x2 + w2 * lane;
 
-  const cy = (y1 + y2) * 0.5;
-  const cx = (cx1 + cx2) * 0.5;
+//   const cy = (y1 + y2) * 0.5;
+//   const cx = (cx1 + cx2) * 0.5;
 
-  const segH = Math.abs(y1 - y2);
-  if (segH < 8) return;
+//   const segH = Math.abs(y1 - y2);
+//   if (segH < 8) return;
 
-  const size = Math.max(8, Math.min(34, segH * 0.85));
-  const half = size * 0.5;
+//   const size = Math.max(8, Math.min(34, segH * 0.85));
+//   const half = size * 0.5;
 
-  ctx.save();
-  ctx.globalAlpha = 0.82;
-  ctx.fillStyle = color;
-  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-  ctx.lineWidth = Math.max(1, size * 0.08);
+//   ctx.save();
+//   ctx.globalAlpha = 0.82;
+//   ctx.fillStyle = color;
+//   ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+//   ctx.lineWidth = Math.max(1, size * 0.08);
 
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - size);
-  ctx.lineTo(cx + half, cy);
-  ctx.lineTo(cx + half * 0.35, cy);
-  ctx.lineTo(cx + half * 0.35, cy + size);
-  ctx.lineTo(cx - half * 0.35, cy + size);
-  ctx.lineTo(cx - half * 0.35, cy);
-  ctx.lineTo(cx - half, cy);
-  ctx.closePath();
+//   ctx.beginPath();
+//   ctx.moveTo(cx, cy - size);
+//   ctx.lineTo(cx + half, cy);
+//   ctx.lineTo(cx + half * 0.35, cy);
+//   ctx.lineTo(cx + half * 0.35, cy + size);
+//   ctx.lineTo(cx - half * 0.35, cy + size);
+//   ctx.lineTo(cx - half * 0.35, cy);
+//   ctx.lineTo(cx - half, cy);
+//   ctx.closePath();
 
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-}
+//   ctx.fill();
+//   ctx.stroke();
+//   ctx.restore();
+// }
 
-function drawLevel2MazeArrows(ctx, x1, y1, w1, x2, y2, w2, segIndex) {
-  if (P.level2MazePhase == null) return;
+// function drawLevel2MazeArrows(ctx, x1, y1, w1, x2, y2, w2, segIndex) {
+//   if (P.level2MazePhase == null) return;
 
-  // same puzzle zone as scenery
-  if (segIndex < 180 || segIndex > 1800) return;
+//   // same puzzle zone as scenery
+//   if (segIndex < 180 || segIndex > 1800) return;
 
-  // draw arrow every few segments, not full color road
-  if (segIndex % 18 !== 0) return;
+//   // draw arrow every few segments, not full color road
+//   if (segIndex % 18 !== 0) return;
 
-  if (P.level2MazePhase === 'preview') {
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(255,50,50,1)');
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, 'rgba(40,255,90,1)');
-  }
+//   if (P.level2MazePhase === 'preview') {
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(255,50,50,1)');
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(40,255,90,1)');
+//   }
 
-  if (P.level2MazePhase === 'glitch') {
-    const pulse = 0.45 + 0.45 * Math.sin(performance.now() * 0.04);
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, `rgba(255,255,0,${pulse})`);
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, `rgba(255,0,255,${pulse})`);
-  }
+//   if (P.level2MazePhase === 'glitch') {
+//     const pulse = 0.45 + 0.45 * Math.sin(performance.now() * 0.04);
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, `rgba(255,255,0,${pulse})`);
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, `rgba(255,0,255,${pulse})`);
+//   }
 
-  if (P.level2MazePhase === 'run') {
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(40,255,90,1)');
-    drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2,  0.60, 'rgba(255,50,50,1)');
-  }
-}
+//   if (P.level2MazePhase === 'run') {
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(40,255,90,1)');
+//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(255,50,50,1)');
+//   }
+// }
 
 // ── Segment texture draw (performance-optimised) ───────
 const MAX_SLICES = 10;

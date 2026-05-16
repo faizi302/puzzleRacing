@@ -53,17 +53,16 @@ import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 // ── Minimap (real-road-shape mini map painted each frame) ──
 import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
 
-// Try to import a "list opponents" helper without breaking on
-// engines that don't expose one. Resolved lazily so a missing
-// export doesn't crash the module-load phase.
+// Lazily resolve an "enumerate opponents" helper if the
+// opponentSystem exposes one — minimap dots use it. Falls back
+// to count-only if none of the names are present.
 let _listOpponents = null;
 import('../systems/opponentSystem.js').then((mod) => {
-  // Recognize any of these export names; first one wins.
   _listOpponents = mod.getOpponents
                 || mod.listOpponents
                 || mod.getOpponentList
                 || null;
-}).catch(() => { /* fine — fall back to count-only */ });
+}).catch(() => { /* no enumeration available */ });
 
 export class GameScene {
   constructor(sceneManager) {
@@ -76,6 +75,8 @@ export class GameScene {
     this.fpsT = 0;
     this.fpsN = 0;
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this.level = null;
 
     // Track stats for THIS race only — committed on win.
@@ -89,6 +90,10 @@ export class GameScene {
     // this._position from your race-position system each frame.
     this._opponents = 6;   // shows "1/6" like Asphalt
     this._position = 1;
+
+    // ── Minimap canvas (created lazily on first enter) ──
+    this._minimapCanvas = null;
+    this._minimapCtx    = null;
 
 
     this._raceDistance = 0;
@@ -175,6 +180,8 @@ export class GameScene {
 
     unlockAudio();
     this.winShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._raceCoins = 0;
     this._raceKeys = 0;
     this._lastKeyCount = 0;
@@ -182,6 +189,7 @@ export class GameScene {
     this._position = 1;
 
     document.getElementById('s-win')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
     document.getElementById('s-pause')?.classList.remove('on');
     document.getElementById('s-gameover')?.classList.remove('on');
 
@@ -193,28 +201,32 @@ export class GameScene {
       this.level.resetPuzzle();
     }
 
-    // ── Wire up Level-1-style callbacks (defensive — no-op
-    //    for levels that don't expose these hooks) ───────────
+    // ── Wire Level-1-style callbacks (no-op for levels that
+    //    don't expose these hooks) ──────────────────────────
     if (this.level?.setRoad2UnlockCallback) {
       this.level.setRoad2UnlockCallback(() => {
         try {
           notify(this.level.road2UnlockMessage
             || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!');
         } catch (e) {}
-        try {
-          if (getSetting('soundOn')) playSfx('nitro');
-        } catch (e) {}
+        try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) {}
       });
     }
     if (this.level?.setDeathCallback) {
-      this.level.setDeathCallback(() => this.endGameOver());
+      // The level fires this when the player dies. The actual
+      // lose modal is driven by P.raceFailed which logic.js sets
+      // at the same time, so this callback is mostly a no-op /
+      // optional hook for future SFX-only feedback.
+      this.level.setDeathCallback(() => { /* lose-modal handled via P.raceFailed */ });
     }
-    this._gameOverShown = false;
 
-    // ── Rebuild minimap cache (road shape may differ per
-    //    level / per active road) ─────────────────────────
+    // Rebuild minimap shape cache (road may differ per level
+    // and after a Road1→Road2 fork). Also create the canvas
+    // element once and show it for this race.
     try { clearMinimapCache(); } catch (e) {}
     this._ensureMinimap();
+    this._showMinimap();
+
     this._raceDistance = 0;
     this._lastProgressPos = P.pos || 0;
 
@@ -244,14 +256,26 @@ export class GameScene {
     renderFrame(0);
 
     await playIntro();
-    if (getSetting('soundOn')) playSfx('start');
+
+    /* Engine ignition sound ONCE before countdown */
+    if (getSetting('soundOn')) {
+      playSfx('engine', {
+        volume: 0.35
+      });
+    }
+
+    /* Countdown */
     await countdown();
 
     this._showStartRank = false;
     updateRaceHUD(this._hudSnapshot());
 
     lockInput(false);
-    if (getSetting('musicOn')) startMusic();
+
+    /* After countdown → start race music loop */
+    if (getSetting('musicOn')) {
+      startMusic(); // plays raceMusic: MusicGameModeRace.ogg
+    }
 
     // ── Race-start HINT (one-shot, replaces the old notify call) ──
     // Title  = the dramatic headline
@@ -273,10 +297,9 @@ export class GameScene {
   }
 
   // ════════════════════════════════════════════════════
-  // MINIMAP — create the canvas element once, then paint
-  // it from the loop with a snapshot of player/opponent
-  // positions. Positioned top-right by default; the inline
-  // styles keep it self-contained so no CSS changes needed.
+  // MINIMAP — create one canvas element, then paint it
+  // each frame from the loop with a snapshot of player/
+  // opponent positions. Positioned top-right of #s-game.
   // ════════════════════════════════════════════════════
   _ensureMinimap() {
     if (this._minimapCanvas && document.body.contains(this._minimapCanvas)) {
@@ -299,7 +322,6 @@ export class GameScene {
         'z-index:40',
         'border-radius:10px',
         'box-shadow:0 4px 14px rgba(0,0,0,0.45)',
-        'image-rendering:auto',
       ].join(';');
       host.appendChild(cv);
     }
@@ -307,19 +329,18 @@ export class GameScene {
     this._minimapCtx    = cv.getContext('2d');
   }
 
-  _hideMinimap() {
-    if (this._minimapCanvas) this._minimapCanvas.style.display = 'none';
-  }
   _showMinimap() {
     if (this._minimapCanvas) this._minimapCanvas.style.display = 'block';
+  }
+
+  _hideMinimap() {
+    if (this._minimapCanvas) this._minimapCanvas.style.display = 'none';
   }
 
   _paintMinimap() {
     if (!this._minimapCanvas) return;
 
-    // Best-effort opponent listing. If opponentSystem.js exposes
-    // a function that returns the raw opponent array, we use it
-    // for accurate map dots; otherwise the map just omits them.
+    // Best-effort opponent enumeration — falls back silently.
     let opps = [];
     if (_listOpponents) {
       try {
@@ -368,9 +389,16 @@ export class GameScene {
     this.running = false;
     this.paused = false;
     this.winShown = false;
-    this._gameOverShown = false;
+    this.loseShown = false;
+    this._failReason = null;
     this._showStartRank = false;
 
+    // Clear engine-side flags so the new race starts clean.
+    P.raceFailed = false;
+    P.raceFinished = false;
+    P._failReason = null;
+    P.ghostDead = false;       // logic.js flag — also reset here
+                                // in case puzzle reset is skipped.
     stopAll();
     stopMusic();
     hideRaceHUD();
@@ -379,7 +407,7 @@ export class GameScene {
 
     document.getElementById('s-pause')?.classList.remove('on');
     document.getElementById('s-win')?.classList.remove('on');
-    document.getElementById('s-gameover')?.classList.remove('on');
+    document.getElementById('s-lose')?.classList.remove('on');
 
     this.enter(this.level);
   }
@@ -408,34 +436,73 @@ export class GameScene {
     P.endPhase = 2;
   }
 
-  // ════════════════════════════════════════════════════
-  // GAME OVER — shown when the player is killed (e.g. by
-  // the gorilla on Level 1).  Distinct from endRace():
-  //   • Does NOT mark the level as complete.
-  //   • Does NOT persist coins/keys earned this run.
-  //   • Shows the #s-gameover modal which offers ONLY
-  //     Restart + Menu — no "next level" button.
-  // ════════════════════════════════════════════════════
-  endGameOver() {
-    if (this._gameOverShown) return;
-    this._gameOverShown = true;
-
+  // ═══════════════════════════════════════════════════════════
+  // LOSE FLOW
+  // ───────────────────────────────────────────────────────────
+  // Mirrors endRace() but for failure cases. No rewards are
+  // persisted (player did not complete the level), and the
+  // lose panel is shown with the player's progress so they can
+  // see how close they got.
+  //
+  // Triggered either by:
+  //   • `P.raceFailed` flag set by any engine system, OR
+  //   • calling `gameScene.fail(reason)` from anywhere
+  //     (timer, AI rivals, health system, etc.)
+  // ═══════════════════════════════════════════════════════════
+  async loseRace(reason) {
+    this.loseShown = true;
     lockInput(true);
     stopMusic();
-    try { stopAll(); } catch (e) {}
+    // Reuse 'coin' as a soft negative cue — swap to a dedicated
+    // 'lose' sfx if you add one to the audio system.
     if (getSetting('soundOn')) {
-      try { playSfx('crash', { volume: 1.0 }); } catch (e) {}
+      try { playSfx('coin'); } catch (e) { }
     }
 
-    hideRaceHint();
+    // Compute level progress as a percentage of the track lap-distance
+    // the player has covered so far. Caps at 100%.
+    const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
+    const lapsDone = Math.max(0, P.lapCount || 0);
+    const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct = Math.round(progress * 100);
+
+    // Stats
+    const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
+    const posTxt = `${this._position} / ${this._opponents}`;
+
+    // Populate DOM
+    const reasonEl = document.getElementById('ls-reason');
+    if (reasonEl && reason) reasonEl.textContent = reason;
+    else if (reasonEl) reasonEl.textContent = "You didn't make it this time";
+
+    document.getElementById('ls-t').textContent = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent = posTxt;
+    document.getElementById('ls-prog-pct').textContent = `${pct}%`;
+
+    // Hide HUD before the panel slides in
     hideRaceHUD();
+    hideRaceHint();
     this._hideMinimap();
 
-    // Belt-and-suspenders: directly toggle the .on class in
-    // case the SceneManager doesn't have 'gameover' registered.
-    document.getElementById('s-gameover')?.classList.add('on');
-    try { show('gameover'); } catch (e) { /* not a registered scene */ }
+    show('lose');
+
+    // Animate the bar fill on next frame so the CSS transition runs.
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('ls-prog-fill');
+      if (fill) fill.style.width = `${pct}%`;
+    });
+
     P.endPhase = 2;
+  }
+
+  // Public trigger — call from anywhere to force a loss.
+  // Example: gameScene.fail('Time ran out!')
+  fail(reason) {
+    if (this.winShown || this.loseShown) return;
+    P.raceFailed = true;
+    this._failReason = reason || null;
   }
 
   // Track coin/key gain during the race
@@ -492,24 +559,24 @@ export class GameScene {
 
 
     while (this.accum >= STEP) {
-  updatePhys(inp, STEP, trackLen);
+      updatePhys(inp, STEP, trackLen);
 
-  this._tickRaceDistance();
+      this._tickRaceDistance();
 
-  if (this.level?.updatePuzzle) {
-    this.level.updatePuzzle(STEP, sceneryObjs);
-  }
+      if (this.level?.updatePuzzle) {
+        this.level.updatePuzzle(STEP, sceneryObjs);
+      }
 
-  updateOpponents(STEP, sceneryObjs);
+      updateOpponents(STEP, sceneryObjs);
 
-  this._position = getPlayerRacePosition();
-  this._opponents = getOpponentCount();
+      this._position = getPlayerRacePosition();
+      this._opponents = getOpponentCount();
 
-  const a = getCarAnchor();
-  checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
+      const a = getCarAnchor();
+      checkSceneryCollisions(sceneryObjs, a.anchorX, a.anchorY);
 
-  this.accum -= STEP;
-}
+      this.accum -= STEP;
+    }
 
     this._trackPickups();
 
@@ -523,7 +590,6 @@ export class GameScene {
     tickParts(dtRaw);
     tickCamAnim(dtRaw);
     tickEdgeScrape();
-    setEngineSpeed(Math.min(1, P.speed / C.NITRO_MAX));
 
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
@@ -541,15 +607,12 @@ export class GameScene {
     this.fpsT += dtRaw; this.fpsN++;
     if (this.fpsT >= 0.5) { this.fps = (this.fpsN / this.fpsT) | 0; this.fpsT = 0; this.fpsN = 0; }
 
-    // ── End-of-race resolution ──────────────────────────
-    //   • P.ghostDead     → Game Over modal (Restart / Menu)
-    //   • P.raceFinished  → Win modal
-    // Death is checked FIRST so a simultaneous death+finish
-    // never credits a win.
-    if (P.ghostDead && !this._gameOverShown) {
-      this.endGameOver();
-    } else if (P.raceFinished && !this.winShown && !P.ghostDead) {
-      this.endRace();
+    if (P.raceFinished && !this.winShown) this.endRace();
+    else if (P.raceFailed && !this.loseShown && !this.winShown) {
+      // Prefer a reason set by puzzle logic (P._failReason) over the
+      // one cached when gameScene.fail() was called externally.
+      const reason = P._failReason || this._failReason;
+      this.loseRace(reason);
     }
 
     requestAnimationFrame(this.loop);

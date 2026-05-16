@@ -1,14 +1,12 @@
 // ═══════════════════════════════════════════════════════
-// MONSTER RENDER — Gorilla Boss
+// MONSTER RENDER — Gorilla Boss (gorila3.png)
 // ─────────────────────────────────────────────────────
 // Reads frame layout from MONSTER_SPR in configs/sceneryConfig.js
-// rather than hand-coded coordinates. This keeps the renderer
-// in sync with whatever spritesheet you swap in: change cols /
-// rows / frameW / frameH there and the renderer follows.
+// rather than hand-coded coordinates. Swap the spritesheet by
+// editing MONSTER_SPR.cols / rows / frameW / frameH there.
 //
-// The insetL / insetR / insetT / insetB fields crop empty
-// transparent padding around the gorilla art inside each cell
-// so the sprite scales without surrounding blue/empty space.
+// All frame selection is driven by `o.frame` — monster.js cycles
+// it through 0..19 in one continuous loop (per user request).
 // ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { trackLen } from '../core/roadMap.js';
@@ -21,10 +19,10 @@ import { MONSTER_SPR } from '../configs/sceneryConfig.js';
 
 // ── Frame lookup ───────────────────────────────────────
 function frameRect(i) {
-  const cols   = MONSTER_SPR.cols;
-  const rows   = MONSTER_SPR.rows;
-  const fw     = MONSTER_SPR.frameW;
-  const fh     = MONSTER_SPR.frameH;
+  const cols   = MONSTER_SPR.cols   || 5;
+  const rows   = MONSTER_SPR.rows   || 4;
+  const fw     = MONSTER_SPR.frameW || 120;
+  const fh     = MONSTER_SPR.frameH || 83;
   const insetL = MONSTER_SPR.insetL || 0;
   const insetR = MONSTER_SPR.insetR || 0;
   const insetT = MONSTER_SPR.insetT || 0;
@@ -35,11 +33,9 @@ function frameRect(i) {
   const col   = idx % cols;
   const row   = (idx / cols) | 0;
 
-  // Cell origin in the sheet.
-  const cellX = MONSTER_SPR.sx + col * fw;
-  const cellY = MONSTER_SPR.sy + row * fh;
+  const cellX = (MONSTER_SPR.sx || 0) + col * fw;
+  const cellY = (MONSTER_SPR.sy || 0) + row * fh;
 
-  // Apply insets so we draw only the visible gorilla.
   return {
     sx: cellX + insetL,
     sy: cellY + insetT,
@@ -114,7 +110,6 @@ export function drawMonsters() {
     const f = frameRect(o.frame || 0);
 
     // Size projection: world height → screen height.
-    // The gorilla is big — scale relative to road width.
     const scale   = C.CAM_DEPTH / dz;
     const rawH    = C.ROAD_W * 1.15 * (o.size ?? 1) * scale * W;
     const screenH = clamp(rawH, 48 * res, H * 0.85);
@@ -142,7 +137,7 @@ export function drawMonsters() {
     ctx.save();
     ctx.globalAlpha = fade;
 
-    // ── Ground shadow (below feet) ────────────────────
+    // ── Ground shadow ─────────────────────────────────
     ctx.fillStyle = 'rgba(0,0,0,0.50)';
     ctx.beginPath();
     ctx.ellipse(
@@ -180,10 +175,12 @@ export function drawMonsters() {
     }
 
     // ── Sprite ────────────────────────────────────────
-    // Disable image-smoothing for crisp pixels at very close
-    // range. Browsers default to "high" smoothing which makes
-    // the gorilla look blurry up close.
+    // High-quality smoothing — the source frames are small
+    // (120×83) and need to scale up cleanly to many hundreds
+    // of pixels on screen.
     const prevSmoothing = ctx.imageSmoothingEnabled;
+    const prevQuality   = ctx.imageSmoothingQuality;
+    ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
     ctx.drawImage(
@@ -192,25 +189,9 @@ export function drawMonsters() {
       dx, dy, screenW, screenH
     );
 
-    // ── Ground-pound flash on impact frames ───────────
-    if (o.aiState === 'attack' && o.isPunchHitFrame) {
-      const flashAlpha = 0.55 * fade;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = flashAlpha;
-      ctx.fillStyle = 'rgba(255, 220, 180, 1)';
-      ctx.beginPath();
-      ctx.ellipse(
-        groundX,
-        yBase + 2 * res,
-        screenW * 0.55,
-        Math.max(6, screenH * 0.07),
-        0, 0, Math.PI * 2
-      );
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
     ctx.imageSmoothingEnabled = prevSmoothing;
+    ctx.imageSmoothingQuality = prevQuality;
+
     ctx.restore();
   }
 }

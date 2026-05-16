@@ -1,23 +1,22 @@
 // ═══════════════════════════════════════════════════════
 // LEVEL PREVIEW / MINIMAP  —  Real-road-shape renderer
 // ─────────────────────────────────────────────────────
-// Two public functions:
+// Two public functions, both driven by the SAME shape-extraction
+// pipeline so the career-card preview matches what the player
+// sees in-game:
 //
 //   renderLevelPreview(mountEl, opts)
-//     Static SVG minimap used by Career level cards. Reads
-//     `level.buildRoads()` to build a real shape; supports
-//     biome tinting and a "FINISH" pin.
+//     Static SVG preview used by CareerScene cards. Reads
+//     `opts.module.buildRoads()` to derive the real geometry.
+//     Biome-tinted, includes start/finish markers.
 //
-//   renderInGameMinimap(canvasEl, snapshot)
-//     Per-frame canvas-2D minimap painted into a fixed-size
-//     <canvas>. Shows the real road shape, finish line, end
-//     points, the player's position, and AI opponents.
-//
-// Both use the same coordinate transform so the shape on the
-// card matches what the player sees in-game.
+//   renderInGameMinimap(canvas, snapshot)
+//     Canvas-2D HUD minimap painted each frame. Same shape,
+//     plus a moving player dot, opponent dots, finish pin,
+//     and start dot.
 // ═══════════════════════════════════════════════════════
 
-// ── Biome palette (used by the card preview) ───────────
+// ── Biome palette ──────────────────────────────────────
 const BIOME_COLORS = {
   forest:  { road: '#5fd17a', grass: '#1b3a1f', accent: '#a0ff8c' },
   city:    { road: '#7ec8ff', grass: '#1f2735', accent: '#9be1ff' },
@@ -29,23 +28,18 @@ const BIOME_COLORS = {
 // ═══════════════════════════════════════════════════════
 // SHAPE EXTRACTOR
 // ─────────────────────────────────────────────────────
-// Walks the segments produced by a level's buildRoads()
-// (road1 or road2) and integrates the per-segment curvature
-// to produce a 2-D polyline. The polyline is then scaled to
-// fit `box` and centered.
+// Walks the segments produced by a level's buildRoads() and
+// integrates per-segment curvature into a 2-D polyline. Not a
+// true 3-D projection, but accurate enough that the shape on
+// the card matches what the player drives.
 // ═══════════════════════════════════════════════════════
 function extractRoadShape(segs) {
   if (!segs || !segs.length) return [];
 
-  // Each segment contributes one length step in the local
-  // forward direction. Curve values rotate the forward
-  // direction proportionally. The constants below are
-  // empirical — they produce shapes that look like the
-  // in-game track without doing full 3-D projection.
-  const FWD_STEP    = 1.0;
-  const CURVE_RATE  = 0.018;
+  const FWD_STEP   = 1.0;
+  const CURVE_RATE = 0.018;
 
-  let x = 0, y = 0, ang = -Math.PI / 2;   // pointing "up"
+  let x = 0, y = 0, ang = -Math.PI / 2;     // start heading "up"
   const pts = [[x, y]];
 
   for (let i = 0; i < segs.length; i++) {
@@ -77,24 +71,24 @@ function fitShape(pts, boxW, boxH, pad = 14) {
   const oy = (boxH - h * scale) / 2 - minY * scale;
 
   const scaled = pts.map(([x, y]) => [x * scale + ox, y * scale + oy]);
-  return { pts: scaled, scale, ox, oy, bounds: { minX, maxX, minY, maxY } };
+  return { pts: scaled, scale, ox, oy };
 }
 
 // ═══════════════════════════════════════════════════════
-// CARD PREVIEW (SVG) — used by CareerScene
+// CAREER CARD PREVIEW (SVG)
 // ═══════════════════════════════════════════════════════
 export function renderLevelPreview(mountEl, opts = {}) {
   if (!mountEl) return;
 
-  const biome   = opts.biome   || 'default';
-  const palette = BIOME_COLORS[biome] || BIOME_COLORS.default;
+  const biome    = opts.biome    || 'default';
+  const palette  = BIOME_COLORS[biome] || BIOME_COLORS.default;
   const levelNum = opts.levelNum || 1;
-  const module   = opts.module || null;
+  const module   = opts.module   || null;
 
   const W = mountEl.clientWidth  || 320;
   const H = mountEl.clientHeight || 180;
 
-  // Try to derive a real shape from the level module.
+  // Try the real shape from the level module.
   let segs = null;
   try {
     if (module && typeof module.buildRoads === 'function') {
@@ -103,23 +97,22 @@ export function renderLevelPreview(mountEl, opts = {}) {
     }
   } catch (e) { segs = null; }
 
-  // Fallback shape if level didn't provide buildRoads.
+  // Fallback if level didn't provide buildRoads.
   if (!segs) segs = fallbackShape(opts.seed || levelNum * 17);
 
   const rawPts = extractRoadShape(segs);
   const fit    = fitShape(rawPts, W, H, 18);
   const pts    = fit.pts;
 
-  // Build polyline path string.
   let d = '';
   for (let i = 0; i < pts.length; i++) {
     d += (i === 0 ? 'M' : 'L') + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1) + ' ';
   }
 
-  const startPt  = pts[0]            || [W / 2, H - 16];
-  const finishPt = pts[pts.length-1] || [W / 2, 16];
+  const startPt  = pts[0]              || [W / 2, H - 16];
+  const finishPt = pts[pts.length - 1] || [W / 2, 16];
 
-  // Hold the old data-preview number badge if present.
+  // Preserve the badge elements the card builder appended.
   const numBadge  = mountEl.querySelector('.num-badge')?.outerHTML  || '';
   const biomeTag  = mountEl.querySelector('.biome-tag')?.outerHTML  || '';
 
@@ -160,11 +153,11 @@ export function renderLevelPreview(mountEl, opts = {}) {
             stroke-width="1" stroke-dasharray="3 5"
             stroke-linecap="round" stroke-linejoin="round" />
 
-      <!-- Start marker (green dot) -->
+      <!-- Start dot -->
       <circle cx="${startPt[0].toFixed(1)}" cy="${startPt[1].toFixed(1)}"
               r="4.5" fill="#3df56a" stroke="#fff" stroke-width="1.2" />
 
-      <!-- Finish marker (checkered pin) -->
+      <!-- Finish pin -->
       <g transform="translate(${finishPt[0].toFixed(1)},${finishPt[1].toFixed(1)})">
         <circle r="6" fill="#1a1a1a" stroke="#fff" stroke-width="1.5"/>
         <path d="M-3,-3 h3 v3 h-3 z M0,0 h3 v3 h-3 z" fill="#fff"/>
@@ -174,21 +167,22 @@ export function renderLevelPreview(mountEl, opts = {}) {
 }
 
 // ═══════════════════════════════════════════════════════
-// IN-GAME MINIMAP (Canvas 2D) — drawn each frame by GameScene.
+// IN-GAME MINIMAP (Canvas 2D)  — painted each frame.
 // ─────────────────────────────────────────────────────
 // snapshot = {
-//   level,                 // the active level module
-//   trackLen,              // total Z length
-//   playerPos,             // P.pos
-//   playerLane,            // P.playerX  (-1..1)
-//   onRoad2,               // bool
-//   opponents,             // [{pos, lane?}, …]
+//   level,        // active level module
+//   trackLen,     // total Z length
+//   playerPos,    // P.pos
+//   playerLane,   // P.playerX  (-1..1)
+//   onRoad2,      // bool
+//   opponents,    // [{pos|z, ...}, ...]
 // }
 // ═══════════════════════════════════════════════════════
-const _miniCache = new Map();   // levelId → {pts, ox, oy, scale}
+const _miniCache = new Map();
 
 function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
-  const key = (snapshot.level?.id || 'level1') + '|' + (snapshot.onRoad2 ? 'r2' : 'r1') + '|' + canvasW + 'x' + canvasH;
+  const lvlId = snapshot.level?.id || 'level1';
+  const key   = lvlId + '|' + (snapshot.onRoad2 ? 'r2' : 'r1') + '|' + canvasW + 'x' + canvasH;
   if (_miniCache.has(key)) return _miniCache.get(key);
 
   let segs = null;
@@ -203,7 +197,7 @@ function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
 
   const raw = extractRoadShape(segs);
   const fit = fitShape(raw, canvasW, canvasH, 10);
-  const built = { pts: fit.pts, segCount: segs.length };
+  const built = { pts: fit.pts };
   _miniCache.set(key, built);
   return built;
 }
@@ -221,7 +215,7 @@ export function renderInGameMinimap(canvas, snapshot) {
   const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
-  // ── Background card ─────────────────────────────────
+  // ── Card background ─────────────────────────────────
   ctx.fillStyle = 'rgba(8, 12, 20, 0.72)';
   roundRect(ctx, 0, 0, W, H, 10);
   ctx.fill();
@@ -265,7 +259,7 @@ export function renderInGameMinimap(canvas, snapshot) {
   const finish = pts[pts.length - 1];
   drawCheckerPin(ctx, finish[0], finish[1]);
 
-  // ── Helper: map Z pos → point on the polyline ──────
+  // ── Helper: Z pos → point on polyline ───────────────
   const posToPt = (zPos) => {
     if (!snapshot.trackLen || snapshot.trackLen <= 0) return start;
     const tn = Math.max(0, Math.min(1, zPos / snapshot.trackLen));
@@ -290,11 +284,10 @@ export function renderInGameMinimap(canvas, snapshot) {
     }
   }
 
-  // ── Player (cyan dot with halo) ─────────────────────
+  // ── Player (cyan dot w/ halo) ───────────────────────
   if (typeof snapshot.playerPos === 'number') {
     const [px, py] = posToPt(snapshot.playerPos);
 
-    // Pulsing halo
     const now = performance.now() * 0.005;
     const pulse = 0.7 + 0.3 * Math.sin(now);
     ctx.fillStyle = `rgba(80, 220, 255, ${0.35 * pulse})`;
@@ -319,7 +312,7 @@ export function renderInGameMinimap(canvas, snapshot) {
   ctx.fillText(snapshot.onRoad2 ? 'MAP · ROAD 2' : 'MAP', 6, 5);
 }
 
-// ── Drawing helpers ────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────
 function drawCheckerPin(ctx, x, y) {
   ctx.fillStyle = '#1a1a1a';
   ctx.strokeStyle = '#ffffff';
@@ -329,7 +322,6 @@ function drawCheckerPin(ctx, x, y) {
   ctx.fill();
   ctx.stroke();
 
-  // Tiny checker pattern
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x - 2.5, y - 2.5, 1.7, 1.7);
   ctx.fillRect(x - 0.8, y - 0.8, 1.7, 1.7);
@@ -352,7 +344,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// Synthetic shape if a level didn't expose buildRoads.
 function fallbackShape(seed) {
   const segs = [];
   let phase = (seed % 100) / 100 * Math.PI * 2;

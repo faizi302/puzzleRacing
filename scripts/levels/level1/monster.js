@@ -1,20 +1,26 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 1 — GORILLA BOSS  (single monster, 5×4 spritesheet)
+// LEVEL 1 — GORILLA BOSS  (single monster, gorila3.png)
 // ─────────────────────────────────────────────────────
-// Spritesheet: gorila.jpeg — 2752 × 1536, 5 cols × 4 rows = 20 frames.
+// Spritesheet:  gorila3.png  (600 × 334, 5 cols × 4 rows)
+//   → 20 frames, read LEFT→RIGHT then TOP→BOTTOM.
 //
-//   Row 0 (0..4)   : IDLE / stomp
-//   Row 1 (5..9)   : ROAR (arms up)
-//   Row 2 (10..14) : CHASE / running
-//   Row 3 (15..19) : ATTACK / ground-pound (15 has dust burst)
+// ANIMATION (per user request):
+//   ALL 20 frames play in one continuous sequence (0 → 19 → 0 …),
+//   regardless of AI state. The user asked for a single flat
+//   cycle instead of per-state sub-cycles — so the gorilla always
+//   loops through every pose in order.
 //
-// AI states:
-//   PATROL → IDLE animation, walks left/right within ±3 segs.
-//   ALERT  → ROAR animation, player just inside detect range.
-//   CHASE  → CHASE animation, player inside chase range.
-//   ATTACK → ATTACK animation, player inside attack range,
-//            briefly holds position and pounds the ground.
-//   RETURN → IDLE animation, returning to spawn.
+//   The AI state machine is preserved so the gorilla still
+//   patrols / chases / attacks (movement-wise), and so other
+//   systems (renderer, collision) can react to `aiState`. Only
+//   the visual frame pick has been flattened into one cycle.
+//
+// AI states (movement only):
+//   PATROL → walks left/right within ±3 segs of spawn
+//   ALERT  → player just inside detect range, holds position
+//   CHASE  → sprint toward the player
+//   ATTACK → in melee range, holds position and is lethal
+//   RETURN → trotting back to spawn after losing the player
 // ═══════════════════════════════════════════════════════
 import { C } from '../../configs/roadConfig.js';
 import { trackLen, getActiveTrack } from '../../core/roadMap.js';
@@ -36,21 +42,28 @@ const CHASE  = 'chase';
 const ATTACK = 'attack';
 const RETURN_ = 'return';
 
-// Animation cycles into the 20-frame sheet.
-const IDLE_FRAMES   = [0, 1, 2, 3, 4];
-const ROAR_FRAMES   = [5, 6, 7, 8, 9];
-const CHASE_FRAMES  = [10, 11, 12, 13, 14];
-const ATTACK_FRAMES = [15, 16, 17, 18, 19];
+// ── ONE flat cycle for ALL 20 frames ───────────────────
+// Read MONSTER_SPR from sceneryConfig only to know the total
+// count. Falls back to 20 if the constants module is loaded
+// later. We deliberately hard-code 20 here too so the cycle
+// is correct even before the lazy import resolves.
+const FRAME_CYCLE = [
+  0, 1, 2, 3, 4,
+  5, 6, 7, 8, 9,
+  10, 11, 12, 13, 14,
+  15, 16, 17, 18, 19,
+];
+const TOTAL_FRAMES = FRAME_CYCLE.length;
 
-// Frames where the ground-pound visually "hits" the floor.
-// These are the ones the kill-check piggy-backs on so the
-// player is killed at the moment the impact is shown.
-const PUNCH_HIT_FRAMES = new Set([15, 16]);
+// One global frame rate — keeps the animation perfectly smooth
+// even when the gorilla switches AI states. Tune via FRAME_FPS.
+const FRAME_FPS = 12;                  // 12 fps over 20 frames ≈ 1.66s per full loop
+const FRAME_RATE = 1 / FRAME_FPS;      // seconds per frame
 
 /**
  * Build ONE gorilla boss near the end of the active track.
- * The user explicitly asked for a single monster (not three),
- * with its full original size — so we spawn it dead-center.
+ * User explicitly asked for a single monster (not three), so
+ * we spawn one centered in the lane.
  */
 export function buildMonsters() {
   const out = [];
@@ -65,28 +78,18 @@ export function buildMonsters() {
 
   const anchorSeg = Math.max(8, Math.min(total - 4, total + fromEnd));
 
-  const patrolMinSeg = Math.max(2, anchorSeg - PATROL_RANGE_SEGS);
+  const patrolMinSeg = Math.max(2,         anchorSeg - PATROL_RANGE_SEGS);
   const patrolMaxSeg = Math.min(total - 2, anchorSeg + PATROL_RANGE_SEGS);
-
-  console.log('[L1 BUILD MONSTER]', {
-  activeTrack: getActiveTrack(),
-  onRoad2,
-  totalSegs: total,
-  fromEnd,
-  anchorSeg,
-  monsterZ: anchorSeg * C.SEG_LEN,
-  trackLen,
-});
 
   out.push({
     kind: 'monster',
     monsterName: 'Gorilla Boss',
 
     // World position
-    z:          anchorSeg * C.SEG_LEN,
-    spawnZ:     anchorSeg * C.SEG_LEN,
-    side:       0,
-    offset:     0,                 // single gorilla → center lane
+    z:           anchorSeg * C.SEG_LEN,
+    spawnZ:      anchorSeg * C.SEG_LEN,
+    side:        0,
+    offset:      0,            // single gorilla → center lane
     spawnOffset: 0,
 
     // Flags
@@ -95,24 +98,22 @@ export function buildMonsters() {
     noCollision: false,
     onRoad2,
 
-    // Animation
-    frame:           IDLE_FRAMES[0],
-    frameTimer:      0,
-    attackFrameIndex: 0,
-    attackCooldown:  0,
-    hasHitPlayer:    false,
-    isPunchHitFrame: false,
+    // Animation — flat 0..19 cycle.
+    frameIdx:    0,            // index INTO FRAME_CYCLE
+    frame:       FRAME_CYCLE[0],
+    frameTimer:  0,
 
     // AI
-    aiState:    PATROL,
-    patrolMinZ: patrolMinSeg * C.SEG_LEN,
-    patrolMaxZ: patrolMaxSeg * C.SEG_LEN,
-    patrolDir:  1,
-    crawlSpeed: C.SEG_LEN * 1.05,
+    aiState:     PATROL,
+    patrolMinZ:  patrolMinSeg * C.SEG_LEN,
+    patrolMaxZ:  patrolMaxSeg * C.SEG_LEN,
+    patrolDir:   1,
+    crawlSpeed:  C.SEG_LEN * 1.05,
+    attackCooldown: 0,
 
-    // Visual size — slightly larger on Road2 so the player
-    // sees from far that they need to jump.
-    size:   onRoad2 ? 1.05 : 1.05,
+    // Visual size — original gorilla size as the user asked.
+    // Bigger on Road2 so it reads from far that you must jump.
+    size:   onRoad2 ? 1.00 : 1.00,
     active: false,
   });
 
@@ -125,41 +126,17 @@ function wrapTrackZ(m) {
   if (m.z > trackLen) m.z -= trackLen;
 }
 
-function resetAttack(m) {
-  m.attackFrameIndex = 0;
-  m.hasHitPlayer     = false;
-  m.isPunchHitFrame  = false;
-}
-
-function setFrameFromCycle(m, frames, dt, rate) {
+/**
+ * Advance the gorilla's animation by one tick.
+ * Always cycles 0 → 1 → … → 19 → 0 → 1 → …, regardless of state.
+ */
+function tickAnimation(m, dt) {
   m.frameTimer += dt;
-  if (m.frameTimer >= rate) {
-    m.frameTimer = 0;
-    const cur = frames.indexOf(m.frame);
-    const next = cur >= 0 ? (cur + 1) % frames.length : 0;
-    m.frame = frames[next];
+  while (m.frameTimer >= FRAME_RATE) {
+    m.frameTimer -= FRAME_RATE;
+    m.frameIdx = (m.frameIdx + 1) % TOTAL_FRAMES;
+    m.frame    = FRAME_CYCLE[m.frameIdx];
   }
-  m.isPunchHitFrame = false;
-}
-
-function updateAttackAnimation(m, dt) {
-  const ATTACK_RATE = 0.085;       // ~12 fps — punchy
-  m.frameTimer += dt;
-
-  if (m.frameTimer >= ATTACK_RATE) {
-    m.frameTimer = 0;
-    m.attackFrameIndex++;
-
-    if (m.attackFrameIndex >= ATTACK_FRAMES.length) {
-      // End of one swing — cool down and let chase resume.
-      m.attackFrameIndex = 0;
-      m.hasHitPlayer     = false;
-      m.attackCooldown   = 0.45;
-    }
-  }
-
-  m.frame           = ATTACK_FRAMES[m.attackFrameIndex];
-  m.isPunchHitFrame = PUNCH_HIT_FRAMES.has(m.frame);
 }
 
 export function updateMonsters(monsters, playerZ, dt) {
@@ -183,7 +160,6 @@ export function updateMonsters(monsters, playerZ, dt) {
       if (segGap < ATTACK_SEGS) {
         m.aiState = ATTACK;
         m.active  = true;
-        resetAttack(m);
       } else if (segGap < DETECT_SEGS) {
         m.aiState = CHASE;
         m.active  = true;
@@ -204,16 +180,14 @@ export function updateMonsters(monsters, playerZ, dt) {
     else if (m.aiState === CHASE) {
       if (segGap < ATTACK_SEGS && m.attackCooldown <= 0) {
         m.aiState = ATTACK;
-        resetAttack(m);
       } else if (segGap > ESCAPE_SEGS) {
         m.aiState = RETURN_;
-        resetAttack(m);
       }
     }
     else if (m.aiState === ATTACK) {
       if (segGap > ATTACK_SEGS + 2) {
         m.aiState = CHASE;
-        resetAttack(m);
+        m.attackCooldown = 0.45;
       }
     }
     else if (m.aiState === RETURN_) {
@@ -221,7 +195,6 @@ export function updateMonsters(monsters, playerZ, dt) {
       if (distToSpawn < C.SEG_LEN * 2) {
         m.z = m.spawnZ;
         m.aiState = PATROL;
-        resetAttack(m);
       }
     }
 
@@ -237,7 +210,6 @@ export function updateMonsters(monsters, playerZ, dt) {
       const dir   = dz < 0 ? -1 : 1;
       m.z += dir * speed * dt;
 
-      // Don't wander too far from the trap zone.
       const maxChaseZ = m.patrolMaxZ + PATROL_RANGE_SEGS * 2 * C.SEG_LEN;
       const minChaseZ = m.patrolMinZ - PATROL_RANGE_SEGS * 2 * C.SEG_LEN;
       if (m.z > maxChaseZ) m.z = maxChaseZ;
@@ -253,15 +225,7 @@ export function updateMonsters(monsters, playerZ, dt) {
 
     wrapTrackZ(m);
 
-    // ── Animation ─────────────────────────────────────
-    if (m.aiState === ATTACK) {
-      updateAttackAnimation(m, dt);
-    } else if (m.aiState === CHASE) {
-      setFrameFromCycle(m, CHASE_FRAMES, dt, 0.085);
-    } else if (m.aiState === ALERT) {
-      setFrameFromCycle(m, ROAR_FRAMES, dt, 0.13);
-    } else {
-      setFrameFromCycle(m, IDLE_FRAMES, dt, 0.14);
-    }
+    // ── Animation — ALL 20 frames in one flat cycle ──
+    tickAnimation(m, dt);
   }
 }

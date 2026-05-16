@@ -422,8 +422,12 @@ function tickLevel1Monsters(d) {
       while (dz < -trackLen / 2) dz += trackLen;
       while (dz >  trackLen / 2) dz -= trackLen;
 
-      const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
-      const nearMonster = Math.abs(dz) < killZ && dxLane < killX;
+if (
+  Math.abs(dz) < killZ &&
+  dxLane < killX &&
+  !m.hasHitPlayer
+) {
+  m.hasHitPlayer = true;
 
       if (debugNow) {
         console.log('[L1 MONSTER CHECK]', {
@@ -518,15 +522,14 @@ export function updatePhys(inp, dt, len) {
     return;
   }
 
+  // Nitro is now controlled by player.js storage/burn system.
+  // Do NOT reset P.nitroActive here, otherwise Space nitro stops early.
   if (P.nitroTime > 0) {
     P.nitroTime -= d;
-    P.nitroActive = true;
+
     if (P.nitroTime <= 0) {
       P.nitroTime = 0;
-      P.nitroActive = false;
     }
-  } else {
-    P.nitroActive = false;
   }
 
   const speedCap = P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX;
@@ -709,25 +712,27 @@ export function updatePhys(inp, dt, len) {
   const curveFollow = 1 - Math.pow(0.015, d);
   P.cameraCurve += (P.roadCurve - P.cameraCurve) * curveFollow;
 
-  const hitL = P.playerX < -1;
-  const hitR = P.playerX > 1;
+  const ROAD_EDGE_LIMIT = 1.15;
+
+  const hitL = P.playerX < -ROAD_EDGE_LIMIT;
+  const hitR = P.playerX > ROAD_EDGE_LIMIT;
   P.isOffTrack = hitL || hitR;
 
   if (P.isOffTrack) {
     const dirBack = hitL ? 1 : -1;
-    const outside = Math.abs(P.playerX) - 1;
+    const outside = Math.abs(P.playerX) - ROAD_EDGE_LIMIT;
 
     P.playerX += dirBack * (0.020 + outside * 0.018);
     if (P.speed > C.OFFRD_LIM) {
       P.speed += C.OFFRD_DC * d * (0.28 + outside * 0.5);
     }
 
-    if (Math.abs(P.playerX) > 1.02 && P.hitCooldown <= 0) {
+    if (Math.abs(P.playerX) > ROAD_EDGE_LIMIT + 0.02 && P.hitCooldown <= 0) {
       applyCollisionImpact('wall', dirBack);
     }
   }
 
-  P.playerX = clamp(P.playerX, -1.18, 1.18);
+  P.playerX = clamp(P.playerX, -1.25, 1.25);
 
   P._prevPos = P.pos;
 
@@ -745,39 +750,25 @@ export function updatePhys(inp, dt, len) {
   P.raceTime += d;
 
   // ── Win logic ───────────────────────────────────────
-  // Road1 never wins. Road2 wins after one full secret-road lap.
-  if (crossedForward) {
-    const lvl = getActiveLevel?.();
-
-    // Level 1: Road1 finish never wins. Road2 finish wins in one lap.
-    if (lvl?.id === 'level1') {
-      if (P.onRoad2 && P.secretUnlocked) {
-        P.lapCount = 1;
-        P.lapTimes.push(P.lapTime);
-        P.lapTime = 0;
-
-        if (typeof lvl.triggerWin === 'function') {
-          try { lvl.triggerWin(); } catch (e) { }
-        } else {
-          P.raceFinished = true;
-          P.endPhase = 1;
-          P.endTime = 0;
-        }
-      }
-      return;
-    }
-
-    // Other levels normal one-lap finish
-    P.lapCount++;
+// ── Win logic ───────────────────────────────────────
+// Road1 never wins.
+// Road2 wins on FIRST finish crossing only.
+if (crossedForward) {
+  if (P.onRoad2 && P.secretUnlocked) {
+    P.lapCount = 1;
     P.lapTimes.push(P.lapTime);
     P.lapTime = 0;
 
-    if (P.lapCount >= (C.TOTAL_LAPS || 1)) {
-      P.raceFinished = true;
-      P.endPhase = 1;
-      P.endTime = 0;
-    }
+    P.raceFinished = true;
+    P.endPhase = 1;
+    P.endTime = 0;
+    return;
   }
+
+  // Road1 finish crossing is fake/trap route, not win.
+  P._firstCrossing = false;
+  P.lapTime = 0;
+}
 }
 
 export const kmh = () => {
