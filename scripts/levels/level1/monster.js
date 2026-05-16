@@ -1,27 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// LEVEL 1 — GORILLA BOSS  (single monster, gorila3.png)
-// ─────────────────────────────────────────────────────
-// Spritesheet:  gorila3.png  (600 × 334, 5 cols × 4 rows)
-//   → 20 frames, read LEFT→RIGHT then TOP→BOTTOM.
-//
-// ANIMATION (per user request):
-//   ALL 20 frames play in one continuous sequence (0 → 19 → 0 …),
-//   regardless of AI state. The user asked for a single flat
-//   cycle instead of per-state sub-cycles — so the gorilla always
-//   loops through every pose in order.
-//
-//   The AI state machine is preserved so the gorilla still
-//   patrols / chases / attacks (movement-wise), and so other
-//   systems (renderer, collision) can react to `aiState`. Only
-//   the visual frame pick has been flattened into one cycle.
-//
-// AI states (movement only):
-//   PATROL → walks left/right within ±3 segs of spawn
-//   ALERT  → player just inside detect range, holds position
-//   CHASE  → sprint toward the player
-//   ATTACK → in melee range, holds position and is lethal
-//   RETURN → trotting back to spawn after losing the player
-// ═══════════════════════════════════════════════════════
 import { C } from '../../configs/roadConfig.js';
 import { trackLen, getActiveTrack } from '../../core/roadMap.js';
 
@@ -42,11 +18,7 @@ const CHASE  = 'chase';
 const ATTACK = 'attack';
 const RETURN_ = 'return';
 
-// ── ONE flat cycle for ALL 20 frames ───────────────────
-// Read MONSTER_SPR from sceneryConfig only to know the total
-// count. Falls back to 20 if the constants module is loaded
-// later. We deliberately hard-code 20 here too so the cycle
-// is correct even before the lazy import resolves.
+
 const FRAME_CYCLE = [
   0, 1, 2, 3, 4,
   5, 6, 7, 8, 9,
@@ -55,16 +27,11 @@ const FRAME_CYCLE = [
 ];
 const TOTAL_FRAMES = FRAME_CYCLE.length;
 
-// One global frame rate — keeps the animation perfectly smooth
-// even when the gorilla switches AI states. Tune via FRAME_FPS.
+
 const FRAME_FPS = 12;                  // 12 fps over 20 frames ≈ 1.66s per full loop
 const FRAME_RATE = 1 / FRAME_FPS;      // seconds per frame
 
-/**
- * Build ONE gorilla boss near the end of the active track.
- * User explicitly asked for a single monster (not three), so
- * we spawn one centered in the lane.
- */
+
 export function buildMonsters() {
   const out = [];
   const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
@@ -78,44 +45,42 @@ export function buildMonsters() {
 
   const anchorSeg = Math.max(8, Math.min(total - 4, total + fromEnd));
 
-  const patrolMinSeg = Math.max(2,         anchorSeg - PATROL_RANGE_SEGS);
-  const patrolMaxSeg = Math.min(total - 2, anchorSeg + PATROL_RANGE_SEGS);
+  const lanes = [-0.66, 0.00, 0.66];
 
-  out.push({
-    kind: 'monster',
-    monsterName: 'Gorilla Boss',
+  for (let i = 0; i < lanes.length; i++) {
+    out.push({
+      kind: 'monster',
+      monsterName: `Gorilla Boss ${i + 1}`,
 
-    // World position
-    z:           anchorSeg * C.SEG_LEN,
-    spawnZ:      anchorSeg * C.SEG_LEN,
-    side:        0,
-    offset:      0,            // single gorilla → center lane
-    spawnOffset: 0,
+      z: anchorSeg * C.SEG_LEN,
+      spawnZ: anchorSeg * C.SEG_LEN,
 
-    // Flags
-    isMonster:   true,
-    isLethal:    true,
-    noCollision: false,
-    onRoad2,
+      side: 0,
+      offset: lanes[i],
+      spawnOffset: lanes[i],
 
-    // Animation — flat 0..19 cycle.
-    frameIdx:    0,            // index INTO FRAME_CYCLE
-    frame:       FRAME_CYCLE[0],
-    frameTimer:  0,
+      isMonster: true,
+      isLethal: true,
+      noCollision: false,
+      onRoad2,
 
-    // AI
-    aiState:     PATROL,
-    patrolMinZ:  patrolMinSeg * C.SEG_LEN,
-    patrolMaxZ:  patrolMaxSeg * C.SEG_LEN,
-    patrolDir:   1,
-    crawlSpeed:  C.SEG_LEN * 1.05,
-    attackCooldown: 0,
+      frameIdx: 0,
+      frame: FRAME_CYCLE[0],
+      frameTimer: 0,
 
-    // Visual size — original gorilla size as the user asked.
-    // Bigger on Road2 so it reads from far that you must jump.
-    size:   onRoad2 ? 1.00 : 1.00,
-    active: false,
-  });
+      aiState: PATROL,
+
+      // keep them in one blocking line
+      patrolMinZ: anchorSeg * C.SEG_LEN,
+      patrolMaxZ: anchorSeg * C.SEG_LEN,
+      patrolDir: 1,
+      crawlSpeed: 0,
+      attackCooldown: 0,
+
+      size: onRoad2 ? 1.15 : 1.15,
+      active: true,
+    });
+  }
 
   return out;
 }

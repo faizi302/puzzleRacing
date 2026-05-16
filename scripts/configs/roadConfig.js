@@ -1,16 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// ROAD & PHYSICS CONFIGURATION
-// LEVEL 1 — "THE GHOST START": What you see is a beautiful lie.
-//
-// REWORKED PUZZLE (v3 — wall trigger):
-//   FORWARD on Road1 → fake door + Gorilla Boss NEAR THE END.
-//                      Fake door is a permanent trap.
-//   BACKWARD from spawn → at ~100 m behind spawn, a FAKE WALL.
-//                         It has no collision; crossing it
-//                         unlocks Road 2.
-//   FORWARD on Road2 → big jump ramp before the finish lets
-//                      the player fly over the end-gorillas.
-// ═══════════════════════════════════════════════════════
 export const C = {
   ROAD_W    : 1200,
   SEG_LEN   : 240,
@@ -41,13 +28,13 @@ export const C = {
   // Player reversing reaches -45 first.
   GHOST_FAKE_WALL_SEG_BEHIND: -45,
 
-  // Gorilla farther backward than wall.
-  // Player should reach wall first, Road2 opens before gorilla collision.
+  // Monster spawn positions
   GHOST_MONSTER_SEG_FROM_END: -60,
 
   // Road2 finish setup
   GHOST_ROAD2_JUMP_SEG_FROM_END: -16,
   GHOST_ROAD2_MONSTER_SEG_FROM_END: -10,
+  GHOST_ROAD2_JUMP_BEFORE_MONSTER_SEGS: 50,
 
   // Legacy plate values kept safe
   GHOST_PLATE_SEG_BEHIND: -50,

@@ -1,13 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// MONSTER RENDER — Gorilla Boss (gorila3.png)
-// ─────────────────────────────────────────────────────
-// Reads frame layout from MONSTER_SPR in configs/sceneryConfig.js
-// rather than hand-coded coordinates. Swap the spritesheet by
-// editing MONSTER_SPR.cols / rows / frameW / frameH there.
-//
-// All frame selection is driven by `o.frame` — monster.js cycles
-// it through 0..19 in one continuous loop (per user request).
-// ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { trackLen } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
