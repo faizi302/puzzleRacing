@@ -123,13 +123,13 @@ export class CareerScene {
 
     const data = getPlayerData();
 
-    const LEVEL_UNLOCK_MODE = 'all_open';
+    const LEVEL_UNLOCK_MODE = 'manual'; // 'all_open' | 'progress' | 'manual' | 'hybrid'
     // 'all_open' = all levels open
     // 'progress' = unlock by completing previous level
     // 'manual'   = only manual levels open
     // 'hybrid'   = manual levels open + progress unlock also works
 
-    const MANUAL_UNLOCKED_LEVELS = [1, 2, 4];
+    const MANUAL_UNLOCKED_LEVELS = [1, 2,5];
 
     for (const lvl of LEVELS) {
       const card = document.createElement('div');
