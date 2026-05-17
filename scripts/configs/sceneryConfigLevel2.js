@@ -36,7 +36,7 @@ export const SPR_L2 = {
   cathedral: { sx: 1121, sy: 261, sw: 332, sh: 479, scale: 1.33, anchorY: 0.97 },
 
   // FINISH / START
-  finishBanner: { sx: 640, sy: 1260, sw: 600, sh: 317, scale: 1.14, anchorY: 0.98 },
+  finishBanner: { sx: 640, sy: 1260, sw: 600, sh: 320, scale: 1.0, anchorY: 0.96 },
 
   // COIN - single frame for normal pickup
   coin: {

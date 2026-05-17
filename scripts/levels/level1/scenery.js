@@ -1,35 +1,7 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 1 SCENERY — "THE GHOST START" (v4 — wall trigger)
-// ─────────────────────────────────────────────────────
-// Pure object placement. All puzzle BEHAVIOUR lives in
-// ./logic.js — this file just decides WHERE the props sit.
-//
-// LAYOUT:
-//
-//   ROAD 1 (the LIE)
-//   ─ Spawn ──────────── … long ride … ─── FAKE DOOR ─ FINISH
-//                                            ↑
-//                                     GORILLA BOSS (lethal)
-//   ─ FAKE WALL  (no collision) ← ~100 m BEHIND spawn
-//
-//   ROAD 2 (the REAL path — opened by walking through the wall)
-//   ─ Spawn ──────────── … long ride … ─── BIG JUMP ─ GORILLA ─ FINISH
-//                                            ↑
-//                                     fly OVER it
-//
-// Object flags this file emits:
-//
-//   isFakeWall    → looks 100 % solid stone behind spawn, NO
-//                   collision. Walking through it unlocks Road 2.
-//   isFakeDoor    → red-skull stone arch at end of Road 1.
-//                   ALWAYS a trap. Never opens.
-//   isMonster     → SINGLE Gorilla Boss patrolling near finish.
-//
-// Note: NO `isRealKey`, NO `isPressurePlate` (the v4 design
-// triggers Road 2 the moment the player drives through the
-// wall; there is no key to grab and no plate to hold).
+// LEVEL 1 SCENERY 
 // ═══════════════════════════════════════════════════════
-import { C } from '../../configs/roadConfig.js';
+import { C, START_PRE_FINISH } from '../../configs/roadConfig.js';
 import { trackLen, getActiveTrack } from '../../core/roadMap.js';
 import { P } from '../../systems/roadSystem.js';
 import { buildMonsters } from './monster.js';
@@ -37,23 +9,18 @@ import { buildMonsters } from './monster.js';
 export function buildSceneryObjects() {
   const objs = [];
   const onRoad2 = getActiveTrack() === 2;
-  const total   = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
+  const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
   const sideFlip = P.reverseMode ? -1 : 1;
 
-  // Trap zone seg index — where the fake door / jump ramp sits.
-  // Keep coins/hurdles/boosts out of this zone so the player
-  // has a clean sight line + clean approach.
   const trapAnchorSeg = onRoad2
     ? Math.max(8, total + (C.GHOST_ROAD2_JUMP_SEG_FROM_END ?? -16))
     : Math.max(8, total + (C.GHOST_FAKE_DOOR_SEG_FROM_END ?? -8));
   const TRAP_CLEAR_BEFORE = 22;
-  const TRAP_CLEAR_AFTER  = 6;
+  const TRAP_CLEAR_AFTER = 6;
   const isInTrapZone = (seg) =>
     seg > (trapAnchorSeg - TRAP_CLEAR_BEFORE) &&
     seg < (trapAnchorSeg + TRAP_CLEAR_AFTER);
 
-  // Wall zone — keep clutter away from the wall so it reads
-  // as a clear stone wall from the start line.
   const wallSeg = computeFakeWallSeg(total);
   const isNearWall = (seg) => Math.abs(seg - wallSeg) < 4;
 
@@ -164,25 +131,34 @@ export function buildSceneryObjects() {
 
   // ── On-road hurdles ─────────────────────────────────
   const HURDLES = [
-    { kind: 'gorillaRock', seg: 220,  offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 400,  offset: -0.58, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1080, offset:  0.00, size: 0.40 },
-    { kind: 'gorillaRock', seg: 1260, offset:  0.00, size: 0.40 },
-    { kind: 'stoneWall',   seg: 700,  offset:  0.70, size: 0.40 },
-    { kind: 'stoneWall',   seg: 930,  offset:  0.00, size: 0.40 },
-    { kind: 'woodFence',   seg: 365,  offset:  0.70, size: 0.70 },
-    { kind: 'woodFence',   seg: 600,  offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset: -0.58, size: 0.70 },
-    { kind: 'woodFence',   seg: 1190, offset:  0.70, size: 0.70 },
-    { kind: 'stoneBlock',  seg: 320,  offset:  0.00, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 670,  offset:  0.70, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 970,  offset: -0.58, size: 0.45 },
-    { kind: 'stoneBlock',  seg: 1390, offset:  0.00, size: 0.45 },
+    { kind: 'gorillaRock', seg: 55, offset: -0.85, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 400, offset: -0.85, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1080, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1260, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'gorillaRock', seg: 1760, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+
+    { kind: 'stoneWall', seg: 170, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 700, offset: 0.90, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 840, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+    { kind: 'stoneWall', seg: 930, offset: 0.00, size: 0.40, clearAirHeight: 10 },
+
+    { kind: 'woodFence', seg: 95, offset: 0.83, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 365, offset: 0.83, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 600, offset: -0.83, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1190, offset: -0.83, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1190, offset: 0.83, size: 0.70, clearAirHeight: 10 },
+    { kind: 'woodFence', seg: 1520, offset: 0.83, size: 0.70, clearAirHeight: 10 },
+
+    { kind: 'stoneBlock', seg: 320, offset: 0.00, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 670, offset: 0.83, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 970, offset: -0.77, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 1390, offset: 0.00, size: 0.45, clearAirHeight: 10 },
+    { kind: 'stoneBlock', seg: 1560, offset: 0.00, size: 0.45, clearAirHeight: 10 },
   ];
   for (const h of HURDLES) {
     if (h.seg >= total - 30) continue;
-    if (isInTrapZone(h.seg))  continue;
-    if (isNearWall(h.seg))    continue;
+    if (isInTrapZone(h.seg)) continue;
+    if (isNearWall(h.seg)) continue;
     objs.push({
       kind: h.kind, z: h.seg * C.SEG_LEN, side: 0,
       offset: h.offset, isHurdle: true, size: h.size,
@@ -191,8 +167,8 @@ export function buildSceneryObjects() {
 
   // ── Boost pads (mid-track) ──────────────────────────
   const BOOSTPAD_SPACING = 70;
-  const BOOSTPAD_FIRST   = 100;
-  const BOOSTPAD_LAST    = total - 100;
+  const BOOSTPAD_FIRST = 100;
+  const BOOSTPAD_LAST = total - 100;
   const lanePattern = [0.00, -0.55, 0.55];
   let padIdx = 0;
   for (let s = BOOSTPAD_FIRST; s < BOOSTPAD_LAST; s += BOOSTPAD_SPACING) {
@@ -227,49 +203,48 @@ export function buildSceneryObjects() {
 
 // ═══════════════════════════════════════════════════════
 // GHOST START PUZZLE BUILDER — Road 1 only
-// ─────────────────────────────────────────────────────
-// Behind spawn (≈100 m back, which wraps to near end-of-track):
-//   • Fake wall (3 lanes, looks solid, NO collision)
-// End of Road 1 (the trap zone):
-//   • Fake door (red-skull stone arch) — permanent trap
 // ═══════════════════════════════════════════════════════
 function buildGhostStartObjects(objs, total, wallSeg) {
   // Fake door at end of Road 1.
-  const fakeDoorSeg = clampSeg(
-    total + (C.GHOST_FAKE_DOOR_SEG_FROM_END ?? -8),
-    total
-  );
+const fakeDoorSeg = clampSeg(25, total);
 
-  // ── FAKE WALL — three lanes wide so it looks like a real
-  // continuous stone wall blocking the whole road back. The
-  // renderer fades it once `dissolved` is set (logic.js sets
-  // that flag the moment the player crosses through).
+  // ── FAKE WALL — 
   const wallLanes = [-0.66, 0.00, 0.66];
   for (const lane of wallLanes) {
     objs.push({
-      kind:        'stoneWall',
-      z:           wallSeg * C.SEG_LEN,
-      side:        0,
-      offset:      lane,
-      isFakeWall:  true,
+      kind: 'stoneWall',
+      z: wallSeg * C.SEG_LEN,
+      side: 0,
+      offset: lane,
+      isFakeWall: true,
       noCollision: true,
-      size:        0.95,
-      hidden:      false,
+      size: 0.95,
+      hidden: false,
     });
   }
 
+  objs.push({
+    kind: 'road2UnlockButton',
+    z: wallSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    isFakeWallButton: true,
+    noCollision: true,
+    size: 1.35,
+  });
+
   // ── FAKE DOOR — permanent red-skull trap ──
   objs.push({
-    kind:            'stoneArch',
-    z:               fakeDoorSeg * C.SEG_LEN,
-    side:            0,
-    offset:          0,
-    overhead:        true,
-    isFakeDoor:      true,
-    isDoorOpen:      false,        // INVARIANT — stays false forever
+    kind: 'stoneArch',
+    z: fakeDoorSeg * C.SEG_LEN,
+    side: 0,
+    offset: 0,
+    overhead: true,
+    isFakeDoor: true,
+    isDoorOpen: false,
     isPermanentTrap: true,
-    noCollision:     true,
-    forkTint:        'road1',
+    noCollision: true,
+    forkTint: 'road1',
   });
 }
 
@@ -323,18 +298,17 @@ function buildRoad2WinPath(objs, total) {
 }
 // ═══════════════════════════════════════════════════════
 // Resolve the fake wall segment index.
-// ─────────────────────────────────────────────────────
-// User wants ≈100 m behind the start line. We pick the
-// `GHOST_FAKE_WALL_SEG_BEHIND` config value (default -6
-// segments). With SEG_LEN = 240 world-units and our
-// world↔metres rough scaling, that lands in the right area.
-// `wrapBehind()` converts "negative offset from start" into
-// an absolute segment near the end of the track (because the
-// track wraps).
 // ═══════════════════════════════════════════════════════
 function computeFakeWallSeg(total) {
-  const segBehind = C.GHOST_FAKE_WALL_SEG_BEHIND ?? -6;
-  return wrapBehind(segBehind, total);
+  const startSeg = Math.floor((trackLen - START_PRE_FINISH) / C.SEG_LEN);
+  const behind = C.GHOST_FAKE_WALL_SEG_BEHIND ?? -6;
+
+  let target = startSeg + behind;
+
+  while (target < 1) target += total;
+  while (target > total - 2) target -= total;
+
+  return clampSeg(target, total);
 }
 
 // ── Helpers ────────────────────────────────────────────

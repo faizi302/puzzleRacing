@@ -1,23 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // COLLISION SYSTEM — Pickups + solid scenery collision
 // ─────────────────────────────────────────────────────────
-// NITRO PICKUP RULE (Asphalt-Legends behaviour):
-//   • Touching a booster bottle ONLY fills the nitro bar
-//     (+25% per bottle). It does NOT play any nitro sound,
-//     does NOT spawn a flame, does NOT boost speed.
-//   • If the bar is already full, the bottle is left alive
-//     (not consumed) and the next pass the player can still
-//     see/collect it.
-//   • The actual nitro burst (sound + flame + speed bonus)
-//     is fired EXCLUSIVELY by Spacebar, handled in
-//     player.js → tryActivateNitro().
-// ─────────────────────────────────────────────────────────
-// Tunnel / arch behaviour unchanged:
-//   ✅ tunnel never disappears
-//   ✅ player cannot pass through center pillar line
-//   ✅ player is pushed back + sideways
-//   ✅ if player drives again into same line, collision happens again
-// ═══════════════════════════════════════════════════════
 import { IMG } from '../visuals/objectRender.js';
 import { P, applyCollisionImpact } from './roadSystem.js';
 import { addNitroBottle } from '../player/player.js';
@@ -32,6 +15,8 @@ import { punishMemoryMistake } from '../levels/level4/logic.js';
 
 import { rewardCheckpoint, punishCheckpoint } from '../levels/level2/logic.js';
 import { triggerGatePass } from '../levels/level2/checkpointRender.js';
+import { JUMP_SPR } from '../configs/sceneryConfig.js';
+import { launchPlayerJump } from '../player/player.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -286,12 +271,8 @@ function isPickup(o) {
 function resetPickupWhenBehind(o, dz) {
   if (!o || !o._dead) return;
 
-  // Coins and keys are one-time pickups.
-  // They should NOT return in lap 2.
   if (o.isCoin || o.isKey) return;
 
-  // Boosters reset after player has passed them,
-  // so they work again on the next lap.
   if (o.isBooster && dz < -320) {
     o._dead = false;
   }
@@ -299,23 +280,10 @@ function resetPickupWhenBehind(o, dz) {
 
 function objCat(o) {
   if (!o || o._dead) return null;
-
-  // ── LEVEL 1 — GHOST START PUZZLE  ───────────────────
-  // Per the design diagram:
-  //   • Fake wall behind spawn → NO COLLISION (drive through).
-  //   • Fake door at trap end  → NO COLLISION (just a visual);
-  //                              the MONSTER is the real lethal
-  //                              element, handled in roadSystem.
-  //   • Pressure plate         → NO COLLISION (handled by
-  //                              level1/logic.js as a state event).
-  //   • Real key               → standard pickup once revealed.
-  //   • Monsters               → handled in roadSystem (kill check).
-  if (o.isMonster)        return null;
-  if (o.isPressurePlate)  return null;
-  if (o.isFakeWall)       return null;   // drive-through
-  if (o.isFakeDoor)       return null;   // visual only — monster does the killing
-
-  // Real key — only collectable while it's not hidden.
+  if (o.isMonster) return null;
+  if (o.isPressurePlate) return null;
+  if (o.isFakeWall) return null;   // drive-through
+  if (o.isFakeDoor) return null;
   if (o.isRealKey) {
     if (o.hidden) return null;
     return 'realkey';
@@ -360,7 +328,6 @@ function objLateralX(o) {
     o.isRealKey ||
     o.isPuzzleSwitch
   ) return o.offset || 0;
-  // Hurdles store their lane position directly in offset (no side multiplier).
   if (o.isHurdle) return o.offset || 0;
   return (o.side || 0) * (o.offset || 1.0);
 }
@@ -375,7 +342,7 @@ function canFx(o, ms = 450) {
 }
 
 function clampPlayerX() {
-  P.playerX = Math.max(-1.18, Math.min(1.18, P.playerX || 0));
+  P.playerX = Math.max(-1.32, Math.min(1.32, P.playerX || 0));
 }
 
 function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
@@ -438,12 +405,15 @@ function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 }
 
 function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
-  if (dz < -55 || dz > 105) return;
+  if (dz < -45 || dz > 80) return;
 
   const px = P.playerX || 0;
   const side = o.side || 0;
 
-  const edge = o.small ? 0.99 : 1.00;
+  if (o.noCollision && !o.isBoundaryPole) return;
+
+  const edge = o.isBoundaryPole ? 1.20 : 1.24;
+
   const hitLeft = side < 0 && px < -edge;
   const hitRight = side > 0 && px > edge;
 
@@ -451,38 +421,27 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
 
   const pushDir = hitLeft ? 1 : -1;
 
-  // Side collision also pushes back but less than tunnel.
-  // Almost no hit-back
-  // Almost no backward jump
   P.pos -= 0.2;
   if (P.pos < 0) P.pos += trackLen;
 
-  // Do not throw car away from pole
   P.playerX = px + pushDir * 0.001;
   clampPlayerX();
 
-  // Almost no speed loss
   const normalMax = C.NORMAL_MAX || C.MAX_SPEED || 70;
   P.speed = Math.min(P.speed * 0.98, normalMax);
 
-  try {
-    // applyCollisionImpact(cat === 'hardSide' ? 'hard' : 'medium', pushDir);
-  } catch (e) { }
+  spawnCrash(
+    screenAnchorX + (hitLeft ? -35 : 35),
+    screenAnchorY - 20
+  );
 
-  if (canFx(o, 220)) {
-    spawnCrash(
-      screenAnchorX + (hitLeft ? -35 : 35),
-      screenAnchorY - 20
-    );
-   safeSfx('crash', { volume: 0.28 });
+  if (canFx(o, 250)) {
+    safeSfx('crash');
   }
 }
 
 // ═══════════════════════════════════════════════════════
-// HURDLE COLLISION — positional, only blocks where the
-// hurdle physically sits. Player can freely pass any
-// clear gap beside or between hurdles.
-// (Logic unchanged — see original comments.)
+// HURDLE COLLISION 
 // ═══════════════════════════════════════════════════════
 const HURDLE_SPR_SCALE = {
   gorillaRock: 1.00,
@@ -560,9 +519,6 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   }
 }
 
-import { JUMP_SPR } from '../configs/sceneryConfig.js';
-import { launchPlayerJump } from '../player/player.js';
-
 export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY) {
   if (!sceneryObjs || !sceneryObjs.length) return;
   if (P.endPhase >= 1) return;
@@ -605,7 +561,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
         const lvl = getActiveLevel();
         if (lvl && typeof lvl.collectKey === 'function') {
-          try { lvl.collectKey(); } catch (e) {}
+          try { lvl.collectKey(); } catch (e) { }
         } else {
           // Fallback if logic hook missing.
           P.ghostKeyCollected = true;
@@ -678,36 +634,14 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     // ═══════════════════════════════════════════════════
     // BOOSTER (NITRO BOTTLE) — STORAGE-ONLY PICKUP
     // ─────────────────────────────────────────────────────
-    // Behaviour (Asphalt Legends):
-    //   • Try to add +25% to the bar via addNitroBottle().
-    //   • If the bar was already FULL, addNitroBottle() returns
-    //     false → we DO NOT mark the bottle dead, DO NOT spawn
-    //     the visual, DO NOT play any sound. Player can come back
-    //     and pick it up after they've burned some nitro.
-    //   • If it was stored, mark dead + spawn the soft "Charge"
-    //     glow. NO nitro sound is played here — the activation
-    //     SFX only plays when the player presses Spacebar in
-    //     player.js → tryActivateNitro().
-    // ═══════════════════════════════════════════════════
     if (cat === 'booster') {
       if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
-        const stored = addNitroBottle();   // +25%, returns false if bar is full
-        if (!stored) continue;             // bar full → leave the bottle alive
+        const stored = addNitroBottle();
+        if (!stored) continue;
 
         o._dead = true;
         spawnPickup(screenAnchorX, screenAnchorY - 90, true);
 
-        // ⚠️  DO NOT play 'nitro' SFX here. Pickup is silent.
-        //     The nitro activation sound is fired ONLY by Spacebar
-        //     inside player.js. Playing it here would cause the
-        //     "nitro sound auto plays randomly" bug.
-        //
-        //     If you want a soft *bottle-collected* feedback ping
-        //     (NOT the nitro burn sound), use 'coin' at low volume:
-        //
-        //       safeSfx('coin', { volume: 0.35 });
-        //
-        //     This is OFF by default to match the spec exactly.
       }
       continue;
     }
@@ -724,7 +658,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // ── JUMP RAMP ──
     // ── JUMP RAMP ──
     if (o.isJump) {
       const spr = JUMP_SPR[o.kind] || {};
@@ -756,16 +689,13 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // ── CHECKPOINT GATE (Level 2 — Shifting Maze) ────────
-    // RED  gate (isSafeGate)   → reward player
-    // GREEN gate (isDangerGate) → punish player
-    // Each gate triggers only once (o.passed guard).
+    // ── CHECKPOINT GATE (Level 2) ──
     if (o.isCheckpoint) {
       if (o.passed) continue;
 
-      const gateHalfW  = 0.22;
-      const gateAheadZ = 120;
-      const gateBackZ  = -60;
+      const gateHalfW = 0.36;
+      const gateAheadZ = 220;
+      const gateBackZ = -120;
 
       const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
 
@@ -777,7 +707,7 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
           spawnPickup(screenAnchorX, screenAnchorY - 80, false);
         } else {
           punishCheckpoint();
-          spawnCrash(screenAnchorX, screenAnchorY - 40);
+          spawnPickup(screenAnchorX, screenAnchorY - 80, true);
         }
       }
 

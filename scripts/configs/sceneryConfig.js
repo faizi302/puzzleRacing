@@ -31,7 +31,7 @@ export const SPR = {
 
   // Poles / banner
   poleStump:   { sx: 1560, sy: 1017, sw: 95,  sh: 250, scale: 0.22, anchorY: 1.00 },
-  startBanner: { sx: 0,    sy: 800,  sw: 640, sh: 300, scale: 1.0,  anchorY: 0.95 },
+  startBanner: { sx: 0,    sy: 770,  sw: 640, sh: 320, scale: 1.0,  anchorY: 0.97 },
 
   // Totem & booster
   totemOnly: { sx: 1325, sy: 12,   sw: 500, sh: 525, scale: .60, anchorY: 1.00 },
@@ -87,32 +87,7 @@ export const JUMP_SPR = {
 export const JUMP_KINDS = new Set(Object.keys(JUMP_SPR));
 export const JUMP_ATLAS_PATH = 'assets/level/level2/jumps.png';
 
-// ═══════════════════════════════════════════════════════
-// MONSTER ATLAS — Gorilla Boss  (gorila3.png)
-// ─────────────────────────────────────────────────────
-// Spritesheet is 600 × 334, laid out as 5 columns × 4 rows,
-// reading LEFT→RIGHT then TOP→BOTTOM = 20 frames total.
-//
-//   ┌────┬────┬────┬────┬────┐
-//   │  0 │  1 │  2 │  3 │  4 │
-//   ├────┼────┼────┼────┼────┤
-//   │  5 │  6 │  7 │  8 │  9 │
-//   ├────┼────┼────┼────┼────┤
-//   │ 10 │ 11 │ 12 │ 13 │ 14 │
-//   ├────┼────┼────┼────┼────┤
-//   │ 15 │ 16 │ 17 │ 18 │ 19 │
-//   └────┴────┴────┴────┴────┘
-//
-// 600 / 5 = 120 px wide,   334 / 4 = 83.5 px tall.
-// We round the height down to 83 to avoid sub-pixel bleed
-// between rows; the renderer applies tight insets anyway so
-// the missing half-pixel is invisible.
-//
-// All 20 frames are treated as ONE continuous animation cycle
-// (see monster.js). monsterRender.js consumes these dimensions
-// to compute each frame's source rectangle automatically; do
-// NOT hand-edit individual cell coordinates here.
-// ═══════════════════════════════════════════════════════
+
 export const MONSTER_SPR = {
   sx: 0,
   sy: 0,
@@ -121,9 +96,6 @@ export const MONSTER_SPR = {
   frameW: 120,
   frameH: 83,
 
-  // The gorilla art reaches the edges of each cell on this
-  // sheet, so the insets are tiny — just enough to hide the
-  // 1-px JPEG bleed between rows.
   insetL: 1,
   insetR: 1,
   insetT: 1,

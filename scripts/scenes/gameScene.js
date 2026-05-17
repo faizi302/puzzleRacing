@@ -1,9 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// GAME SCENE — Race loop. Now drives the new Asphalt-style
-// DOM HUD (uiRender.js) and shows the start hint exactly
-// once per race. Position/opponents are placeholder-ready
-// so AI rivals can be wired in without touching the HUD.
-// ═══════════════════════════════════════════════════════
 import { sizeCanvas } from '../core/canvas.js';
 import { readInput, lockInput, K } from '../core/inputController.js';
 import {
@@ -16,10 +10,6 @@ import {
   resetParts, tickParts, checkSceneryCollisions, tickEdgeScrape, spawnSkid,
 } from '../systems/collisionSystem.js';
 import { renderFrame } from '../visuals/render.js';
-// fmtT is the only thing still needed from playerRender — the old
-// updHUD/updLaps wrote into #h-spd/#h-lap/#ll which were removed
-// from index.html when the Asphalt-style HUD was added. Calling them
-// now would throw on null references and crash the game loop.
 import { fmtT } from '../visuals/playerRender.js';
 import { show } from '../systems/gameState.js';
 import {
@@ -35,7 +25,6 @@ import {
 } from '../player/playerData.js';
 import { setLevelImages } from '../visuals/objectRender.js';
 
-// ── NEW: Asphalt-style HUD + one-shot hint ──
 import {
   buildRaceHUD, updateRaceHUD, showRaceHUD, hideRaceHUD,
   showRaceHint, hideRaceHint,
@@ -50,18 +39,15 @@ import {
 
 import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 
-// ── Minimap (real-road-shape mini map painted each frame) ──
 import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
 
-// Lazily resolve an "enumerate opponents" helper if the
-// opponentSystem exposes one — minimap dots use it. Falls back
-// to count-only if none of the names are present.
+
 let _listOpponents = null;
 import('../systems/opponentSystem.js').then((mod) => {
   _listOpponents = mod.getOpponents
-                || mod.listOpponents
-                || mod.getOpponentList
-                || null;
+    || mod.listOpponents
+    || mod.getOpponentList
+    || null;
 }).catch(() => { /* no enumeration available */ });
 
 export class GameScene {
@@ -79,36 +65,25 @@ export class GameScene {
     this._failReason = null;
     this.level = null;
 
-    // Track stats for THIS race only — committed on win.
     this._raceCoins = 0;
     this._raceKeys = 0;
     this._lastKeyCount = 0;
     this._lastCoinCount = 0;
 
-    // ── Position / opponents (placeholder until AI rivals exist) ──
-    // When you add AI cars, set this._opponents = N and update
-    // this._position from your race-position system each frame.
-    this._opponents = 6;   // shows "1/6" like Asphalt
+    this._opponents = 6;
     this._position = 1;
 
-    // ── Minimap canvas (created lazily on first enter) ──
     this._minimapCanvas = null;
-    this._minimapCtx    = null;
+    this._minimapCtx = null;
 
 
     this._raceDistance = 0;
     this._lastProgressPos = 0;
 
-    // ── Minimap canvas (built on first enter, painted each frame) ──
     this._minimapCanvas = null;
-    this._minimapCtx    = null;
+    this._minimapCtx = null;
 
-    // ── Reverse-road hint trigger ──────────────────────────────
-    // The visible reminder for this is the orange race-start banner
-    // (showRaceHint) which already shows level.hintMessage. We
-    // purposely do NOT call notify() here, otherwise the player
-    // would see the same line twice (banner + lower toast card).
-    // The audio cue is kept so the trigger still has feedback.
+
     setReverseHintCallback(() => {
       try {
         if (getSetting('soundOn')) playSfx('coin');
@@ -149,15 +124,12 @@ export class GameScene {
     const curPos = P.pos || 0;
     let moved = curPos - this._lastProgressPos;
 
-    // Lap wrap: player crossed finish/start line forward
     if (moved < -trackLen * 0.5) {
       moved += trackLen;
 
       // NEW LAP: reset HUD progress back to 0
       this._raceDistance = 0;
     }
-
-    // Reverse wrap protection
     if (moved > trackLen * 0.5) {
       moved -= trackLen;
     }
@@ -201,29 +173,21 @@ export class GameScene {
       this.level.resetPuzzle();
     }
 
-    // ── Wire Level-1-style callbacks (no-op for levels that
-    //    don't expose these hooks) ──────────────────────────
     if (this.level?.setRoad2UnlockCallback) {
       this.level.setRoad2UnlockCallback(() => {
         try {
           notify(this.level.road2UnlockMessage
             || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!');
-        } catch (e) {}
-        try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) {}
+        } catch (e) { }
+        try { if (getSetting('soundOn')) playSfx('nitro'); } catch (e) { }
       });
     }
     if (this.level?.setDeathCallback) {
-      // The level fires this when the player dies. The actual
-      // lose modal is driven by P.raceFailed which logic.js sets
-      // at the same time, so this callback is mostly a no-op /
-      // optional hook for future SFX-only feedback.
+
       this.level.setDeathCallback(() => { /* lose-modal handled via P.raceFailed */ });
     }
 
-    // Rebuild minimap shape cache (road may differ per level
-    // and after a Road1→Road2 fork). Also create the canvas
-    // element once and show it for this race.
-    try { clearMinimapCache(); } catch (e) {}
+    try { clearMinimapCache(); } catch (e) { }
     this._ensureMinimap();
     this._showMinimap();
 
@@ -240,15 +204,12 @@ export class GameScene {
     show('game');
     sizeCanvas();
 
-    // ── Build & show the new HUD ──
     buildRaceHUD({ onPause: () => this.pause() });
     showRaceHUD();
     hideRaceHint();
 
-    // Show the minimap (created in _ensureMinimap() earlier).
     this._showMinimap();
 
-    // Force countdown ranking: 6/6
     this._showStartRank = true;
     updateRaceHUD(this._hudSnapshot());
 
@@ -257,14 +218,12 @@ export class GameScene {
 
     await playIntro();
 
-    /* Engine ignition sound ONCE before countdown */
     if (getSetting('soundOn')) {
       playSfx('engine', {
         volume: 0.35
       });
     }
 
-    /* Countdown */
     await countdown();
 
     this._showStartRank = false;
@@ -272,15 +231,10 @@ export class GameScene {
 
     lockInput(false);
 
-    /* After countdown → start race music loop */
     if (getSetting('musicOn')) {
-      startMusic(); // plays raceMusic: MusicGameModeRace.ogg
+      startMusic();
     }
 
-    // ── Race-start HINT (one-shot, replaces the old notify call) ──
-    // Title  = the dramatic headline
-    // Sub    = the explanatory line
-    // Auto-hides after 4.2s.
     const title = this.level.startMessage || 'LAP 1';
     const sub = this.level.hintMessage || '';
     showRaceHint(title, sub, 4200);
@@ -296,10 +250,7 @@ export class GameScene {
     hideRaceHUD();
   }
 
-  // ════════════════════════════════════════════════════
   // MINIMAP — create one canvas element, then paint it
-  // each frame from the loop with a snapshot of player/
-  // opponent positions. Positioned top-right of #s-game.
   // ════════════════════════════════════════════════════
   _ensureMinimap() {
     if (this._minimapCanvas && document.body.contains(this._minimapCanvas)) {
@@ -310,7 +261,7 @@ export class GameScene {
     if (!cv) {
       cv = document.createElement('canvas');
       cv.id = 'mini-map';
-      cv.width  = 180;
+      cv.width = 180;
       cv.height = 120;
       cv.style.cssText = [
         'position:absolute',
@@ -326,7 +277,7 @@ export class GameScene {
       host.appendChild(cv);
     }
     this._minimapCanvas = cv;
-    this._minimapCtx    = cv.getContext('2d');
+    this._minimapCtx = cv.getContext('2d');
   }
 
   _showMinimap() {
@@ -340,7 +291,6 @@ export class GameScene {
   _paintMinimap() {
     if (!this._minimapCanvas) return;
 
-    // Best-effort opponent enumeration — falls back silently.
     let opps = [];
     if (_listOpponents) {
       try {
@@ -350,12 +300,12 @@ export class GameScene {
     }
 
     renderInGameMinimap(this._minimapCanvas, {
-      level:      this.level,
+      level: this.level,
       trackLen,
-      playerPos:  P.pos || 0,
+      playerPos: P.pos || 0,
       playerLane: P.playerX || 0,
-      onRoad2:    !!P.onRoad2,
-      opponents:  opps,
+      onRoad2: !!P.onRoad2,
+      opponents: opps,
     });
   }
 
@@ -393,12 +343,10 @@ export class GameScene {
     this._failReason = null;
     this._showStartRank = false;
 
-    // Clear engine-side flags so the new race starts clean.
     P.raceFailed = false;
     P.raceFinished = false;
     P._failReason = null;
-    P.ghostDead = false;       // logic.js flag — also reset here
-                                // in case puzzle reset is skipped.
+    P.ghostDead = false;
     stopAll();
     stopMusic();
     hideRaceHUD();
@@ -436,31 +384,14 @@ export class GameScene {
     P.endPhase = 2;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // LOSE FLOW
-  // ───────────────────────────────────────────────────────────
-  // Mirrors endRace() but for failure cases. No rewards are
-  // persisted (player did not complete the level), and the
-  // lose panel is shown with the player's progress so they can
-  // see how close they got.
-  //
-  // Triggered either by:
-  //   • `P.raceFailed` flag set by any engine system, OR
-  //   • calling `gameScene.fail(reason)` from anywhere
-  //     (timer, AI rivals, health system, etc.)
-  // ═══════════════════════════════════════════════════════════
   async loseRace(reason) {
     this.loseShown = true;
     lockInput(true);
     stopMusic();
-    // Reuse 'coin' as a soft negative cue — swap to a dedicated
-    // 'lose' sfx if you add one to the audio system.
     if (getSetting('soundOn')) {
       try { playSfx('coin'); } catch (e) { }
     }
 
-    // Compute level progress as a percentage of the track lap-distance
-    // the player has covered so far. Caps at 100%.
     const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
     const lapsDone = Math.max(0, P.lapCount || 0);
     const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
@@ -481,14 +412,12 @@ export class GameScene {
     document.getElementById('ls-p').textContent = posTxt;
     document.getElementById('ls-prog-pct').textContent = `${pct}%`;
 
-    // Hide HUD before the panel slides in
     hideRaceHUD();
     hideRaceHint();
     this._hideMinimap();
 
     show('lose');
 
-    // Animate the bar fill on next frame so the CSS transition runs.
     requestAnimationFrame(() => {
       const fill = document.getElementById('ls-prog-fill');
       if (fill) fill.style.width = `${pct}%`;
@@ -497,8 +426,6 @@ export class GameScene {
     P.endPhase = 2;
   }
 
-  // Public trigger — call from anywhere to force a loss.
-  // Example: gameScene.fail('Time ran out!')
   fail(reason) {
     if (this.winShown || this.loseShown) return;
     P.raceFailed = true;
@@ -520,23 +447,15 @@ export class GameScene {
   }
 
   // ── HUD data assembler ──────────────────────────────────────
-  // Pulls everything the HUD needs from P + trackLen + level meta.
-  // Everything here is a read-only snapshot, no mutation.
   _hudSnapshot() {
     const totalLaps = (this.level?.totalLaps) || P.totalLaps || 1;
     const lap = Math.max(1, Math.min(totalLaps, (P.lapCount || 0) + 1));
 
-    // Distance through the CURRENT lap.
-    // P.pos is a forward distance accumulator in your engine;
-    // use modulo-trackLen for safety.
     const distPct = trackLen > 0 ? this._raceDistance / trackLen : 0;
 
     return {
       speed: Math.round(
-        Math.min(
-          Math.abs(P.speed || 0),
-          P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX
-        ) / C.KMH_TO_WORLD
+        (Math.abs(P.speed || 0)) / C.KMH_TO_WORLD
       ),
       distPct,
       lap,
@@ -599,10 +518,6 @@ export class GameScene {
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
 
-    // ── DOM HUD is the only source of truth now. ──
-    // (Old in-canvas updHUD/updLaps writers removed — they wrote to
-    //  #h-spd/#h-lap/#ll which no longer exist in index.html.)
-
     // ── Drive the Asphalt-style HUD ──
     updateRaceHUD(this._hudSnapshot());
 
@@ -614,8 +529,6 @@ export class GameScene {
 
     if (P.raceFinished && !this.winShown) this.endRace();
     else if (P.raceFailed && !this.loseShown && !this.winShown) {
-      // Prefer a reason set by puzzle logic (P._failReason) over the
-      // one cached when gameScene.fail() was called externally.
       const reason = P._failReason || this._failReason;
       this.loseRace(reason);
     }

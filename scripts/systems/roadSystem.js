@@ -7,9 +7,7 @@ import { C, START_PRE_FINISH } from '../configs/roadConfig.js';
 import {
   findSeg, trackLen, switchToTrack,
 } from '../core/roadMap.js';
-
 import { getActiveLevel } from '../core/activeLevel.js';
-
 import { setEngineSpeed, setBrakeLoop, playSfx } from '../core/audio.js';
 import { K, consumeDownPress } from '../core/inputController.js';
 
@@ -74,14 +72,17 @@ export const P = {
   impactFlash: 0,
 
   // ── GHOST START PUZZLE STATE (Level 1) ──────────────
-  // The pressure plate, hidden wall, fake-key transform and
-  // the lethal monster wall all read these flags.
-  ghostPlateHeld: 0,        // seconds the car has been sitting on the plate
-  ghostPlateActive: false,  // becomes true once held >= GHOST_PLATE_HOLD_TIME
-  ghostKeyCollected: false, // true after the (now-real) key is picked up
-  ghostDead: false,         // set when a monster lands a lethal hit
+  ghostPlateHeld: 0,
+  ghostPlateActive: false,
+  ghostKeyCollected: false,
+  ghostDead: false,
   ghostHiddenWallRevealed: false,
   ghostTrapHit: false,
+
+  raceFailed: false,
+  _failReason: null,
+
+  _edgeHitSfxCooldown: 0,
 };
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -114,6 +115,8 @@ export function resetPhys() {
   P.lapCount = 0;
   P.raceTime = 0;
   P.raceFinished = false;
+  P.raceFailed = false;
+  P._failReason = null;
   P.isOffTrack = false;
   P.isBraking = false;
   P.roadCurve = 0;
@@ -169,11 +172,13 @@ export function resetPhys() {
   P.ghostDoorOpen = false;
   P.ghostPhase = 'spawn';
 
+  P._edgeHitSfxCooldown = 0;
+
   // If active level has its own puzzle reset hook, call it.
   // (Used by level1/logic.js — mirrors level2's resetLevel2Puzzle.)
   const lvl = getActiveLevel?.();
   if (lvl && typeof lvl.resetPuzzle === 'function') {
-    try { lvl.resetPuzzle(); } catch (e) {}
+    try { lvl.resetPuzzle(); } catch (e) { }
   }
 }
 
@@ -294,8 +299,6 @@ export function forceUnlockReverseSecret() {
 function tickReversePuzzle(d) {
   const lvl = getActiveLevel();
 
-  // LEVEL 3 uses Symbol Puzzle,
-  // not reverse-driving puzzle
   if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') {
     return;
   }
@@ -313,24 +316,9 @@ function tickReversePuzzle(d) {
         _reverseHintCb();
       }
     }
-
-    // if (P.reverseDistance >= C.REVERSE_SECRET_DISTANCE) {
-    //   unlockReverseSecret();
-    // }
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// LEVEL 1 PUZZLE + MONSTER hooks (delegates to level1/logic.js)
-// ─────────────────────────────────────────────────────
-// All Ghost Start state and behaviour lives in the dedicated
-// level1/logic.js (mirroring the level2/logic.js pattern).
-// roadSystem only forwards the per-tick dt to that module —
-// no ghost-puzzle math here.
-//
-// Uses a lazy dynamic import of visuals/sceneryRender to avoid
-// the circular dependency with that module.
-// ═══════════════════════════════════════════════════════
 let _sceneryObjsRef = null;
 
 async function getSceneryObjs() {
@@ -341,7 +329,7 @@ async function getSceneryObjs() {
 }
 
 // Resolve scenery + level1 logic at module load.
-getSceneryObjs().catch(() => {});
+getSceneryObjs().catch(() => { });
 
 function tickLevel1Puzzle(d) {
   const lvl = getActiveLevel();
@@ -353,7 +341,7 @@ function tickLevel1Puzzle(d) {
 
   // Forward the tick to the level's logic module.
   if (typeof lvl.updatePuzzle === 'function') {
-    try { lvl.updatePuzzle(d, list); } catch (e) {}
+    try { lvl.updatePuzzle(d, list); } catch (e) { }
   }
 }
 
@@ -372,7 +360,7 @@ function tickLevel1Monsters(d) {
       if (o.isMonster && !o._dead) monsters.push(o);
     }
     if (monsters.length) {
-      try { lvl.updateMonsters(monsters, P.pos, d); } catch (e) {}
+      try { lvl.updateMonsters(monsters, P.pos, d); } catch (e) { }
     }
   }
 
@@ -392,29 +380,31 @@ function tickLevel1Monsters(d) {
 
     let dz = m.z - P.pos;
     while (dz < -trackLen / 2) dz += trackLen;
-    while (dz >  trackLen / 2) dz -= trackLen;
+    while (dz > trackLen / 2) dz -= trackLen;
 
     const dxLane = Math.abs((P.playerX || 0) - (m.offset || 0));
 
-if (
-  Math.abs(dz) < killZ &&
-  dxLane < killX &&
-  !m.hasHitPlayer
-) {
-  m.hasHitPlayer = true;
+    if (
+      Math.abs(dz) < killZ &&
+      dxLane < killX &&
+      !m.hasHitPlayer
+    ) {
+      m.hasHitPlayer = true;
 
-  if (typeof lvl.triggerMonsterKill === 'function') {
-    try { lvl.triggerMonsterKill(); } catch (e) {}
-  }
+      if (typeof lvl.triggerMonsterKill === 'function') {
+        try { lvl.triggerMonsterKill(); } catch (e) { }
+      }
 
-  break;
-}
+      break;
+    }
   }
 }
 
 export function updatePhys(inp, dt, len) {
   const d = Math.min(dt, 0.05);
   tickCollisionState(d);
+
+  P._edgeHitSfxCooldown = Math.max(0, (P._edgeHitSfxCooldown || 0) - d);
 
   // ── LEVEL 1 puzzle + monster updates ────────────────
   tickLevel1Puzzle(d);
@@ -467,7 +457,14 @@ export function updatePhys(inp, dt, len) {
     }
   }
 
-  const speedCap = P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX;
+  let speedCap = P.nitroActive ? C.NITRO_MAX : C.NORMAL_MAX;
+
+  if ((P.level2SpeedBoostTimer || 0) > 0) {
+    speedCap = Math.max(
+      speedCap,
+      P.level2SpeedBoostTarget || C.NORMAL_MAX
+    );
+  }
   const reverseMax = -(C.REVERSE_MAX || C.NORMAL_MAX * 0.35);
   const reverseAccel = C.REVERSE_ACCEL || C.ACCEL * 0.55;
   const brakePower = Math.abs(C.BRAKE || C.ACCEL * 1.4);
@@ -647,7 +644,9 @@ export function updatePhys(inp, dt, len) {
   const curveFollow = 1 - Math.pow(0.015, d);
   P.cameraCurve += (P.roadCurve - P.cameraCurve) * curveFollow;
 
-  const ROAD_EDGE_LIMIT = 1.15;
+  // Bigger value = collision happens later, when car visually reaches boundary
+  const ROAD_EDGE_LIMIT = 1.16;
+  const ROAD_HARD_HIT_LIMIT = 1.20;
 
   const hitL = P.playerX < -ROAD_EDGE_LIMIT;
   const hitR = P.playerX > ROAD_EDGE_LIMIT;
@@ -658,16 +657,32 @@ export function updatePhys(inp, dt, len) {
     const outside = Math.abs(P.playerX) - ROAD_EDGE_LIMIT;
 
     P.playerX += dirBack * (0.020 + outside * 0.018);
+
     if (P.speed > C.OFFRD_LIM) {
       P.speed += C.OFFRD_DC * d * (0.28 + outside * 0.5);
     }
 
-    if (Math.abs(P.playerX) > ROAD_EDGE_LIMIT + 0.02 && P.hitCooldown <= 0) {
-      applyCollisionImpact('wall', dirBack);
+    // continuous side touching sound
+    if ((P.speed || 0) > 20) {
+      playSfx('crash', {
+        loop: true,
+        volume: 0.50,
+        key: 'edge_screech',
+      });
     }
+
+    if (Math.abs(P.playerX) > ROAD_HARD_HIT_LIMIT && P.hitCooldown <= 0) {
+      applyCollisionImpact('wall', dirBack);
+      playSfx('crash', { volume: 0.28 });
+    }
+  } else {
+    playSfx('crash', {
+      stop: true,
+      key: 'edge_screech',
+    });
   }
 
-  P.playerX = clamp(P.playerX, -1.25, 1.25);
+  P.playerX = clamp(P.playerX, -1.38, 1.38);
 
   P._prevPos = P.pos;
 
@@ -685,25 +700,56 @@ export function updatePhys(inp, dt, len) {
   P.raceTime += d;
 
   // ── Win logic ───────────────────────────────────────
-// ── Win logic ───────────────────────────────────────
-// Road1 never wins.
-// Road2 wins on FIRST finish crossing only.
-if (crossedForward) {
-  if (P.onRoad2 && P.secretUnlocked) {
-    P.lapCount = 1;
-    P.lapTimes.push(P.lapTime);
+  if (crossedForward) {
+    const lvl = getActiveLevel?.();
+
+    // LEVEL 2 — first crossing is ONLY the start line, not lap complete
+    if (lvl?.id === 'level2') {
+      if (P._firstCrossing) {
+        P._firstCrossing = false;
+        P.lapTime = 0;
+        return;
+      }
+
+      const required = P.level2RequiredCp || 5;
+      const passed = P.level2CpPassed || 0;
+
+      if (passed >= required || P.level2Solved) {
+        P.lapCount = 1;
+        P.lapTimes.push(P.lapTime);
+        P.lapTime = 0;
+
+        P.raceFinished = true;
+        P.endPhase = 1;
+        P.endTime = 0;
+        return;
+      }
+
+      P.lapCount = 1;
+      P.raceFailed = true;
+      P._failReason = `You missed ${required - passed} red checkpoint${required - passed === 1 ? '' : 's'}`;
+      P.endPhase = 1;
+      P.endTime = 0;
+      P.speed = Math.max(120, P.speed * 0.35);
+      return;
+    }
+
+    // LEVEL 1 secret road win
+    if (P.onRoad2 && P.secretUnlocked) {
+      P.lapCount = 1;
+      P.lapTimes.push(P.lapTime);
+      P.lapTime = 0;
+
+      P.raceFinished = true;
+      P.endPhase = 1;
+      P.endTime = 0;
+      return;
+    }
+
+    // Road1 finish crossing is fake/trap route, not win.
+    P._firstCrossing = false;
     P.lapTime = 0;
-
-    P.raceFinished = true;
-    P.endPhase = 1;
-    P.endTime = 0;
-    return;
   }
-
-  // Road1 finish crossing is fake/trap route, not win.
-  P._firstCrossing = false;
-  P.lapTime = 0;
-}
 }
 
 export const kmh = () => {

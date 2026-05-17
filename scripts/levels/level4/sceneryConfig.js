@@ -35,5 +35,5 @@ export const SPR_L4 = {
     renderMax: 64,
   },
 
-  Finish: { sx: 1080, sy: 770, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
+  Finish: { sx: 1080, sy: 770, sw: 612, sh: 317, scale: 1.00, anchorY: 0.97 },
 };

@@ -1,19 +1,7 @@
-// ═══════════════════════════════════════════════════════
 // ROAD RENDER — Textured road from segment atlas
 // ─────────────────────────────────────────────────────
-// PERFORMANCE CHANGES vs previous build:
-//   • Adaptive SLICE_PX — fewer drawImage calls per segment
-//     (was fixed at 3 px, now scales with segment height so
-//     large near-camera segments don't spam hundreds of draws).
-//   • Fog overlay merged into the same ctx.save/restore block
-//     as the clip (was two separate save/restore pairs).
-//   • Hard cap of MAX_SLICES = 10 per segment.
-//   • Shared clip path re-used for fog fill (no second beginPath).
-// These changes cut draw-call count by ~55-70% on curves where
-// near-camera segments are tall, which is where stuttering hit.
-// ═══════════════════════════════════════════════════════
 import {
-  C, COL,
+  C, COL, START_PRE_FINISH,
   SEG_TEX,
   SEG_TEX_CYCLE_ROAD1, SEG_TEX_CYCLE_ROAD2,
   SEG_TEX_RUN, ROAD_TEX_FRAC,
@@ -22,9 +10,10 @@ import {
 import {
   segs, trackLen, findSeg, project, getActiveTrack,
 } from '../core/roadMap.js';
-import { P } from '../systems/roadSystem.js';
+import { P, clamp } from '../systems/roadSystem.js';
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { IMG } from './objectRender.js';
+import { getActiveLevel } from '../core/activeLevel.js';
 
 export let _visibleSegs = [];
 
@@ -87,20 +76,6 @@ export function drawRoad() {
       fogA
     );
 
-    drawRoad2UnlockCircle(
-      ctx,
-      seg.index,
-      seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
-      seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w
-    );
-
-    // drawLevel2MazeArrows(
-    //   ctx,
-    //   seg.p1.scr.x, seg.p1.scr.y, seg.p1.scr.w,
-    //   seg.p2.scr.x, seg.p2.scr.y, seg.p2.scr.w,
-    //   seg.index
-    // );
-
     _visibleSegs.push({
       index: seg.index,
       y1: seg.p1.scr.y,
@@ -118,67 +93,8 @@ export function drawRoad() {
   }
 
   drawNearestRoadExtension(ctx, W, H);
+  drawRoad2UnlockCircleBehindStart(ctx, W, H);
 }
-
-// function drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, lane, color) {
-//   const cx1 = x1 + w1 * lane;
-//   const cx2 = x2 + w2 * lane;
-
-//   const cy = (y1 + y2) * 0.5;
-//   const cx = (cx1 + cx2) * 0.5;
-
-//   const segH = Math.abs(y1 - y2);
-//   if (segH < 8) return;
-
-//   const size = Math.max(8, Math.min(34, segH * 0.85));
-//   const half = size * 0.5;
-
-//   ctx.save();
-//   ctx.globalAlpha = 0.82;
-//   ctx.fillStyle = color;
-//   ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-//   ctx.lineWidth = Math.max(1, size * 0.08);
-
-//   ctx.beginPath();
-//   ctx.moveTo(cx, cy - size);
-//   ctx.lineTo(cx + half, cy);
-//   ctx.lineTo(cx + half * 0.35, cy);
-//   ctx.lineTo(cx + half * 0.35, cy + size);
-//   ctx.lineTo(cx - half * 0.35, cy + size);
-//   ctx.lineTo(cx - half * 0.35, cy);
-//   ctx.lineTo(cx - half, cy);
-//   ctx.closePath();
-
-//   ctx.fill();
-//   ctx.stroke();
-//   ctx.restore();
-// }
-
-// function drawLevel2MazeArrows(ctx, x1, y1, w1, x2, y2, w2, segIndex) {
-//   if (P.level2MazePhase == null) return;
-
-//   // same puzzle zone as scenery
-//   if (segIndex < 180 || segIndex > 1800) return;
-
-//   // draw arrow every few segments, not full color road
-//   if (segIndex % 18 !== 0) return;
-
-//   if (P.level2MazePhase === 'preview') {
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(255,50,50,1)');
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(40,255,90,1)');
-//   }
-
-//   if (P.level2MazePhase === 'glitch') {
-//     const pulse = 0.45 + 0.45 * Math.sin(performance.now() * 0.04);
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, `rgba(255,255,0,${pulse})`);
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, `rgba(255,0,255,${pulse})`);
-//   }
-
-//   if (P.level2MazePhase === 'run') {
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, -0.60, 'rgba(40,255,90,1)');
-//     drawArrowOnLane(ctx, x1, y1, w1, x2, y2, w2, 0.60, 'rgba(255,50,50,1)');
-//   }
-// }
 
 // ── Segment texture draw (performance-optimised) ───────
 const MAX_SLICES = 10;
@@ -332,42 +248,50 @@ function drawNearestRoadExtension(ctx, W, H) {
   ctx.restore();
 }
 
-function drawRoad2UnlockCircle(ctx, segIndex, x1, y1, w1, x2, y2, w2) {
+function drawRoad2UnlockCircleBehindStart(ctx, W, H) {
+  const lvl = getActiveLevel?.();
+
+  if (lvl?.id !== 'level1') return;
+  if ((P.speed || 0) >= -10) return;
+
   if (getActiveTrack() !== 1) return;
   if (P.secretUnlocked || P.onRoad2) return;
 
-  const total = Math.max(1, Math.floor(trackLen / C.SEG_LEN));
-  const behind = C.GHOST_FAKE_WALL_SEG_BEHIND ?? -6;
-  const targetSeg = Math.max(4, Math.min(total - 4, total + behind));
+  const startZ = trackLen - START_PRE_FINISH;
+  const behindSegs = Math.abs(C.GHOST_FAKE_WALL_SEG_BEHIND ?? -6);
+  const buttonZ = startZ - behindSegs * C.SEG_LEN;
 
-  if (Math.abs(segIndex - targetSeg) > 1) return;
+  let dz = P.pos - buttonZ;
 
-  const cx = (x1 + x2) * 0.5;
-  const cy = (y1 + y2) * 0.5;
-  const rw = (w1 + w2) * 0.5;
+  // handle wrap safely
+  if (dz < -trackLen / 2) dz += trackLen;
+  if (dz > trackLen / 2) dz -= trackLen;
+
+  // show only when player is near the reverse-start button
+  if (Math.abs(dz) > C.SEG_LEN * 10) return;
+
+  const near = clamp(1 - Math.abs(dz) / (C.SEG_LEN * 10), 0, 1);
+
+  const cx = W * 0.5;
+  const cy = H * (0.63 + 0.12 * near);
+
+  const rx = W * (0.13 + 0.06 * near);
+  const ry = H * (0.035 + 0.025 * near);
 
   ctx.save();
-  ctx.globalAlpha = 0.90;
+  ctx.globalAlpha = 0.95;
 
-  ctx.fillStyle = 'rgba(0, 220, 255, 0.35)';
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.lineWidth = Math.max(2, rw * 0.018);
+  ctx.fillStyle = 'rgba(0, 220, 255, 0.38)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.98)';
+  ctx.lineWidth = 4;
 
   ctx.beginPath();
-  ctx.ellipse(
-    cx,
-    cy,
-    rw * 0.35,
-    Math.max(10, Math.abs(y1 - y2) * 1.8),
-    0,
-    0,
-    Math.PI * 2
-  );
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.font = `bold ${Math.max(13, rw * 0.08)}px Orbitron, Arial`;
+  ctx.fillStyle = 'white';
+  ctx.font = `bold ${Math.max(18, W * 0.018)}px Orbitron, Arial`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('ROAD 2', cx, cy);

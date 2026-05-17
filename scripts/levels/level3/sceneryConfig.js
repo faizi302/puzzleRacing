@@ -16,7 +16,7 @@ export const SPR_L3 = {
   BarnGate: { sx: 1165, sy: 5, sw: 650, sh: 280, scale: 1.30, anchorY: 1.0 },
   RallyArch: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
 
-  Finish: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
+  Finish: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.00, anchorY: 0.97 },
 
   Coin: { sx: 556, sy: 845, sw: 83, sh: 88, scale: 1, anchorY: 0.90, renderBase: 48, renderMin: 8, renderMax: 66, },
   Boost: { sx: 6, sy: 961, sw: 220, sh: 225, scale: 0.80, anchorY: 0.97 },

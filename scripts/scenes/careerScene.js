@@ -123,11 +123,7 @@ export class CareerScene {
 
     const data = getPlayerData();
 
-    const LEVEL_UNLOCK_MODE = 'manual'; // 'all_open' | 'progress' | 'manual' | 'hybrid'
-    // 'all_open' = all levels open
-    // 'progress' = unlock by completing previous level
-    // 'manual'   = only manual levels open
-    // 'hybrid'   = manual levels open + progress unlock also works
+    const LEVEL_UNLOCK_MODE = 'all_open'; // 'all_open' | 'progress' | 'manual' | 'hybrid'
 
     const MANUAL_UNLOCKED_LEVELS = [1, 2,5];
 

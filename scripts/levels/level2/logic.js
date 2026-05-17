@@ -1,45 +1,19 @@
-import { P, clamp, addCameraShake } from '../../systems/roadSystem.js';
+import { P, clamp } from '../../systems/roadSystem.js';
+import { C } from '../../configs/roadConfig.js';
 import { playSfx } from '../../core/audio.js';
 
-// ═══════════════════════════════════════════════════════
-// LEVEL 2 — THE SHIFTING MAZE — LOGIC
-// ─────────────────────────────────────────────────────
-// MECHANIC OVERVIEW:
-//
-//   Shadow checkpoints painted on the road surface.
-//   Each checkpoint group has 3 gates (L / C / R lane).
-//
-//   COLOR DECEPTION:
-//     RED  gate  → actually SAFE   (score a checkpoint)
-//     GREEN gate → actually DANGER  (take damage + slow)
-//
-//   HINT (shown in HUD before glitch):
-//     "🟢 GREEN = safe path! 🔴 RED = danger!"  ← WRONG on purpose
-//
-//   After the GLITCH phase, truth is revealed:
-//     "⚠️ Wait... RED was safe all along!"
-//
-//   Phases:
-//     preview  (0 → previewTime) : hint is shown, gates visible
-//     glitch   (0 → glitchTime)  : screen glitch, colors flash
-//     run      (ongoing)         : truth revealed, player must
-//                                  now choose correctly
-//
-// CHECKPOINT COMPLETION:
-//   Player must pass through at least REQUIRED_CP safe gates
-//   to "complete" the maze section. Progress tracked in
-//   P.level2CpPassed. Race end condition is handled externally.
-// ═══════════════════════════════════════════════════════
+const NORMAL_SPEED = 100;
+const RED_BOOST_SPEED = 120;
+const GREEN_BOOST_SPEED = 140;
+const CHECKPOINT_BOOST_TIME = 3.0;
 
 export const L2_MAZE = {
-  phase: 'preview',  // preview | glitch | run
+  phase: 'preview',
   timer: 0,
   previewTime: 5.0,
   glitchTime: 1.2,
 };
 
-// How many safe checkpoints the player must pass to "beat" the maze.
-// Set to 0 to make it purely punishing (no required count).
 export const REQUIRED_CP = 5;
 
 export function resetLevel2Puzzle() {
@@ -49,12 +23,19 @@ export function resetLevel2Puzzle() {
   P.level2MazePhase = 'preview';
   P.level2MazeShifted = false;
   P.level2Glitch = 0;
-  P.level2CpPassed = 0;   // safe gates passed
-  P.level2CpHit = 0;   // danger gates hit (for scoring/penalty tracking)
+  P.level2CpPassed = 0;
+  P.level2CpHit = 0;
   P.level2Solved = false;
   P.raceFinished = false;
   P.endPhase = 0;
   P.endTime = 0;
+
+  P.level2SpeedBoostTimer = 0;
+  P.level2SpeedBoostTarget = NORMAL_SPEED;
+
+  P.raceFailed = false;
+  P._failReason = null;
+  P.level2RequiredCp = REQUIRED_CP;
 }
 
 export function updateLevel2Puzzle(dt, sceneryObjs = []) {
@@ -80,10 +61,6 @@ export function updateLevel2Puzzle(dt, sceneryObjs = []) {
     P.level2MazeShifted = true;
     P.level2Glitch = 0;
 
-    // No visual changes needed — the checkpoints keep their
-    // colors. The SHIFT is in the HUD hint message only.
-    // Players who trusted "green=safe" now realise the truth.
-
     try { playSfx('nitro', { volume: 0.5 }); } catch (e) { }
   }
 
@@ -91,18 +68,43 @@ export function updateLevel2Puzzle(dt, sceneryObjs = []) {
   if (P.level2Glitch > 0) {
     P.level2Glitch = Math.max(0, P.level2Glitch - dt * 1.7);
   }
+
+  if (P.level2SpeedBoostTimer > 0) {
+    P.level2SpeedBoostTimer -= dt;
+
+    P.speed = Math.max(
+      P.speed || 0,
+      P.level2SpeedBoostTarget || (NORMAL_SPEED * C.KMH_TO_WORLD)
+    );
+    if (P.level2SpeedBoostTimer <= 0) {
+      P.level2SpeedBoostTimer = 0;
+
+      // return to normal speed smoothly
+      if ((P.speed || 0) > NORMAL_SPEED) {
+        P.speed = NORMAL_SPEED * C.KMH_TO_WORLD;
+      }
+    }
+  }
 }
 
 // ─── Called when player drives through a SAFE (red) gate ──
 export function rewardCheckpoint() {
   P.level2CpPassed = (P.level2CpPassed || 0) + 1;
 
-  P.speed = Math.min((P.speed || 0) + 8, (P.maxSpeed || 220));
-  P.pickupFlash = 0.6;
+  P.level2SpeedBoostKmh = RED_BOOST_SPEED;
+  P.level2SpeedBoostTarget = RED_BOOST_SPEED * C.KMH_TO_WORLD;
+  P.level2SpeedBoostTimer = CHECKPOINT_BOOST_TIME;
+  P.speed = Math.max(
+    P.speed || 0,
+    RED_BOOST_SPEED * C.KMH_TO_WORLD
+  );
 
-  try { playSfx('coin', { volume: 0.55 }); } catch (e) { }
+  P.pickupFlash = 0.35;
 
-  // COMPLETE LEVEL AFTER REQUIRED RED CHECKPOINTS
+  try {
+    playSfx('coin', { volume: 0.35 });
+  } catch (e) { }
+
   if (P.level2CpPassed >= REQUIRED_CP) {
     completeLevel2();
   }
@@ -124,26 +126,30 @@ function completeLevel2() {
 export function punishCheckpoint() {
   P.level2CpHit = (P.level2CpHit || 0) + 1;
 
-  P.damage = clamp((P.damage || 0) + 18, 0, 100);
-  P.impactFlash = 1;
-  addCameraShake(0.55, 0.40);
+  P.level2SpeedBoostKmh = GREEN_BOOST_SPEED;
+  P.level2SpeedBoostTarget = GREEN_BOOST_SPEED * C.KMH_TO_WORLD;
+  P.level2SpeedBoostTimer = CHECKPOINT_BOOST_TIME;
+  P.speed = Math.max(
+    P.speed || 0,
+    GREEN_BOOST_SPEED * C.KMH_TO_WORLD
+  );
 
-  P.speed *= 0.40;
-  P.playerX = (P.playerX || 0) - 0.20;
+  P.damage = clamp((P.damage || 0) + 10, 0, 100);
+  P.pickupFlash = 0.45;
 
-  try { playSfx('crash', { volume: 0.75 }); } catch (e) { }
+  try {
+    playSfx('nitro', { volume: 0.30 });
+  } catch (e) { }
 }
 
 // ─── Accessors used by collisionSystem ────────────────
 export function isLevel2Active() {
-  return true;  // checkpoints are always live once built
+  return true;
 }
 
 export function getLevel2Phase() {
   return L2_MAZE.phase;
 }
 
-// ─── Legacy exports kept for collisionSystem.js imports ─
-// (collisionSystem imports these names; map them to new fns)
 export const isLevel2TrapActive = isLevel2Active;
 export const punishMazeTrap = punishCheckpoint;

@@ -2,7 +2,7 @@ export const SPR_L5 = {
   Tunnel1: { sx: 6, sy: 379, sw: 552, sh: 241, scale: 1.15, anchorY: 0.97 },
   Tunnel2: { sx: 6, sy: 6, sw: 1157, sh: 353, scale: 1.10, anchorY: 0.97 },
 
-  Finish: { sx: 1183, sy: 6, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
+  Finish: { sx: 1183, sy: 6, sw: 612, sh: 317, scale: 1.00, anchorY: 0.97 },
 
   Landmark1: { sx: 1485, sy: 1051, sw: 363, sh: 293, scale: 1.05, anchorY: 0.97 },
   Landmark2: { sx: 1183, sy: 343, sw: 566, sh: 493, scale: 1.05, anchorY: 0.97 },

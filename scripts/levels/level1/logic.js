@@ -123,10 +123,9 @@ export function updateLevel1Puzzle(dt, sceneryObjs = []) {
       }
 
       // Fallback: very close to the wall AND moving.
-      if (!crossed && Math.abs(dz) < C.SEG_LEN * 0.6 && Math.abs(P.speed || 0) > 1) {
+      if (!crossed && Math.abs(dz) < C.SEG_LEN * 1.8 && Math.abs(P.speed || 0) > 1) {
         crossed = true;
       }
-
       if (crossed) {
         triggerWallCrossing(sceneryObjs);
       }

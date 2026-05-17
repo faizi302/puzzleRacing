@@ -1,17 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// AUDIO MANAGER — Background music + SFX + engine loops
-// Path: assets/fassets/audio/
-// ─────────────────────────────────────────────────────────
-// FIX (Asphalt-Legends nitro):
-//   • Loops are now keyed strictly. Calling playSfx with the
-//     same key while a loop is already playing does NOT spawn
-//     a second clone — it just updates volume / rate.
-//   • New `_isLoopPlaying(key)` helper for callers that want
-//     to know if a key is already live.
-//   • Engine loop logic unchanged (it already keys on 'engine').
-//   • Nitro pickup is still NEVER played by this module — the
-//     caller (player.js) is the only thing that plays nitro,
-//     and only on an actual Spacebar press.
+// AUDIO MANAGER 
 // ═══════════════════════════════════════════════════════
 
 const BASE = 'assets/audio/';
