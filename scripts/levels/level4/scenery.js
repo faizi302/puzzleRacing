@@ -3,31 +3,10 @@ import { trackLen } from '../../core/roadMap.js';
 
 // ═════════════════════════════════════════════════════════════════
 // LEVEL 4 — MEMORY SPRINT scenery
-//
-// ── Memory checkpoint design ──
-// 9 checkpoints are placed evenly along the road. At each checkpoint
-// THREE platforms are spawned — one in each lane (left, center, right).
-// Exactly ONE of those three is the SAFE platform; the other two are
-// DANGER platforms.
-//
-// Visuals during preview phase:
-//   safe   → visible
-//   danger → also visible, so the player can memorise the SAFE lane
-//
-// After the preview window expires, ALL platforms become hidden and
-// the player has to drive the safe lane from memory. Detection of
-// "did the player pass through the safe lane" is done in logic.js by
-// reading the player's lateral X at the moment they cross each
-// checkpoint's z position.
-//
-// Lane offsets MUST match logic.js (LANES constant).
 // ═════════════════════════════════════════════════════════════════
 
 const LANES = [-0.55, 0.0, 0.55];  // left, center, right
 
-// Deterministic per-checkpoint "safe lane" so the level plays the
-// same way every run. Tweak this array to change the puzzle.
-//                          checkpoint:  1  2  3  4  5  6  7  8  9
 const SAFE_LANE_INDEX_BY_CHECKPOINT = [1, 0, 2, 1, 0, 2, 1, 2, 0];
 
 // Exported so logic.js can read it without duplicating constants.

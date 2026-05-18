@@ -6,6 +6,7 @@
 export const LEVEL_META = {
   id: 'level3',
   name: 'THE SYMBOL CODE',
+  totalLaps: 2,
 
   horizonForward: 'B',
   horizonBackward: 'B',

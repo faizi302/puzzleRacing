@@ -504,15 +504,10 @@ export function updatePhys(inp, dt, len) {
   const z = P.pos + P.playerZ;
   const curveNow = getLookAheadCurve(z);
 
-  P.roadCurve += (curveNow - P.roadCurve) * 0.10;
+  P.roadCurve += (curveNow - P.roadCurve) * 0.06;
 
   // ═══════════════════════════════════════════════════════
   // ASPHALT LEGENDS STYLE DRIFT
-  // Control:
-  //   Hold Left/Right + single tap Down = start drift
-  //   Release Down, keep Left/Right = keep drift
-  //   Switch Left/Right = control drift direction
-  //   Collision/offroad = drift cancels
   // ═══════════════════════════════════════════════════════
 
   const speedAbsFrac = Math.min(1, Math.abs(P.speed) / C.NORMAL_MAX);
@@ -559,10 +554,8 @@ export function updatePhys(inp, dt, len) {
   const curvePower = Math.min(Math.abs(speedFrac), 1);
 
   // normal curve push should be controlled
-  const CENTRIFUGAL_NORMAL = 2.80;
-
-  // during drift, curve push becomes weaker
-  const CENTRIFUGAL_DRIFT = 0.75;
+const CENTRIFUGAL_NORMAL = 1.50;
+const CENTRIFUGAL_DRIFT = 0.75;
 
   const curvePush =
     P.roadCurve *
@@ -574,8 +567,8 @@ export function updatePhys(inp, dt, len) {
 
   // manual steering speed
   // decrease NORMAL_STEER_MULT if left/right still too fast
-  const NORMAL_STEER_MULT = 0.55;
-  const DRIFT_STEER_MULT = 0.95;
+ const NORMAL_STEER_MULT = 0.72;
+const DRIFT_STEER_MULT = 0.90;
 
   const baseSteer =
     d *

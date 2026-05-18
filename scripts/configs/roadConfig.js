@@ -25,7 +25,6 @@ export const C = {
   GHOST_FAKE_DOOR_SEG_FORWARD: 38,
 
   // Backward Road2 open wall
-  // Player reversing reaches -45 first.
   GHOST_FAKE_WALL_SEG_BEHIND: -45,
 
   // Monster spawn positions
@@ -62,12 +61,12 @@ C.NITRO_MAX    = C.NITRO_KMH  * C.KMH_TO_WORLD;
 C.REVERSE_MAX   = C.NORMAL_MAX * 0.42;
 C.REVERSE_ACCEL = C.ACCEL ? C.ACCEL * 0.6 : C.NORMAL_MAX / 7.0;
 
-C.ACCEL     = C.NORMAL_MAX / 5.0;
-C.BRAKE     = -C.NORMAL_MAX * 1.6;
-C.DECEL     = -C.NORMAL_MAX / 4.0;
 C.OFFRD_DC  = -C.NORMAL_MAX / 1.5;
 C.OFFRD_LIM = C.NORMAL_MAX / 4.0;
-C.STEER_SPD = 4.0;
+// roadConfig.js
+C.ACCEL = C.NORMAL_MAX / 6.2;
+C.DECEL = -C.NORMAL_MAX / 3.2;
+C.STEER_SPD = 4.2;
 C.STEER_MIN_FAC = 0.35;
 
 C.FORK_Z = C.FORK_SEG * C.SEG_LEN;

@@ -59,28 +59,28 @@ function buildLevel2MainRoad() {
   // start area
   for (let i = 0; i < C.RUMBLE * 2; i++) addSegTo(out, 0, 0);
 
-  // LEVEL 2: long city road with different rhythm from Level 1
-  b.straight(160);
-  b.curve(170, 0.95);
-  b.straight(120);
-
-  b.sCurve(260, -1.10, 1.05);
-  b.straight(190);
-
-  b.curve(220, -0.85);
+  // LEVEL 2: same city rhythm, only smoother curves
+  b.straight(170);
+  b.curve(190, 0.72);
   b.straight(140);
 
-  b.curve(260, 1.25);
-  b.straight(220);
+  b.sCurve(280, -0.78, 0.74);
+  b.straight(210);
 
-  b.sCurve(300, 0.80, -1.20);
-  b.straight(180);
+  b.curve(240, -0.68);
+  b.straight(160);
 
-  b.curve(240, -1.35);
-  b.straight(260);
+  b.curve(280, 0.82);
+  b.straight(240);
 
-  b.curve(210, 0.70);
-  b.straight(340);
+  b.sCurve(320, 0.62, -0.78);
+  b.straight(200);
+
+  b.curve(260, -0.88);
+  b.straight(280);
+
+  b.curve(230, 0.58);
+  b.straight(360);
 
   return out;
 }

@@ -89,9 +89,15 @@ export function buildSceneryObjects() {
     });
 
     // Barn Gate centered on road
-    addRoad('BarnGate', i + 180, 0, 1.10, {
+    addRoad('BarnGate', i + 180, 0, 1.00, {
       overhead: true,
-      noCollision: true,
+      noCollision: false,
+
+      openingHalfW: 1.00,
+      outerHalfW: 1.35,
+
+      hitBackZ: -40,
+      hitFrontZ: 55,
     });
   }
 
@@ -161,23 +167,7 @@ export function buildSceneryObjects() {
 
   // Only show puzzle symbols before puzzle is solved
   if (!P.level3PuzzleSolved) {
-    addRoad('PuzzleStar', q1, -0.42, 1, {
-      isPuzzleSwitch: true,
-      isPuzzleSymbol: true,
-      symbol: 'star',
-      noCollision: false,
-      screenSize: 52,
-    });
-
-    addRoad('PuzzleDiamond', q2, 0.42, 1, {
-      isPuzzleSwitch: true,
-      isPuzzleSymbol: true,
-      symbol: 'moon',
-      noCollision: false,
-      screenSize: 52,
-    });
-
-    addRoad('PuzzleKey', q3, 0, 1, {
+    addRoad('PuzzleDiamond', q1, -0.42, 1, {
       isPuzzleSwitch: true,
       isPuzzleSymbol: true,
       symbol: 'diamond',
@@ -185,10 +175,26 @@ export function buildSceneryObjects() {
       screenSize: 52,
     });
 
-    addRoad('PuzzleMoon', q4, -0.42, 1, {
+    addRoad('PuzzleStar', q2, 0.42, 1, {
+      isPuzzleSwitch: true,
+      isPuzzleSymbol: true,
+      symbol: 'star',
+      noCollision: false,
+      screenSize: 52,
+    });
+
+    addRoad('PuzzleKey', q3, 0, 1, {
       isPuzzleSwitch: true,
       isPuzzleSymbol: true,
       symbol: 'key',
+      noCollision: false,
+      screenSize: 52,
+    });
+
+    addRoad('PuzzleMoon', q4, -0.42, 1, {
+      isPuzzleSwitch: true,
+      isPuzzleSymbol: true,
+      symbol: 'moon',
       noCollision: false,
       screenSize: 52,
     });
@@ -239,8 +245,8 @@ export function buildSceneryObjects() {
 
     { kind: 'RockFlowers', seg: 240, offset: -0.80, size: 0.75 },
     // Right lane fence
-    { kind: 'Fence', seg: 554, offset:  1.08, size: 0.62 },
-    { kind: 'Fence', seg: 810, offset:  1.08, size: 0.62 },
+    { kind: 'Fence', seg: 554, offset: 1.08, size: 0.62 },
+    { kind: 'Fence', seg: 810, offset: 1.08, size: 0.62 },
   ];
 
   for (const h of HURDLES) {

@@ -53,6 +53,16 @@ function makeBuilder(target) {
       addStretch(Math.floor(n * 0.25), Math.floor(n * 0.5), Math.floor(n * 0.25), curveValue, hill);
     },
 
+    longCurve(n = 280, curveValue = 0.55, hill = 0) {
+      addStretch(
+        Math.floor(n * 0.30),
+        Math.floor(n * 0.40),
+        Math.floor(n * 0.30),
+        curveValue,
+        hill
+      );
+    },
+
     sharp(n = 90, curveValue = 1.5, hill = 0) {
       addStretch(Math.floor(n * 0.18), Math.floor(n * 0.64), Math.floor(n * 0.18), curveValue, hill);
     },
@@ -80,47 +90,38 @@ function buildLevel4MainRoad() {
   const out = [];
   const b = makeBuilder(out);
 
-  for (let i = 0; i < C.RUMBLE * 2; i++) addSegTo(out, 0, 0);
+  for (let i = 0; i < C.RUMBLE * 2; i++) {
+    addSegTo(out, 0, 0);
+  }
 
-  b.straight(100);
-
-  // first warning section
-  b.chainLeft();
-  b.straight(55);
-
-  // opposite chained turn
-  b.chainRight();
-  b.straight(45);
-
-  // unpredictable S section
-  b.sCurve(260, -1.45, 1.35);
-  b.straight(50);
-
-  // double right again, no predictable left/right pattern
-  b.curve(120, 0.85, 0.1);
-  b.sharp(115, 1.75, -0.15);
-  b.straight(40);
-
-  // long dangerous left
-  b.curve(220, -1.65, 0.2);
-  b.straight(65);
-
-  // fast rhythm changes
-  b.sCurve(300, 1.55, -1.45);
-  b.straight(45);
-
-  // blind left-left-right
-  b.sharp(95, -1.80, 0.18);
-  b.curve(125, -1.05, 0);
-  b.sharp(95, 1.70, -0.14);
-  b.straight(70);
-
-  // final hard snow snake
-  b.sCurve(360, -1.35, 1.60);
-  b.curve(180, 1.20, 0.12);
-  b.curve(160, -1.50, -0.1);
-
+  // smooth start
   b.straight(180);
+
+  // soft left snowy bend
+  b.curve(220, -0.65, 0.10);
+  b.straight(220);
+
+  // long right ice section
+  b.longCurve(300, 0.55, -0.08);
+  b.straight(260);
+
+  // smooth S road
+  b.curve(180, -0.70, 0.05);
+  b.curve(180, 0.65, -0.05);
+  b.straight(200);
+
+  // mountain turn
+  b.longCurve(320, -0.50, 0.12);
+  b.straight(240);
+
+  // controlled right bend
+  b.curve(200, 0.75, 0);
+  b.straight(280);
+
+  // final snow valley section
+  b.longCurve(340, 0.45, -0.08);
+  b.curve(180, -0.60, 0.06);
+  b.straight(320);
 
   return out;
 }

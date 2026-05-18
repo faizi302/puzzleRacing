@@ -13,7 +13,7 @@ export const SPR_L3 = {
   Landmark3: { sx: 691, sy: 828, sw: 313, sh: 172, scale: 1.00, anchorY: 0.97 },
 
   HayArch: { sx: 0, sy: 0, sw: 1130, sh: 305, scale: 1.80, anchorY: 1.0 },
-  BarnGate: { sx: 1165, sy: 5, sw: 650, sh: 280, scale: 1.30, anchorY: 1.0 },
+  BarnGate: { sx: 1170, sy: 5, sw: 730, sh: 287, scale: 1.30, anchorY: 1.0 },
   RallyArch: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.15, anchorY: 0.97 },
 
   Finish: { sx: 1144, sy: 319, sw: 612, sh: 317, scale: 1.00, anchorY: 0.97 },

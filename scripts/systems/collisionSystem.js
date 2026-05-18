@@ -297,6 +297,13 @@ function objCat(o) {
   if (o.kind === 'bridge') return null;
 
   if (
+    o.kind === 'rallyArch' ||
+    o.kind === 'HayArch'
+  ) {
+    return null; // no collision only for rally arch
+  }
+
+  if (
     o.overhead ||
     o.kind === 'tunnel' ||
     o.kind === 'woodArch' ||
@@ -357,7 +364,10 @@ function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   // Car collision width
   const playerHalfW = 0.22;
 
-  const zHit = dz > -70 && dz < 85;
+  const hitBackZ = o.hitBackZ ?? -70;
+  const hitFrontZ = o.hitFrontZ ?? 85;
+
+  const zHit = dz > hitBackZ && dz < hitFrontZ;
   if (!zHit) return;
 
   const dist = Math.abs(px - objX);

@@ -62,20 +62,42 @@ function makeBuilder(target) {
     }
   };
 
-  return {
-    straight(n = 100, hill = 0) {
-      addStretch(20, 60, 20, 0, hill);
-    },
+ return {
+  straight(n = 120, hill = 0) {
+    addStretch(
+      Math.floor(n * 0.15),
+      Math.floor(n * 0.70),
+      Math.floor(n * 0.15),
+      0,
+      hill
+    );
+  },
 
-    curve(n = 120, curveValue = 1, hill = 0) {
-      addStretch(30, 60, 30, curveValue, hill);
-    },
+  curve(n = 150, curveValue = 0.85, hill = 0) {
+    addStretch(
+      Math.floor(n * 0.28),
+      Math.floor(n * 0.44),
+      Math.floor(n * 0.28),
+      curveValue,
+      hill
+    );
+  },
 
-    sCurve(n = 240, left = -1, right = 1) {
-      this.curve(n / 2, left);
-      this.curve(n / 2, right);
-    },
-  };
+  longCurve(n = 260, curveValue = 0.55, hill = 0) {
+    addStretch(
+      Math.floor(n * 0.34),
+      Math.floor(n * 0.32),
+      Math.floor(n * 0.34),
+      curveValue,
+      hill
+    );
+  },
+
+  sCurve(n = 260, left = -0.85, right = 0.85) {
+    this.curve(Math.floor(n * 0.5), left, 0.06);
+    this.curve(Math.floor(n * 0.5), right, -0.06);
+  },
+};
 }
 
 function buildLevel3MainRoad() {
@@ -86,27 +108,34 @@ function buildLevel3MainRoad() {
     addSegTo(out, 0, 0);
   }
 
-  // LEVEL 3 = much different than Level 2
+  // LEVEL 3: Symbol Code road
+  // Exciting, flowing, but not impossible
 
-  b.straight(200);
+  b.straight(220);
 
-  b.curve(240, -1.25);
-
-  b.straight(140);
-
-  b.sCurve(320, 1.40, -1.30);
-
+  // first symbol zone: gentle warm-up
+  b.longCurve(300, -0.55, 0.08);
   b.straight(180);
 
-  b.curve(280, 1.60);
+  // second symbol zone: smooth S rhythm
+  b.sCurve(320, 0.75, -0.70);
+  b.straight(210);
 
-  b.straight(150);
+  // third symbol zone: stronger but controlled bend
+  b.curve(240, 0.95, -0.06);
+  b.straight(180);
 
-  b.curve(220, -1.10);
+  // memory/puzzle mid-section, exciting but readable
+  b.longCurve(360, -0.70, 0.10);
+  b.straight(220);
 
-  b.sCurve(380, -1.50, 1.50);
+  // final rhythm section, no impossible sharp edges
+  b.sCurve(360, -0.85, 0.80);
+  b.straight(260);
 
-  b.straight(250);
+  // final road before finish
+  b.curve(220, 0.65, 0.04);
+  b.straight(300);
 
   return out;
 }
