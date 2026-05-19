@@ -100,6 +100,10 @@ function resolveSprite(kind) {
     return { spr, atlas: IMG.puzzleSymbols, isJumpAtlas: false };
   }
 
+  if (spr.policeAtlas) {
+    return { spr, atlas: IMG.policeCars, isJumpAtlas: false };
+  }
+
   return { spr, atlas: IMG.scenery, isJumpAtlas: false };
 }
 
@@ -121,7 +125,7 @@ function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
 // ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
   if (!_visibleSegs.length) return;
-  if (!IMG.scenery?.ready && !IMG.jumps?.ready) return;
+ if (!IMG.scenery?.ready && !IMG.jumps?.ready && !IMG.policeCars?.ready) return;
 
   // One-shot atlas-loaded log
   if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
@@ -171,7 +175,7 @@ export function drawScenery() {
     const rw = v.w1 + (v.w2 - v.w1) * pct;
 
     if (!o.isCoin && !o.isBooster && !o.isKey && !o.isHurdle && !o.isJump &&
-        !o.isPressurePlate && !o.isFakeWall && !o.isRealKey &&
+      !o.isPressurePlate && !o.isFakeWall && !o.isRealKey &&
       (y < horizonY - 4 || y > _H * 0.98)) continue;
     if ((o.isCoin || o.isBooster || o.isKey || o.isRealKey) &&
       (y < horizonY * 0.5 || y > _H * 0.98)) continue;
@@ -246,16 +250,16 @@ export function drawScenery() {
 
       if (it.o.isKey || it.o.isRealKey) {
         baseSize = s.renderBase ?? 130;
-        minSize  = (s.renderMin ?? 32) * _res;
-        maxSize  = (s.renderMax ?? 240) * _res;
+        minSize = (s.renderMin ?? 32) * _res;
+        maxSize = (s.renderMax ?? 240) * _res;
       } else if (it.o.isBooster) {
         baseSize = s.renderBase ?? 92;
-        minSize  = (s.renderMin ?? 14) * _res;
-        maxSize  = (s.renderMax ?? 100) * _res;
+        minSize = (s.renderMin ?? 14) * _res;
+        maxSize = (s.renderMax ?? 100) * _res;
       } else {
         baseSize = s.renderBase ?? 58;
-        minSize  = (s.renderMin ?? 10) * _res;
-        maxSize  = (s.renderMax ?? 78) * _res;
+        minSize = (s.renderMin ?? 10) * _res;
+        maxSize = (s.renderMax ?? 78) * _res;
       }
 
       const objSize = it.o.size ?? 1;
@@ -521,7 +525,7 @@ export function drawScenery() {
       ctx.globalAlpha = (0.30 + fade * 0.50) * 0.35 * pulse;
       ctx.fillStyle = 'rgba(255, 220, 120, 1)';
       ctx.fillRect(x + drawW * 0.42, y - drawH * 0.5,
-                   drawW * 0.16, drawH * 0.9);
+        drawW * 0.16, drawH * 0.9);
 
     } else if (it.o.isKey) {
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);

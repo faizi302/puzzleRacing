@@ -1,41 +1,128 @@
+// ─────────────────────────────────────────────────────────────
+//  Level 5 – THE KEY OF SURVIVAL
+//  sceneryConfig.js
+//
+//  All sprite coordinates reference LocationCScenery.png (atlas)
+//  unless puzzleSymbolAtlas:true → keys_sprite.png
+// ─────────────────────────────────────────────────────────────
+
 export const SPR_L5 = {
+
+  // ── Tunnels (arch overlays) ──────────────────────────────────
   Tunnel1: { sx: 6, sy: 379, sw: 552, sh: 241, scale: 1.15, anchorY: 0.97 },
   Tunnel2: { sx: 6, sy: 6, sw: 1157, sh: 353, scale: 1.10, anchorY: 0.97 },
 
+  // ── Finish arch ──────────────────────────────────────────────
   Finish: { sx: 1183, sy: 6, sw: 612, sh: 317, scale: 1.00, anchorY: 0.97 },
 
+  // ── Coastal landmarks ────────────────────────────────────────
   Landmark1: { sx: 1485, sy: 1051, sw: 363, sh: 293, scale: 1.05, anchorY: 0.97 },
   Landmark2: { sx: 1183, sy: 343, sw: 566, sh: 493, scale: 1.05, anchorY: 0.97 },
   Landmark3: { sx: 578, sy: 379, sw: 545, sh: 463, scale: 1.05, anchorY: 0.97 },
 
+  // ── Massive background elements ──────────────────────────────
   Massive1: { sx: 6, sy: 998, sw: 389, sh: 372, scale: 1.00, anchorY: 0.97 },
   Massive2: { sx: 522, sy: 1099, sw: 341, sh: 284, scale: 1.00, anchorY: 0.97 },
 
+  // ── Road-side trees ──────────────────────────────────────────
   Tree1: { sx: 1769, sy: 361, sw: 247, sh: 135, scale: 1.00, anchorY: 0.97 },
   Tree2: { sx: 1702, sy: 856, sw: 45, sh: 98, scale: 1.00, anchorY: 0.97 },
   Tree3: { sx: 1815, sy: 251, sw: 190, sh: 90, scale: 1.00, anchorY: 0.97 },
 
+  // ── Boundary poles ───────────────────────────────────────────
+  Bumper1: { sx: 1767, sy: 870, sw: 116, sh: 161, scale: 0.40, anchorY: 0.97 },
+  Bumper2: { sx: 1769, sy: 516, sw: 144, sh: 197, scale: 0.40, anchorY: 0.97 },
+
+  // ── Collectibles ─────────────────────────────────────────────
+  Boost: { sx: 1815, sy: 6, sw: 220, sh: 225, scale: 0.75, anchorY: 0.97 },
+
+  Coin: {
+    sx: 1643, sy: 1364, sw: 65, sh: 88,
+    scale: 1, anchorY: 0.9,
+    renderBase: 46, renderMin: 8, renderMax: 64,
+  },
+
+  PoliceSideRight: {
+    sx: 305, sy: 25, sw: 275, sh: 90,
+    scale: 1.10, anchorY: 0.97,
+    policeAtlas: true,
+  },
+
+  PoliceSideLeft: {
+    sx: 300, sy: 135, sw: 270, sh: 90,
+    scale: 1.10, anchorY: 0.97,
+    policeAtlas: true,
+  },
+
+  // ── Puzzle key (sampled from keys_sprite.png) ─────────────────
+  //   keys_sprite has 4 keys in a ~600×160 strip
+  //   Key0 (gold ornate)   ~0–149 px
+  //   Key1 (dark gem)      ~150–299 px
+  //   Key2 (gold star)     ~300–449 px
+  //   Key3 (steel)         ~450–599 px
+  //   We cycle Key0–Key2 for the three lane choices.
+  PuzzleKey0: {
+    sx: 10, sy: 10, sw: 140, sh: 130,
+    scale: 1.30, anchorY: 0.90,
+    renderBase: 64, renderMin: 18, renderMax: 72,
+    puzzleSymbolAtlas: true,
+  },
+  PuzzleKey1: {
+    sx: 155, sy: 10, sw: 140, sh: 130,
+    scale: 1.30, anchorY: 0.90,
+    renderBase: 64, renderMin: 18, renderMax: 72,
+    puzzleSymbolAtlas: true,
+  },
+  PuzzleKey2: {
+    sx: 300, sy: 10, sw: 140, sh: 130,
+    scale: 1.30, anchorY: 0.90,
+    renderBase: 64, renderMin: 18, renderMax: 72,
+    puzzleSymbolAtlas: true,
+  },
+
+  // ── HURDLE OBSTACLES ─────────────────────────────────────────
+
+  // 1. Giant Stone Block (re-uses Landmark3 art, tinted at render time)
+  StoneBlock: {
+    sx: 578, sy: 379, sw: 545, sh: 463,
+    scale: 1.20, anchorY: 0.97,
+  },
+
+  // 2. BrokenRoad – the gap is produced by gapSeg flags in roadMap.js;
+  //    we render a void-marker sprite at the gap edge for visual polish.
+  BrokenRoadEdge: {
+    sx: 6, sy: 640, sw: 403, sh: 338,
+    scale: 0.90, anchorY: 0.97,
+  },
+
+  // 3. Giant Wall (Tunnel2 rotated / scaled as a solid wall obstacle)
+  GiantWall: {
+    sx: 6, sy: 6, sw: 1157, sh: 353,
+    scale: 1.25, anchorY: 0.97,
+  },
+
+  // Jump ramp that appears when GiantWall is unlocked
+  JumpRamp: {
+    sx: 569, sy: 862, sw: 392, sh: 217,
+    scale: 0.85, anchorY: 0.97,
+  },
+
+  // 4. Fire / Laser Gate  (Barricade1 palette-shifted at render)
+  FireGate: {
+    sx: 6, sy: 640, sw: 403, sh: 338,
+    scale: 1.05, anchorY: 0.97,
+    tintColor: '#ff4400',      // engine reads this for a color-overlay pass
+  },
+
+  // 5. Police Blockade / Mountain Barrier
+  PoliceBlockade: {
+    sx: 1088, sy: 967, sw: 377, sh: 263,
+    scale: 1.10, anchorY: 0.97,
+  },
+
+  // Barricade props (scattered decoration near hurdles)
   Barricade1: { sx: 6, sy: 640, sw: 403, sh: 338, scale: 0.68, anchorY: 0.97 },
   Barricade2: { sx: 1088, sy: 967, sw: 377, sh: 263, scale: 0.68, anchorY: 0.97 },
   Barricade3: { sx: 1143, sy: 856, sw: 399, sh: 91, scale: 0.75, anchorY: 0.97 },
   Barricade4: { sx: 569, sy: 862, sw: 392, sh: 217, scale: 0.70, anchorY: 0.97 },
-
-  Bumper1: { sx: 1767, sy: 870, sw: 116, sh: 161, scale: 0.40, anchorY: 0.97 },
-  Bumper2: { sx: 1769, sy: 516, sw: 144, sh: 197, scale: 0.40, anchorY: 0.97 },
-  Bumper3: { sx: 1767, sy: 870, sw: 116, sh: 161, scale: 0.40, anchorY: 0.97 },
-  Bumper4: { sx: 1769, sy: 516, sw: 144, sh: 197, scale: 0.40, anchorY: 0.97 },
-
-  Boost: { sx: 1815, sy: 6, sw: 220, sh: 225, scale: 0.75, anchorY: 0.97 },
-
-  Coin: {
-    sx: 1643,
-    sy: 1364,
-    sw: 65,
-    sh: 88,
-    scale: 1,
-    anchorY: 0.9,
-    renderBase: 46,
-    renderMin: 8,
-    renderMax: 64,
-  },
 };

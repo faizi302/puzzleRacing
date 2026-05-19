@@ -554,8 +554,8 @@ export function updatePhys(inp, dt, len) {
   const curvePower = Math.min(Math.abs(speedFrac), 1);
 
   // normal curve push should be controlled
-const CENTRIFUGAL_NORMAL = 1.50;
-const CENTRIFUGAL_DRIFT = 0.75;
+  const CENTRIFUGAL_NORMAL = 1.50;
+  const CENTRIFUGAL_DRIFT = 0.75;
 
   const curvePush =
     P.roadCurve *
@@ -567,8 +567,8 @@ const CENTRIFUGAL_DRIFT = 0.75;
 
   // manual steering speed
   // decrease NORMAL_STEER_MULT if left/right still too fast
- const NORMAL_STEER_MULT = 0.72;
-const DRIFT_STEER_MULT = 0.90;
+  const NORMAL_STEER_MULT = 0.72;
+  const DRIFT_STEER_MULT = 0.90;
 
   const baseSteer =
     d *
@@ -695,6 +695,35 @@ const DRIFT_STEER_MULT = 0.90;
   // ── Win logic ───────────────────────────────────────
   if (crossedForward) {
     const lvl = getActiveLevel?.();
+
+    if (lvl?.id === 'level5') {
+      // First crossing is only the start line, not level finish
+      if (P._firstCrossing) {
+        P._firstCrossing = false;
+        P.lapTime = 0;
+        return;
+      }
+
+      if (typeof lvl.onFinishReached === 'function') {
+        try { lvl.onFinishReached(lvl.puzzleState); } catch (e) { }
+      }
+
+      if (lvl.puzzleState?.levelComplete) {
+        P.raceFinished = true;
+        P.endPhase = 1;
+        P.endTime = 0;
+      } else {
+        P.raceFailed = true;
+        P._failReason =
+          lvl.puzzleState?.failReason ||
+          'You did not unlock all hurdles';
+        P.endPhase = -1;
+        P.endTime = 0;
+        P.speed = Math.max(120, P.speed * 0.35);
+      }
+
+      return;
+    }
 
     // LEVEL 2 — first crossing is ONLY the start line, not lap complete
     if (lvl?.id === 'level2') {

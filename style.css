@@ -1,19 +1,5 @@
-/* ════════════════════════════════════════════════════════════════
-   FORMULA OLC RACING — AAA UI/UX DESIGN SYSTEM v2.0
-   ─────────────────────────────────────────────────────────────────
-   Architecture:
-     1. DESIGN TOKENS      — Colors, spacing, motion, typography
-     2. RESET + GLOBALS    — Base normalization
-     3. BACKGROUND SYSTEM  — Slideshow, parallax, vignettes
-     4. COMPONENT LIBRARY  — Buttons, cards, pills, toggles, switches
-     5. SCENE LAYOUTS      — Menu, Hub, Career, Garage, Settings
-     6. ANIMATION SYSTEM   — Keyframes, transitions, micro-interactions
-     7. RESPONSIVE         — Mobile, tablet, desktop breakpoints
-   ════════════════════════════════════════════════════════════════ */
-
-
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  1 · DESIGN TOKENS                                            ║
+   ║  1 · DESIGN TOKENS                                           ║
    ╚══════════════════════════════════════════════════════════════╝ */
 :root {
   /* — Brand palette — */
@@ -96,7 +82,7 @@
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  2 · RESET + GLOBALS                                          ║
+   ║  2 · RESET + GLOBALS                                         ║
    ╚══════════════════════════════════════════════════════════════╝ */
 *,
 *::before,
@@ -124,8 +110,8 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  3 · BACKGROUND SYSTEM                                        ║
-   ║      Multi-layer slideshow + parallax + Ken Burns + vignette  ║
+   ║  3 · BACKGROUND SYSTEM                                       ║
+   ║      Multi-layer slideshow + parallax + Ken Burns + vignette ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .bg-stage {
   position: fixed;
@@ -199,7 +185,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  4 · SCREEN / SCENE SYSTEM                                    ║
+   ║  4 · SCREEN / SCENE SYSTEM                                   ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .scr {
   position: fixed;
@@ -272,7 +258,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  5 · COMPONENT LIBRARY                                        ║
+   ║  5 · COMPONENT LIBRARY                                       ║
    ╚══════════════════════════════════════════════════════════════╝ */
 
 /* ── 5.1 Premium Button ─────────────────────────────────────── */
@@ -489,7 +475,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  6 · MENU SCENE                                               ║
+   ║  6 · MENU SCENE                                              ║
    ╚══════════════════════════════════════════════════════════════╝ */
 #s-menu .mc {
   position: relative;
@@ -864,7 +850,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  8 · CAREER (Level Select)                                    ║
+   ║  8 · CAREER (Level Select)                                   ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .level-grid {
   display: grid;
@@ -1069,7 +1055,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║  9 · GARAGE                                                   ║
+   ║  9 · GARAGE                                                  ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .garage-wrap {
   display: grid;
@@ -1217,7 +1203,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 10 · SETTINGS                                                 ║
+   ║ 10 · SETTINGS                                                ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .settings-wrap {
   display: grid;
@@ -1354,14 +1340,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 11 · GAME HUD (in-race overlay)                               ║
-   ║                                                                ║
-   ║ NOTE: The old strip HUD (#hud / .hb / .hl / .hv / #hc / #pw /  ║
-   ║ #pf / #pl) and the old "TIMES" panel (#lp / .lpt) and the      ║
-   ║ old corner pause (#pbtn) have all been REMOVED — both their    ║
-   ║ DOM nodes and their styles. The Asphalt-Legends-style HUD      ║
-   ║ defined in section "RACE HUD (Asphalt Legends)" below is now   ║
-   ║ the single source of truth.                                    ║
+   ║ 11 · GAME HUD (in-race overlay)                              ║
    ╚══════════════════════════════════════════════════════════════╝ */
 #s-game canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
@@ -1421,7 +1400,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 12 · MODALS (Pause / Win)                                     ║
+   ║ 12 · MODALS (Pause / Win)                                    ║
    ╚══════════════════════════════════════════════════════════════╝ */
 .mbox {
   background: var(--surface-1);
@@ -1483,7 +1462,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 13 · UTILITY ANIMATIONS                                       ║
+   ║ 13 · UTILITY ANIMATIONS                                      ║
    ╚══════════════════════════════════════════════════════════════╝ */
 @keyframes floatUp {
   0%   { opacity: 0; transform: translateY(0) translateX(0); }
@@ -1527,17 +1506,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 
 /* ╔══════════════════════════════════════════════════════════════╗
-   ║ 14 · RESPONSIVE — comprehensive multi-device system           ║
-   ║                                                                ║
-   ║   Breakpoints (mobile-first refinements):                     ║
-   ║   • Large desktop          ≥ 1280px  (defaults — no override) ║
-   ║   • Tablet                 ≤ 1100px                            ║
-   ║   • Small tablet           ≤  900px                            ║
-   ║   • Mobile landscape       ≤  820px                            ║
-   ║   • Short landscape (h)    ≤  500px height                     ║
-   ║   • Tiny short landscape   ≤  430px height                     ║
-   ║   • Mobile portrait        ≤  720px width  (rotation hint UI) ║
-   ║   • Ultra-narrow           ≤  380px                            ║
+   ║ 14 · RESPONSIVE — comprehensive multi-device system          ║
    ╚══════════════════════════════════════════════════════════════╝ */
 
 /* ─── Tablet (≤ 1100px wide) ─────────────────────────────────── */
@@ -1618,11 +1587,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   .q-tile { font-size: 8.5px; }
 }
 
-/* ─── SHORT-LANDSCAPE PHONES (≤ 500px height) ──────────────────
-   This is the critical case the screenshots show: e.g. 915×412.
-   We must compress vertical rhythm aggressively so the whole
-   layout fits or scrolls cleanly.
-   ────────────────────────────────────────────────────────────── */
+/* ─── SHORT-LANDSCAPE PHONES (≤ 500px height) ──────────────────*/
 @media (max-height: 500px) and (orientation: landscape) {
   /* MENU — collapse vertical rhythm dramatically */
   #s-menu .mc {
@@ -1829,27 +1794,6 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 /* ══════════════════════════════════════════════════════════════════
    RACE HUD — ASPHALT LEGENDS STYLE
-   ──────────────────────────────────────────────────────────────────
-   Built dynamically by uiRender.js → buildRaceHUD().
-
-   Layout (matches reference screenshot 1:1):
-
-     ┌─ TOP-LEFT (one panel) ────────┐    ╲    ┌─ TOP-RIGHT (one panel) ─┐
-     │  ⏸ │ POS. 1/6                  │    ╲   │  KM/H            109     │
-     │     │ DIST. 28%                │  bar   │  ⏱ 00:21.104             │
-     └───────────────────────────────┘    ╱    │  NITRO ▮▮▯               │
-                                         ╱     │  BEST 01:58.933          │
-                                        ╱      └──────────────────────────┘
-
-   Design rules:
-     • Single rounded panel per cluster (no overlapping mini-pills).
-     • Safe-area aware (notch / dynamic island / home indicator).
-     • Fully responsive: tablet → phone landscape → phone portrait.
-     • Pointer-events: only the pause button accepts clicks; the rest
-       of the HUD is click-through so the player can still steer
-       under it on mobile.
-     • All sizes use clamp() so the HUD scales smoothly between
-       360px-wide phones and 4K monitors.
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Root: full-screen click-through overlay ───────────────────── */
@@ -2134,10 +2078,6 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 /* ════════════════════════════════════════════════════════════════
    RACE-START HINT BANNER (auto-hides after a few seconds)
-   ────────────────────────────────────────────────────────────────
-   The big orange "THE FINISH IS A TRAP" card shown at race start.
-   Built dynamically by uiRender.js → buildRaceHUD() and toggled
-   on/off by showRaceHint() / hideRaceHint().
    ════════════════════════════════════════════════════════════════ */
 .race-hud .race-hint {
   position: absolute;
@@ -2198,11 +2138,6 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
 
 /* ══════════════════════════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS
-   ──────────────────────────────────────────────────────────────────
-   ≤ 920px   tablet / large phone landscape
-   ≤ 720px   phone landscape / small tablet
-   ≤ 480px   phone portrait
-   ≤ 380px   tiny phone portrait (iPhone SE 1st gen, etc.)
    ══════════════════════════════════════════════════════════════════ */
 
 /* Tablet & large phone landscape ───────────────────────────────── */
@@ -2336,10 +2271,7 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   right: 28px;
 }
 /* ════════════════════════════════════════════════════════════════
-   LOSE PANEL — shown when race is failed
-   Mirrors the win .mbox structure but recoloured red/orange so the
-   player feels the difference at a glance. Includes a level-progress
-   bar that fills based on how far the player got around the track.
+   LOSE PANEL
    ════════════════════════════════════════════════════════════════ */
 #s-lose .mbox.lose {
   border: 1px solid rgba(255, 80, 80, 0.35);

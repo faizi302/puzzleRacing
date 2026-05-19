@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// LEVEL 3 CONFIG
-// THE SYMBOL CODE
+// LEVEL 3 CONFIG - THE SYMBOL CODE
 // ═══════════════════════════════════════════════════════
 
 export const LEVEL_META = {

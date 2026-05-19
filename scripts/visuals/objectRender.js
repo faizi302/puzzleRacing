@@ -82,6 +82,12 @@ const DEFAULT_LEVEL_IMAGES = {
     'assets/gorila.jpeg',
     'gorila.jpeg',
   ],
+
+  policeCars: [
+    'assets/level/level5/police_sprite.png',
+    'assets/police_sprite.png',
+    'police_sprite.png',
+  ],
 };
 
 export const IMG = {
@@ -93,6 +99,7 @@ export const IMG = {
 
   // Monster spritesheet used by visuals/monsterRender.js.
   monsters: loadImage(DEFAULT_LEVEL_IMAGES.monsters),
+  policeCars: loadImage(DEFAULT_LEVEL_IMAGES.policeCars),
 
   effects: loadImage([
     'assets/player/Effects.png',
@@ -115,6 +122,10 @@ export async function setLevelImages(levelMeta) {
   const puzzleSymbolsSrc = levelMeta?.puzzleSymbolsImage || DEFAULT_LEVEL_IMAGES.puzzleSymbols;
   IMG.puzzleSymbols = loadImage(puzzleSymbolsSrc);
   waits.push(IMG.puzzleSymbols.promise);
+
+  const policeCarsSrc = levelMeta?.policeCarsImage || DEFAULT_LEVEL_IMAGES.policeCars;
+  IMG.policeCars = loadImage(policeCarsSrc);
+  waits.push(IMG.policeCars.promise);
 
   IMG.segments = loadImage(segmentsSrc);
   IMG.scenery = loadImage(scenerySrc);

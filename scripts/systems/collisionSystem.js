@@ -17,6 +17,7 @@ import { rewardCheckpoint, punishCheckpoint } from '../levels/level2/logic.js';
 import { triggerGatePass } from '../levels/level2/checkpointRender.js';
 import { JUMP_SPR } from '../configs/sceneryConfig.js';
 import { launchPlayerJump } from '../player/player.js';
+import { onKeyCollected, onHurdleReached, onGapFall } from '../levels/level5/logic.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -544,24 +545,91 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
     const cat = objCat(o);
     if (!cat && !o.isCheckpoint) continue;
 
-    if (dz < HIT.PLAYER_Z_BACK || dz > HIT.PLAYER_Z_AHEAD) continue;
-
     const objX = objLateralX(o);
 
-    // ── KEY ──
+    // ═══════════════════════════════════════════════════
+    // LEVEL 5 KEY PICKUP — checked BEFORE general dz filter
+    // ═══════════════════════════════════════════════════
     if (cat === 'key') {
-      if (Math.abs(px - objX) < 0.42 && dz < 100 && dz > -120) {
+      const hitKey =
+        Math.abs(px - objX) < 0.46 &&
+        dz < 280 &&
+        dz > -280;
+
+      if (hitKey) {
+        console.log('L5 KEY COLLISION DETECTED', {
+          kind: o.kind,
+          sectionIndex: o.sectionIndex,
+          laneIndex: o.laneIndex,
+          dz,
+          px,
+          objX,
+        });
+
         o._dead = true;
         P.keysCollected++;
+
+        const lvl = getActiveLevel();
+
+        if (lvl?.id === 'level5' && lvl.puzzleState) {
+          onKeyCollected(
+            lvl.puzzleState,
+            o.sectionIndex,
+            o.laneIndex
+          );
+
+          console.log('L5 AFTER KEY LOGIC', {
+            picked: lvl.puzzleState.keyPicked[o.sectionIndex],
+            open: lvl.puzzleState.hurdleOpen[o.sectionIndex],
+            safeLane: lvl.puzzleState.safeKeySequence[o.sectionIndex],
+          });
+
+          // Remove all 3 keys from same key set
+          for (const k of sceneryObjs) {
+            if (k.isKey && k.sectionIndex === o.sectionIndex) {
+              k._dead = true;
+            }
+          }
+
+          // Show jump ramp only if correct key opened hurdle
+          // Show jump ramp for the SAME section whose correct key was collected
+          if (lvl.puzzleState.hurdleOpen[o.sectionIndex]) {
+            let foundRamp = false;
+
+            for (const r of sceneryObjs) {
+              if (r.isJumpRamp && r.sectionIndex === o.sectionIndex) {
+                r.hidden = false;
+                r._dead = false;
+                r.forceVisible = true;
+                foundRamp = true;
+
+                console.log('L5 RAMP SHOWN:', {
+                  section: o.sectionIndex,
+                  kind: r.kind,
+                  hidden: r.hidden,
+                  dead: r._dead,
+                  z: r.z,
+                });
+              }
+            }
+
+            if (!foundRamp) {
+              console.warn('L5 RAMP NOT FOUND for section:', o.sectionIndex);
+            }
+          }
+        }
+
         spawnKeyPickup(screenAnchorX, screenAnchorY - 100);
         safeSfx('key');
       }
+
       continue;
     }
 
-    // ── REAL KEY (Ghost Start) ──
-    // Only collectable when revealed (cat returns null while hidden).
-    // Picking it up tells the level1 logic to retreat the monster.
+    // General collision range for non-key objects
+    if (dz < HIT.PLAYER_Z_BACK || dz > HIT.PLAYER_Z_AHEAD) continue;
+
+    // ── REAL KEY ──
     if (cat === 'realkey') {
       if (Math.abs(px - objX) < 0.42 && dz < 100 && dz > -120) {
         o._dead = true;
@@ -573,24 +641,17 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
         if (lvl && typeof lvl.collectKey === 'function') {
           try { lvl.collectKey(); } catch (e) { }
         } else {
-          // Fallback if logic hook missing.
           P.ghostKeyCollected = true;
         }
       }
       continue;
     }
 
-    // ── COIN — tighter pickup ──
+    // ── COIN ──
     if (cat === 'coin') {
-      const coinHalfW = 0.10;
-      const coinBackZ = -45;
-      const coinAheadZ = 30;
-
-      if (Math.abs(px - objX) < coinHalfW && dz < coinAheadZ && dz > coinBackZ) {
+      if (Math.abs(px - objX) < 0.10 && dz < 30 && dz > -45) {
         o._dead = true;
-
         addCoins(1);
-
         spawnPickup(screenAnchorX, screenAnchorY - 80);
         safeSfx('coin', { volume: 0.22 });
       }
@@ -599,34 +660,20 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
     if (o.hidden) continue;
 
+    // ── LEVEL 3 PUZZLE SWITCH ──
     if (cat === 'puzzle') {
-      const pickupHalfW = 0.12;
-      const pickupBackZ = -45;
-      const pickupAheadZ = 30;
-
-      if (
-        Math.abs(px - objX) < pickupHalfW &&
-        dz < pickupAheadZ &&
-        dz > pickupBackZ
-      ) {
+      if (Math.abs(px - objX) < 0.12 && dz < 30 && dz > -45) {
         if (o._pressed) continue;
 
         o._pressed = true;
         o._dead = true;
 
         const result = pressSymbolSwitch(o.symbol);
-
-        spawnPickup(
-          screenAnchorX,
-          screenAnchorY - 80,
-          false
-        );
+        spawnPickup(screenAnchorX, screenAnchorY - 80, false);
 
         if (result?.spawnTraps) {
           for (const t of sceneryObjs) {
-            if (t.isPuzzleTrap) {
-              t.hidden = false;
-            }
+            if (t.isPuzzleTrap) t.hidden = false;
           }
 
           for (const sw of sceneryObjs) {
@@ -637,13 +684,10 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
           }
         }
       }
-
       continue;
     }
 
-    // ═══════════════════════════════════════════════════
-    // BOOSTER (NITRO BOTTLE) — STORAGE-ONLY PICKUP
-    // ─────────────────────────────────────────────────────
+    // ── BOOSTER ──
     if (cat === 'booster') {
       if (Math.abs(px - objX) < 0.45 && dz < 100 && dz > -120) {
         const stored = addNitroBottle();
@@ -651,12 +695,11 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
         o._dead = true;
         spawnPickup(screenAnchorX, screenAnchorY - 90, true);
-
       }
       continue;
     }
 
-    // ── TUNNEL / ARCH / CENTER HURDLE ──
+    // ── ARCH / TUNNEL ──
     if (cat === 'arch') {
       resolveTunnelGateCollision(
         o,
@@ -670,6 +713,8 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
     // ── JUMP RAMP ──
     if (o.isJump) {
+      if (o.hidden) continue;
+
       const spr = JUMP_SPR[o.kind] || {};
       const jumpDz = wrapDz(o.z, playerZ);
 
@@ -699,17 +744,13 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // ── CHECKPOINT GATE (Level 2) ──
+    // ── LEVEL 2 CHECKPOINT ──
     if (o.isCheckpoint) {
       if (o.passed) continue;
 
-      const gateHalfW = 0.36;
-      const gateAheadZ = 220;
-      const gateBackZ = -120;
-
       const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
 
-      if (laneDiff < gateHalfW && dz > gateBackZ && dz < gateAheadZ) {
+      if (laneDiff < 0.36 && dz > -120 && dz < 220) {
         triggerGatePass(o);
 
         if (o.isSafeGate) {
@@ -724,8 +765,32 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // ── TUNNEL / ARCH / CENTER HURDLE ──
+    // ── HURDLE ──
     if (cat === 'hurdle') {
+      const lvl = getActiveLevel();
+
+      if (lvl?.id === 'level5' && lvl.puzzleState && o.sectionIndex != null) {
+        const open = lvl.puzzleState.hurdleOpen[o.sectionIndex];
+
+        if (open && P.isAirborne) {
+          continue;
+        }
+
+        if (open && !P.isAirborne) {
+          resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);
+          continue;
+        }
+
+        onHurdleReached(lvl.puzzleState, o.sectionIndex);
+
+        P.raceFailed = true;
+        P._failReason = lvl.puzzleState.failReason || 'Locked hurdle hit';
+        P.endPhase = -1;
+        P.endTime = 0;
+        P.speed = Math.max(0, P.speed * 0.15);
+        continue;
+      }
+
       resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY);
       continue;
     }
