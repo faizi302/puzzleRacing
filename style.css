@@ -2429,3 +2429,242 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
+
+/* FULL RESPONSIVE WIN / LOSE / PAUSE CARDS */
+#s-win.scr.ov,
+#s-lose.scr.ov,
+#s-pause.scr.ov {
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+           max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  overflow-y: auto;
+}
+
+#s-win .mbox,
+#s-lose .mbox,
+#s-pause .mbox {
+  width: min(92vw, 460px);
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 42px);
+}
+
+#s-win .troph,
+#s-lose .troph {
+  font-size: clamp(42px, 10vw, 96px);
+}
+
+#s-win h2,
+#s-lose h2,
+#s-pause h2 {
+  font-size: clamp(20px, 4vw, 36px);
+  margin-bottom: clamp(10px, 2vw, 22px);
+}
+
+#ws,
+#ls,
+#ls-progress-wrap {
+  margin-block: clamp(8px, 2vw, 16px);
+}
+
+#s-win .mb,
+#s-lose .mb,
+#s-pause .mb {
+  min-height: 44px;
+  margin: 8px auto;
+}
+
+/* short mobile landscape fix */
+@media (max-height: 500px) and (orientation: landscape) {
+  #s-win .mbox,
+  #s-lose .mbox,
+  #s-pause .mbox {
+    width: min(86vw, 520px);
+    max-height: 88dvh;
+    padding: 14px 22px;
+  }
+
+  #s-win .troph,
+  #s-lose .troph {
+    font-size: 42px;
+  }
+
+  #s-win h2,
+  #s-lose h2,
+  #s-pause h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  #ws,
+  #ls {
+    gap: 4px;
+    margin: 8px 0;
+  }
+
+  .wr,
+  #ls .wr {
+    padding: 5px 10px;
+  }
+
+  #ls-progress-wrap {
+    padding: 8px 10px;
+    margin: 6px 0;
+  }
+}
+
+/* EXTRA TOUCH BUTTONS */
+.tb.nitro {
+  background: linear-gradient(135deg, #00e8ff, #7b3dff);
+  color: #fff;
+}
+
+.tb.brake {
+  background: linear-gradient(135deg, #ff3a5c, #ffb547);
+  color: #1a0606;
+}
+
+#tcr {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 150px;
+}
+
+/* draggable mode support */
+.tb.draggable-touch {
+  position: fixed !important;
+  z-index: 90;
+  touch-action: none;
+}
+
+
+
+
+/* TOUCH EDITOR SCREEN */
+#s-touch-editor {
+  z-index: 150;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(0,232,255,0.12), transparent 45%),
+    rgba(0, 0, 0, 0.92);
+}
+
+.touch-edit-top {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 160;
+  pointer-events: none;
+}
+
+.touch-edit-top h2 {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 3vw, 34px);
+  color: var(--brand-cyan);
+  letter-spacing: 0.12em;
+}
+
+.touch-edit-top p {
+  color: var(--text-md);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+#touch-edit-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 155;
+  pointer-events: auto;
+  background:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.touch-edit-btn {
+  position: fixed !important;
+  z-index: 165;
+  touch-action: none;
+  cursor: grab;
+  outline: 2px dashed rgba(255,255,255,0.35);
+  outline-offset: 5px;
+}
+
+.touch-edit-btn:active {
+  cursor: grabbing;
+}
+
+.touch-edit-actions {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 170;
+}
+
+.touch-edit-actions .mb {
+  min-width: 130px;
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .touch-edit-top {
+    top: 8px;
+  }
+
+  .touch-edit-top h2 {
+    font-size: 18px;
+  }
+
+  .touch-edit-top p {
+    display: none;
+  }
+
+  .touch-edit-actions {
+    bottom: 8px;
+  }
+
+  .touch-edit-actions .mb {
+    padding: 9px 12px;
+    font-size: 11px;
+    min-width: 105px;
+  }
+}
+
+
+/* Remove top-right HUD black panel */
+.race-hud .hud-tr {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Remove inner speed/time/nitro boxes */
+.race-hud .hud-speed-box,
+.race-hud .hud-time-box,
+.race-hud .hud-nitro,
+.race-hud .hud-best {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep only text/icons visible */
+.race-hud .hud-time-box {
+  padding: 0 !important;
+  justify-content: flex-end;
+}
+
+/* Optional: make speed bigger and clean */
+.race-hud .hud-speed-val {
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* Remove minimap canvas shadow if CSS/inline conflict happens */
+#mini-map {
+  box-shadow: none !important;
+  background: transparent !important;
+}

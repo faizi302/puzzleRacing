@@ -1,36 +1,12 @@
-// ═══════════════════════════════════════════════════════
-// CORE CANVAS — Single source of truth for ALL canvases
-// ═══════════════════════════════════════════════════════
-// This file replaces the old `systems/projectionSystem.js` and the
-// inline canvas access in `visuals/uiRender.js`.
-//
-// Two canvases are managed here:
-//   1. GAME CANVAS (#gc)         — main 3D race view, DPR-aware
-//   2. MENU CANVAS (#menu-stars) — decorative title-screen background
-//
-// All renderers should import accessors from THIS file and nowhere else.
-// ═══════════════════════════════════════════════════════
+// Core canvas — single source of truth for game + menu canvases.
 
-// ── Game canvas state ───────────────────────────────────
-let _cv  = null;   // <canvas> element
-let _cx  = null;   // 2d context
-let _W   = 0;      // canvas width  (device pixels)
-let _H   = 0;      // canvas height (device pixels)
-let _dpr = 1;      // device pixel ratio (capped at 2)
-let _res = 1;      // resolution scale relative to a 1024 reference
+let _cv = null, _cx = null;
+let _W = 0, _H = 0, _dpr = 1, _res = 1;
 
-// ── Menu canvas state ───────────────────────────────────
-let _menuCv = null;
-let _menuCx = null;
+let _menuCv = null, _menuCx = null;
 
+// Game canvas
 
-// ════════════════════════════════════════════════════════
-// GAME CANVAS
-// ════════════════════════════════════════════════════════
-
-/**
- * Bind to the main game <canvas>. Called once at boot from main.js.
- */
 export function initRenderer(canvas) {
   _cv = canvas;
   _cx = canvas.getContext('2d', { alpha: false });
@@ -38,44 +14,40 @@ export function initRenderer(canvas) {
   _cx.imageSmoothingQuality = 'low';
 }
 
-/**
- * Resize the game canvas to viewport, accounting for device pixel ratio.
- * Call this on first render and on every resize event.
- */
 export function sizeCanvas() {
-  _dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const cssW = window.innerWidth;
+  const cssH = Math.max(260, window.innerHeight);
+  const newW = Math.round(cssW * dpr);
+  const newH = Math.round(cssH * dpr);
 
-  _W = Math.round(W * _dpr);
-  _H = Math.round(Math.max(260, H) * _dpr);
+  // Skip if nothing changed — avoids GPU buffer reallocation on no-op resizes.
+  if (newW === _W && newH === _H && dpr === _dpr) return;
 
-  _cv.width  = _W;
+  _dpr = dpr;
+  _W = newW;
+  _H = newH;
+
+  _cv.width = _W;
   _cv.height = _H;
-  _cv.style.width  = W + 'px';
-  _cv.style.height = H + 'px';
+  _cv.style.width = cssW + 'px';
+  _cv.style.height = cssH + 'px';
 
   _res = _W / 1024;
   _cx.imageSmoothingEnabled = true;
-  _cx.imageSmoothingQuality = 'high';
+  // 'low' is fast and visually fine for our scaling profile.
+  _cx.imageSmoothingQuality = 'low';
 }
 
-export function getCanvas() { return _cv;  }
-export function getCtx()    { return _cx;  }
-export function getW()      { return _W;   }
-export function getH()      { return _H;   }
-export function getRes()    { return _res; }
-export function getDpr()    { return _dpr; }
+export const getCanvas = () => _cv;
+export const getCtx    = () => _cx;
+export const getW      = () => _W;
+export const getH      = () => _H;
+export const getRes    = () => _res;
+export const getDpr    = () => _dpr;
 
+// Menu canvas
 
-// ════════════════════════════════════════════════════════
-// MENU CANVAS  (title-screen decorative stars background)
-// ════════════════════════════════════════════════════════
-
-/**
- * Lazily fetch the menu canvas, size it to its CSS box, return it.
- * Returns null if the element is missing from the DOM.
- */
 export function sizeMenuCanvas() {
   if (!_menuCv) {
     _menuCv = document.getElementById('menu-stars');
@@ -87,5 +59,5 @@ export function sizeMenuCanvas() {
   return _menuCv;
 }
 
-export function getMenuCanvas() { return _menuCv; }
-export function getMenuCtx()    { return _menuCx; }
+export const getMenuCanvas = () => _menuCv;
+export const getMenuCtx    = () => _menuCx;

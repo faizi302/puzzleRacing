@@ -1,7 +1,4 @@
-// ═══════════════════════════════════════════════════════
-// RENDER — Frame orchestrator
-// Added: Opponent Cars Rendering Layer + MONSTER Rendering Layer
-// ═══════════════════════════════════════════════════════
+// Frame orchestrator. Calls each renderer in fixed order.
 
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG } from './BackgroundRender.js';
@@ -15,80 +12,54 @@ import { drawMonsters } from './monsterRender.js';
 import { P } from '../systems/roadSystem.js';
 import { drawCheckpoints } from '../levels/level2/checkpointRender.js';
 
-function getShakeOffset() {
+// Reused shake vector — avoids allocating a new object every frame.
+const _shake = { x: 0, y: 0 };
+
+function computeShake(now) {
   if (P.cameraShakeTime <= 0 || P.cameraShake <= 0) {
-    return { x: 0, y: 0 };
+    _shake.x = 0;
+    _shake.y = 0;
+    return _shake;
   }
-
-  const t = performance.now() * 0.055;
+  const t = now * 0.055;
   const amp = P.cameraShake * 3;
-
-  return {
-    x:
-      Math.sin(t * 1.7) * amp +
-      Math.sin(t * 0.7) * amp * 0.35,
-
-    y:
-      Math.cos(t * 1.3) * amp * 0.55,
-  };
+  _shake.x = Math.sin(t * 1.7) * amp + Math.sin(t * 0.7) * amp * 0.35;
+  _shake.y = Math.cos(t * 1.3) * amp * 0.55;
+  return _shake;
 }
 
 export function renderFrame(steerVisual) {
   const ctx = getCtx();
   const W = getW();
   const H = getH();
-
   if (!W || !H) return;
 
+  const now = performance.now();
   ctx.clearRect(0, 0, W, H);
 
-  // 1. Background / horizon
   drawBG(steerVisual);
 
-  const s = getShakeOffset();
-
+  const s = computeShake(now);
   ctx.save();
   ctx.translate(s.x, s.y);
 
-  // Reverse-camera turning shake
   if (P.cameraTurning) {
     const t = Math.sin((P.cameraFlip || 0) * Math.PI);
-
-    ctx.translate(
-      Math.sin(performance.now() * 0.01) * 10 * t,
-      0
-    );
+    ctx.translate(Math.sin(now * 0.01) * 10 * t, 0);
   }
 
-  // ─────────────────────────────────────────
-  // WORLD RENDER ORDER
-  // ─────────────────────────────────────────
-
-  // 2. Road base
+  // World layers — order matters
   drawRoad();
-
-  // 3. Level 2 checkpoint arrows / marks
   drawCheckpoints(ctx, sceneryObjs);
-
-  // 4. World scenery / trees / arches / puzzle objects
   drawScenery();
-
-  // 5. Opponent AI cars
   drawOpponents();
-
-  // 6. Level 1 monsters
   drawMonsters();
-
-  // 7. Collision particles / sparks / impacts
   drawParts(ctx);
-
-  // 8. Player car always last
   drawCar(steerVisual);
 
   ctx.restore();
 
   // Collision white flash
-// Collision white flash
   if (P.impactFlash > 0.01) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.12, P.impactFlash * 0.10);
@@ -97,9 +68,6 @@ export function renderFrame(steerVisual) {
     ctx.restore();
   }
 
-  // 9. Fullscreen nitro speed-lines (over world, under fade/HUD)
   drawNitroSpeedLines(ctx, W, H);
-
-  // Fade overlay / intro / outro
   drawFadeOverlay();
 }

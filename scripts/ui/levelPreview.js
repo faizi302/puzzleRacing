@@ -1,20 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// LEVEL PREVIEW / MINIMAP  —  Real-road-shape renderer
-// ─────────────────────────────────────────────────────
-// Two public functions, both driven by the SAME shape-extraction
-// pipeline so the career-card preview matches what the player
-// sees in-game:
-//
-//   renderLevelPreview(mountEl, opts)
-//     Static SVG preview used by CareerScene cards. Reads
-//     `opts.module.buildRoads()` to derive the real geometry.
-//     Biome-tinted, includes start/finish markers.
-//
-//   renderInGameMinimap(canvas, snapshot)
-//     Canvas-2D HUD minimap painted each frame. Same shape,
-//     plus a moving player dot, opponent dots, finish pin,
-//     and start dot.
-// ═══════════════════════════════════════════════════════
 
 // ── Biome palette ──────────────────────────────────────
 const BIOME_COLORS = {
@@ -27,12 +10,7 @@ const BIOME_COLORS = {
 
 // ═══════════════════════════════════════════════════════
 // SHAPE EXTRACTOR
-// ─────────────────────────────────────────────────────
-// Walks the segments produced by a level's buildRoads() and
-// integrates per-segment curvature into a 2-D polyline. Not a
-// true 3-D projection, but accurate enough that the shape on
-// the card matches what the player drives.
-// ═══════════════════════════════════════════════════════
+
 function extractRoadShape(segs) {
   if (!segs || !segs.length) return [];
 
@@ -166,19 +144,11 @@ export function renderLevelPreview(mountEl, opts = {}) {
   `;
 }
 
+const _miniCache = new Map();
+
 // ═══════════════════════════════════════════════════════
 // IN-GAME MINIMAP (Canvas 2D)  — painted each frame.
 // ─────────────────────────────────────────────────────
-// snapshot = {
-//   level,        // active level module
-//   trackLen,     // total Z length
-//   playerPos,    // P.pos
-//   playerLane,   // P.playerX  (-1..1)
-//   onRoad2,      // bool
-//   opponents,    // [{pos|z, ...}, ...]
-// }
-// ═══════════════════════════════════════════════════════
-const _miniCache = new Map();
 
 function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
   const lvlId = snapshot.level?.id || 'level1';
@@ -215,101 +185,116 @@ export function renderInGameMinimap(canvas, snapshot) {
   const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
-  // ── Card background ─────────────────────────────────
-  ctx.fillStyle = 'rgba(8, 12, 20, 0.72)';
-  roundRect(ctx, 0, 0, W, H, 10);
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(120,180,255,0.35)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, 0.5, 0.5, W - 1, H - 1, 10);
-  ctx.stroke();
-
-  // ── Road shape ──────────────────────────────────────
   const built = getOrBuildMiniShape(snapshot, W, H);
   const pts = built.pts;
   if (!pts.length) return;
 
-  // Glow under-stroke
-  ctx.strokeStyle = 'rgba(120, 200, 255, 0.30)';
-  ctx.lineWidth = 7;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.stroke();
+  const trackLen = snapshot.trackLen || 1;
+  const playerPos = Math.max(0, Math.min(trackLen, snapshot.playerPos || 0));
 
-  // Main road
-  ctx.strokeStyle = snapshot.onRoad2 ? '#9eff9e' : '#a0c0ff';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.stroke();
+  // Asphalt-style local map window:
+  // 8% total visible = 4% behind + 4% forward
+  const VIEW_PCT = 0.08;
+  const HALF_VIEW = VIEW_PCT / 2;
 
-  // ── Start dot ───────────────────────────────────────
-  const start = pts[0];
-  ctx.fillStyle = '#3df56a';
-  ctx.beginPath();
-  ctx.arc(start[0], start[1], 3, 0, Math.PI * 2);
-  ctx.fill();
+  const playerT = playerPos / trackLen;
+  const startT = Math.max(0, playerT - HALF_VIEW);
+  const endT = Math.min(1, playerT + HALF_VIEW);
 
-  // ── Finish marker ───────────────────────────────────
-  const finish = pts[pts.length - 1];
-  drawCheckerPin(ctx, finish[0], finish[1]);
+  const startIndex = Math.floor(startT * (pts.length - 1));
+  const endIndex = Math.ceil(endT * (pts.length - 1));
+  const localPts = pts.slice(startIndex, Math.max(startIndex + 2, endIndex + 1));
 
-  // ── Helper: Z pos → point on polyline ───────────────
-  const posToPt = (zPos) => {
-    if (!snapshot.trackLen || snapshot.trackLen <= 0) return start;
-    const tn = Math.max(0, Math.min(1, zPos / snapshot.trackLen));
-    const f = tn * (pts.length - 1);
-    const i = Math.floor(f);
-    const t = f - i;
-    const a = pts[i] || start;
-    const b = pts[Math.min(pts.length - 1, i + 1)] || a;
-    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  if (localPts.length < 2) return;
+
+  // Fit only local 8% segment into minimap canvas
+  const fit = fitShape(
+    localPts.map(([x, y]) => [x, y]),
+    W,
+    H,
+    12
+  );
+
+  const viewPts = fit.pts;
+
+  const drawPath = (lineWidth, strokeStyle) => {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(viewPts[0][0], viewPts[0][1]);
+    for (let i = 1; i < viewPts.length; i++) {
+      ctx.lineTo(viewPts[i][0], viewPts[i][1]);
+    }
+    ctx.stroke();
   };
 
-  // ── Opponents (yellow dots) ─────────────────────────
+  // Glow + bold road
+  drawPath(11, 'rgba(80, 220, 255, 0.28)');
+  drawPath(6, snapshot.onRoad2 ? '#9eff9e' : '#a0d8ff');
+
+  function localPosToPt(zPos) {
+    const t = Math.max(startT, Math.min(endT, zPos / trackLen));
+    const globalF = t * (pts.length - 1);
+    const globalI = Math.floor(globalF);
+    const localI = Math.max(0, Math.min(viewPts.length - 1, globalI - startIndex));
+
+    return viewPts[localI] || viewPts[0];
+  }
+
+  // Opponents only if inside visible 8%
   if (Array.isArray(snapshot.opponents)) {
     ctx.fillStyle = '#ffd14a';
     for (const op of snapshot.opponents) {
-      if (op == null) continue;
-      const z = (typeof op === 'number') ? op : (op.pos ?? op.z ?? 0);
-      const [x, y] = posToPt(z);
+      const z = typeof op === 'number' ? op : (op?.pos ?? op?.z ?? 0);
+      const t = z / trackLen;
+      if (t < startT || t > endT) continue;
+
+      const [x, y] = localPosToPt(z);
       ctx.beginPath();
-      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+      ctx.arc(x, y, 3.2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // ── Player (cyan dot w/ halo) ───────────────────────
-  if (typeof snapshot.playerPos === 'number') {
-    const [px, py] = posToPt(snapshot.playerPos);
+  // Player always near center of local map
+  const playerLocalT = (playerT - startT) / Math.max(0.0001, endT - startT);
+  const playerIndex = Math.round(playerLocalT * (viewPts.length - 1));
+  const p = viewPts[Math.max(0, Math.min(viewPts.length - 1, playerIndex))];
 
-    const now = performance.now() * 0.005;
-    const pulse = 0.7 + 0.3 * Math.sin(now);
-    ctx.fillStyle = `rgba(80, 220, 255, ${0.35 * pulse})`;
-    ctx.beginPath();
-    ctx.arc(px, py, 6.5, 0, Math.PI * 2);
-    ctx.fill();
+  const p2 = viewPts[Math.min(viewPts.length - 1, playerIndex + 1)] || p;
+  const p1 = viewPts[Math.max(0, playerIndex - 1)] || p;
+  const ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
 
-    ctx.fillStyle = '#5cd6ff';
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(px, py, 3.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
+  ctx.save();
+  ctx.translate(p[0], p[1]);
+  ctx.rotate(ang + Math.PI / 2);
 
-  // ── Label ───────────────────────────────────────────
-  ctx.fillStyle = 'rgba(180,210,255,0.78)';
-  ctx.font = 'bold 9px Rajdhani, Arial, sans-serif';
+  ctx.fillStyle = 'rgba(0, 232, 255, 0.32)';
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#00e8ff';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(7, 8);
+  ctx.lineTo(0, 4);
+  ctx.lineTo(-7, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Small progress label
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.font = 'bold 9px Rajdhani, Arial';
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(snapshot.onRoad2 ? 'MAP · ROAD 2' : 'MAP', 6, 5);
+  ctx.fillText(`${Math.round(playerT * 100)}%`, 4, 4);
 }
 
 // ── Helpers ────────────────────────────────────────────

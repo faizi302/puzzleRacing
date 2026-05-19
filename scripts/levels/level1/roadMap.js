@@ -1,26 +1,9 @@
-// ═══════════════════════════════════════════════════════
-// LEVEL 1 ROAD MAP — "THE GHOST START"  (REWORKED)
-// ─────────────────────────────────────────────────────
-// ROAD1 — the LIE.
-//   The first ~80 segments are deliberately STRAIGHT so the
-//   player can see:
-//     - the normal road ahead leading to the fake door
-//     - the fake wall behind them (when they turn around)
-//     - the pressure plate (behind the wall)
-//   The last ~40 segments are also straight — that's where
-//   the fake door + monster wall sit. Driving into them =
-//   GAME OVER.
-//
-// ROAD2 — the REAL WINNING PATH.
-//   Unlocked by the pressure plate. Road2 also ends in a
-//   monster wall, but a BIG JUMP RAMP sits in front of them
-//   so the player can fly over and finish safely.
-//   The last ~40 segments are kept straight so the ramp,
-//   the monsters, and the finish line all line up visually.
-// ═══════════════════════════════════════════════════════
-import { C, LCOL } from '../../configs/roadConfig.js';
+// Level 1 road geometry — Road1 is the trap path, Road2 is the winning path.
+// Closing segments of both roads are deliberately straight so trap/jump/finish
+// line all read clearly to the player.
 
-const eIO = (a, b, p) => a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5);
+import { C, LCOL } from '../../configs/roadConfig.js';
+import { easeInOut } from '../../utils/math.js';
 
 function addSegTo(target, curve, hill) {
   const n   = target.length;
@@ -37,9 +20,9 @@ function addSegTo(target, curve, hill) {
 
 function makeBuilder(target) {
   const addStretch = (nE, nH, nL, cv, hl) => {
-    for (let i = 0; i < nE; i++) addSegTo(target, eIO(0, cv, i / nE), eIO(0, hl, i / nE));
+    for (let i = 0; i < nE; i++) addSegTo(target, easeInOut(0, cv, i / nE), easeInOut(0, hl, i / nE));
     for (let i = 0; i < nH; i++) addSegTo(target, cv, hl);
-    for (let i = 0; i < nL; i++) addSegTo(target, eIO(cv, 0, i / nL), eIO(hl, 0, i / nL));
+    for (let i = 0; i < nL; i++) addSegTo(target, easeInOut(cv, 0, i / nL), easeInOut(hl, 0, i / nL));
   };
   return {
     straight: (n = 25)                 => addStretch(n / 4 | 0, n / 2 | 0, n / 4 | 0, 0, 0),
@@ -48,24 +31,17 @@ function makeBuilder(target) {
   };
 }
 
-// ─────────────────────────────────────────────────────
-// ROAD 1 — The TRAP path
-//   - Long opening straight (puzzle zone)
-//   - Winding middle
-//   - Long closing straight (trap zone: fake door + monsters)
-// ─────────────────────────────────────────────────────
+// Road 1 — trap path
 function buildRoad1() {
   const out = [];
   const { straight, curve, addStretch } = makeBuilder(out);
 
   addStretch(1, C.RUMBLE * 2, 1, 0, 0);
 
-  // ── Opening straight (the puzzle area) ──
-  // Spawn area, fake wall behind, plate behind wall, all
-  // visible in one frame.
+  // Opening straight — spawn area, wall behind, plate behind wall visible.
   straight(80);
 
-  // Winding middle.
+  // Winding middle
   curve(80, -0.55, 0);
   straight(190);
   curve(95, -0.32, 0);
@@ -80,21 +56,13 @@ function buildRoad1() {
   straight(200);
   curve(65,  -0.20, 0);
 
-  // ── Closing straight (the TRAP zone) ──
-  // Must be straight so the player clearly sees the fake door
-  // + monster wall lined up before the finish.
+  // Closing straight — trap zone (fake door + monster wall)
   straight(220);
   straight(40);
   return out;
 }
 
-// ─────────────────────────────────────────────────────
-// ROAD 2 — The REAL path (winning route)
-//   Same overall length so the trap zone aligns nicely.
-//   Closing 40 segments are also straight so the jump ramp,
-//   the monster wall behind it, and the finish line all
-//   read clearly to the player.
-// ─────────────────────────────────────────────────────
+// Road 2 — winning path
 function buildRoad2() {
   const out = [];
   const { straight, curve, addStretch } = makeBuilder(out);
@@ -113,9 +81,7 @@ function buildRoad2() {
   straight(200);
   curve(80,   0.18, 0);
 
-  // ── Closing straight (RAMP + MONSTERS + FINISH) ──
-  // Keep this generous so the player has a clear runway into
-  // the big jump and a long sight line to the monsters.
+  // Closing straight — ramp + monsters + finish
   straight(220);
   straight(40);
   return out;

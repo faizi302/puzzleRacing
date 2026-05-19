@@ -1,22 +1,5 @@
-// ═══════════════════════════════════════════════════════
-// PLAYER RENDER — HUD & lap time display
-// ─────────────────────────────────────────────────────
-// LEVEL 1 — "THE GHOST START" HUD (REWORKED):
-//   • Track name flips through these phases:
-//        - "GHOST START"  default / driving on Road1
-//        - "ON PLATE…"    while charging the pressure plate
-//        - "REAL ROAD!"   once the plate has fired and Road2
-//                         is unlocked
-//        - "FINISH AHEAD" while actually driving Road2
-//   • The keys panel doubles as the Ghost Start progress
-//     indicator:
-//        - "FAKE"   before the player has done anything
-//        - "PLATE NN%"  while the player is on the pressure plate
-//        - "OPEN!"  once the plate is fully activated
-//   • There is intentionally no "key collected" state —
-//     the reworked puzzle has no real key to grab; the
-//     pressure plate directly unlocks the winning road.
-// ═══════════════════════════════════════════════════════
+// HUD + lap-time display. Level 1 "Ghost Start" status flips through phases.
+
 import { P, kmh, best } from '../systems/roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 
@@ -28,19 +11,25 @@ export function fmtT(t) {
   return `${m}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
+// HUD update — cached DOM refs to avoid getElementById churn per frame.
+const _el = {};
+function $(id) {
+  return _el[id] || (_el[id] = document.getElementById(id));
+}
+
 export function updHUD(fps, trackLen) {
-  document.getElementById('h-spd').textContent  = kmh();
-  document.getElementById('h-lap').textContent  = fmtT(P.lapTime);
-  document.getElementById('h-best').textContent = best() ? fmtT(best()) : '--:--.---';
-  document.getElementById('h-fps').textContent  = fps | 0;
+  const spd = $('h-spd');     if (spd)  spd.textContent  = kmh();
+  const lap = $('h-lap');     if (lap)  lap.textContent  = fmtT(P.lapTime);
+  const bst = $('h-best');    if (bst)  bst.textContent  = best() ? fmtT(best()) : '--:--.---';
+  const fp  = $('h-fps');     if (fp)   fp.textContent   = fps | 0;
 
   const pct = trackLen > 0 ? (P.pos / trackLen) * 100 : 0;
-  document.getElementById('pf').style.width      = pct.toFixed(1) + '%';
-  document.getElementById('pl').textContent      = pct.toFixed(0) + '%';
-  document.getElementById('ow').style.opacity    = P.isOffTrack ? '1' : '0';
+  const pf  = $('pf'); if (pf) pf.style.width = pct.toFixed(1) + '%';
+  const pl  = $('pl'); if (pl) pl.textContent = pct.toFixed(0) + '%';
+  const ow  = $('ow'); if (ow) ow.style.opacity = P.isOffTrack ? '1' : '0';
 
-  // ── Ghost Start progress indicator (uses keys HUD slot) ──
-  const keysEl = document.getElementById('h-keys');
+  // Ghost Start status in keys slot
+  const keysEl = $('h-keys');
   if (keysEl) {
     if (P.ghostPlateActive) {
       keysEl.textContent = 'OPEN!';
@@ -55,8 +44,8 @@ export function updHUD(fps, trackLen) {
     }
   }
 
-  // ── Track name ────────────────────────────────────────
-  const trackEl = document.getElementById('h-track');
+  // Track name
+  const trackEl = $('h-track');
   if (trackEl) {
     if (P.onRoad2) {
       trackEl.textContent = 'FINISH AHEAD';
@@ -77,11 +66,11 @@ export function updHUD(fps, trackLen) {
 export function updLaps() {
   const laps = P.lapTimes;
   const b = best();
+  const ll = $('ll');
+  if (!ll) return;
 
-  document.getElementById('ll').innerHTML =
-    [...laps].reverse().slice(0, 5).map((t, i) => {
-      const n = laps.length - i;
-      return `<div class="lr${t === b ? ' best' : ''}">` +
-             `<span>L${n}</span><span>${fmtT(t)}</span></div>`;
-    }).join('');
+  ll.innerHTML = [...laps].reverse().slice(0, 5).map((t, i) => {
+    const n = laps.length - i;
+    return `<div class="lr${t === b ? ' best' : ''}"><span>L${n}</span><span>${fmtT(t)}</span></div>`;
+  }).join('');
 }

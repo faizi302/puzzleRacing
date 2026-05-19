@@ -325,10 +325,42 @@
           <button id="btn-reset-controls" class="mb compact" style="margin-top:12px;width:100%">
             🎮 RESET CONTROLS
           </button>
+
+          <button id="btn-edit-touch" class="mb compact" style="margin-top:8px;width:100%">
+            ✋ EDIT TOUCH BUTTONS
+          </button>
+
+          <button id="btn-reset-touch" class="mb compact" style="margin-top:8px;width:100%">
+            ↺ RESET TOUCH BUTTONS
+          </button>
         </div>
       </div>
     </div>
   </div>
+
+
+
+  <div id="s-touch-editor" class="scr ov">
+  <div class="touch-edit-top">
+    <h2>EDIT TOUCH CONTROLS</h2>
+    <p>Drag buttons where you feel comfortable.</p>
+  </div>
+
+  <div id="touch-edit-stage">
+    <button class="tb touch-edit-btn" data-target="tc-l">◀</button>
+    <button class="tb touch-edit-btn" data-target="tc-r">▶</button>
+    <button class="tb acc touch-edit-btn" data-target="tc-a">▲<br><small>GAS</small></button>
+    <button class="tb touch-edit-btn" data-target="tc-b">▼<br><small>BRK</small></button>
+    <button class="tb nitro touch-edit-btn" data-target="tc-n">⚡<br><small>NITRO</small></button>
+    <button class="tb brake touch-edit-btn" data-target="tc-ib">⛔<br><small>BRAKE</small></button>
+  </div>
+
+  <div class="touch-edit-actions">
+    <button id="btn-touch-ok" class="mb pr">✅ OK / SAVE</button>
+    <button id="btn-touch-cancel" class="mb">↩ BACK</button>
+    <button id="btn-touch-reset-editor" class="mb">↺ RESET</button>
+  </div>
+</div>
 
   <!-- ════════════════════════════════════════════════════════
        GAME (race)
@@ -346,6 +378,8 @@
       <div id="tcr">
         <button class="tb acc" id="tc-a">▲<br><small>GAS</small></button>
         <button class="tb" id="tc-b">▼<br><small>BRK</small></button>
+        <button class="tb nitro" id="tc-n">⚡<br><small>NITRO</small></button>
+        <button class="tb brake" id="tc-ib">⛔<br><small>BRAKE</small></button>
       </div>
     </div>
   </div>
@@ -353,14 +387,15 @@
   <!-- ════════════════════════════════════════════════════════
        PAUSE / WIN
        ════════════════════════════════════════════════════════ -->
-  <div id="s-pause" class="scr ov">
-    <div class="mbox">
-      <h2>PAUSED</h2>
-      <button id="btn-resume" class="mb pr">▶ RESUME</button>
-      <button id="btn-restart" class="mb">🔄 RESTART</button>
-      <button id="btn-quit" class="mb">🏠 HUB</button>
-    </div>
+<div id="s-pause" class="scr ov">
+  <div class="mbox">
+    <h2>PAUSED</h2>
+    <button id="btn-resume" class="mb pr">▶ RESUME</button>
+    <button id="btn-pause-settings" class="mb">⚙️ SETTINGS</button>
+    <button id="btn-restart" class="mb">🔄 RESTART</button>
+    <button id="btn-quit" class="mb">🏠 HUB</button>
   </div>
+</div>
 
   <div id="s-win" class="scr ov">
     <div class="mbox">
