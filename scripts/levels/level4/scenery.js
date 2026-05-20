@@ -1,15 +1,10 @@
 import { C } from '../../configs/roadConfig.js';
 import { trackLen } from '../../core/roadMap.js';
 
-// ═════════════════════════════════════════════════════════════════
-// LEVEL 4 — MEMORY SPRINT scenery
-// ═════════════════════════════════════════════════════════════════
-
-const LANES = [-0.55, 0.0, 0.55];  // left, center, right
+const LANES = [-0.55, 0.0, 0.55];
 
 const SAFE_LANE_INDEX_BY_CHECKPOINT = [1, 0, 2, 1, 0, 2, 1, 2, 0];
 
-// Exported so logic.js can read it without duplicating constants.
 export const L4_LAYOUT = {
   LANES,
   SAFE_LANE_INDEX_BY_CHECKPOINT,

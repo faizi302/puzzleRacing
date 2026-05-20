@@ -27,6 +27,10 @@ export const LEVEL_META = {
     'assets/level/level5/LocationDSegments.jpg',
   ],
 
+  locationDSceneryImage: [
+    'assets/level/level2/LocationDScenery.png',
+  ],
+
   // ── UI Messages ──────────────────────────────────────────────
   startMessage: '🏁 Level 5: The Key of Survival – Choose wisely!',
   hintMessage: '🗝️ Pick the correct key before each obstacle!',

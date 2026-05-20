@@ -14,7 +14,7 @@ export const L2_MAZE = {
   glitchTime: 1.2,
 };
 
-export const REQUIRED_CP = 5;
+export const REQUIRED_CP = 33;
 
 export function resetLevel2Puzzle() {
   L2_MAZE.phase = 'preview';
@@ -31,6 +31,7 @@ export function resetLevel2Puzzle() {
   P.endTime = 0;
 
   P.level2SpeedBoostTimer = 0;
+  P.level2ReadyToFinish = false;
   P.level2SpeedBoostTarget = NORMAL_SPEED;
 
   P.raceFailed = false;
@@ -106,7 +107,7 @@ export function rewardCheckpoint() {
   } catch (e) { }
 
   if (P.level2CpPassed >= REQUIRED_CP) {
-    completeLevel2();
+    P.level2ReadyToFinish = true;   // ✅ instead of finishing
   }
 }
 
@@ -149,6 +150,15 @@ export function isLevel2Active() {
 
 export function getLevel2Phase() {
   return L2_MAZE.phase;
+}
+
+export function reachLevel2Finish() {
+  if (!P.level2ReadyToFinish) {
+    // player reached finish too early
+    return;
+  }
+
+  completeLevel2();
 }
 
 export const isLevel2TrapActive = isLevel2Active;
