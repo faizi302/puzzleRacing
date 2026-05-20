@@ -88,6 +88,13 @@ const DEFAULT_LEVEL_IMAGES = {
     'assets/police_sprite.png',
     'police_sprite.png',
   ],
+
+  locationDScenery: [
+    'assets/level/level2/LocationDScenery.png',
+    'assets/level/level5/LocationDScenery.png',
+    'assets/LocationDScenery.png',
+    'LocationDScenery.png',
+  ],
 };
 
 export const IMG = {
@@ -96,6 +103,7 @@ export const IMG = {
   scenery: loadImage(DEFAULT_LEVEL_IMAGES.scenery),
   jumps: loadImage(DEFAULT_LEVEL_IMAGES.jumps),
   puzzleSymbols: loadImage(DEFAULT_LEVEL_IMAGES.puzzleSymbols),
+  locationDScenery: loadImage(DEFAULT_LEVEL_IMAGES.locationDScenery),
 
   // Monster spritesheet used by visuals/monsterRender.js.
   monsters: loadImage(DEFAULT_LEVEL_IMAGES.monsters),
@@ -126,6 +134,13 @@ export async function setLevelImages(levelMeta) {
   const policeCarsSrc = levelMeta?.policeCarsImage || DEFAULT_LEVEL_IMAGES.policeCars;
   IMG.policeCars = loadImage(policeCarsSrc);
   waits.push(IMG.policeCars.promise);
+
+  const locationDScenerySrc =
+    levelMeta?.locationDSceneryImage ||
+    DEFAULT_LEVEL_IMAGES.locationDScenery;
+
+  IMG.locationDScenery = loadImage(locationDScenerySrc);
+  waits.push(IMG.locationDScenery.promise);
 
   IMG.segments = loadImage(segmentsSrc);
   IMG.scenery = loadImage(scenerySrc);

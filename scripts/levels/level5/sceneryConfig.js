@@ -54,6 +54,15 @@ export const SPR_L5 = {
     policeAtlas: true,
   },
 
+  barricade1: {
+    sx: 1121, sy: 760, sw: 398, sh: 221,
+    scale: 0.65,
+    anchorY: 0.97,
+    locationDAtlas: true,
+  },
+
+ barricade3: { sx: 488, sy: 261, sw: 397, sh: 121, scale: 0.80, anchorY: 0.97, locationDAtlas: true, },
+
   // ── Puzzle key (sampled from keys_sprite.png) ─────────────────
   //   keys_sprite has 4 keys in a ~600×160 strip
   //   Key0 (gold ornate)   ~0–149 px

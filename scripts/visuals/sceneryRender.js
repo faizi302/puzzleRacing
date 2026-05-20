@@ -1,27 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// SCENERY RENDER — Drawing only. Building delegated to active level.
-// ─────────────────────────────────────────────────────
-// Renders:
-//   • Static scenery (trees, totems, bridges, arches…)
-//   • Pickups (coins, keys, boosters)
-//   • Hurdles + Jump ramps
-//   • Fork-gate / fork-marker tinting
-//   • GHOST START puzzle objects:
-//       - Fake door            → PERMANENT red-skull trap.
-//                                Never opens, never turns green.
-//       - Pressure plate       → ground disc, pulses, turns
-//                                green once activated
-//       - Fake wall            → full opacity normal stone wall;
-//                                fades to ~40% once dissolved
-//                                so the player can see the trick
-//                                is broken
-//       - Real key             → legacy renderer (kept harmless
-//                                in case any external level still
-//                                emits it). The reworked Level 1
-//                                no longer places one.
-//
-// DEBUG: window.DEBUG_JUMPS = true logs jump info every second.
-// ═══════════════════════════════════════════════════════
 import { C } from '../configs/roadConfig.js';
 import { segs, trackLen, getActiveTrack } from '../core/roadMap.js';
 import { P, clamp } from '../systems/roadSystem.js';
@@ -104,6 +80,10 @@ function resolveSprite(kind) {
     return { spr, atlas: IMG.policeCars, isJumpAtlas: false };
   }
 
+  if (spr.locationDAtlas) {
+    return { spr, atlas: IMG.locationDScenery, isJumpAtlas: false };
+  }
+
   return { spr, atlas: IMG.scenery, isJumpAtlas: false };
 }
 
@@ -125,7 +105,12 @@ function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
 // ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
   if (!_visibleSegs.length) return;
- if (!IMG.scenery?.ready && !IMG.jumps?.ready && !IMG.policeCars?.ready) return;
+  if (
+    !IMG.scenery?.ready &&
+    !IMG.jumps?.ready &&
+    !IMG.policeCars?.ready &&
+    !IMG.locationDScenery?.ready
+  ) return;
 
   // One-shot atlas-loaded log
   if (typeof window !== 'undefined' && window.DEBUG_JUMPS &&
@@ -204,9 +189,6 @@ export function drawScenery() {
     let drawW, drawH, x, y;
 
     if (it.o.isJump) {
-      // ═══════════════════════════════════════════════════
-      // JUMP RAMP — physical-size projection (BIGGER & BOLDER)
-      // ═══════════════════════════════════════════════════
       const jumpSize = it.o.size ?? 1.00;
       const roadFrac = it.o.roadFrac ?? s.roadFrac ?? 0.78;
       const heightMul = it.o.heightMul ?? s.heightMul ?? 0.85;
@@ -224,12 +206,9 @@ export function drawScenery() {
       if (y + drawH < horizonY - 50) continue;
 
     } else if (it.o.isPressurePlate) {
-      // ═══════════════════════════════════════════════════
-      // PRESSURE PLATE — flat disc on the road, glows.
-      // ═══════════════════════════════════════════════════
       const plateSize = 0.78;
       drawW = it.rw * plateSize;
-      drawH = drawW * 0.22;   // very flat — it's a floor plate
+      drawH = drawW * 0.22;  
 
       const groundX = it.cx + (it.o.offset || 0) * it.rw;
       x = groundX - drawW / 2;
@@ -278,8 +257,6 @@ export function drawScenery() {
       if (y > _H || x > _W + drawW || x < -drawW) continue;
 
     } else if (it.o.isHurdle || it.o.isFakeWall) {
-      // Fake walls use the same sizing math as hurdles — they're
-      // visually identical to a stoneWall hurdle, just no collision.
       const hurdleSize = it.o.size ?? 0.45;
       const HURDLE_WORLD_W = C.ROAD_W * hurdleSize * s.scale;
       drawW = HURDLE_WORLD_W * (C.CAM_DEPTH / it.dz) * _W;
@@ -358,18 +335,6 @@ export function drawScenery() {
     ctx.save();
     let alpha = 0.20 + fade * 0.80;
 
-    // ═══════════════════════════════════════════════════
-    // GHOST START — visual logic per design diagram
-    // ─────────────────────────────────────────────────
-    // The fake wall and fake door LOOK 100% real (no cyan
-    // tint, no shimmer). Only the pressure plate has a glow,
-    // because the diagram shows it as the only "magical"
-    // element. After plate activation:
-    //   • Plate halo turns green (was blue)
-    //   • Fake door swaps from red skull tint to green safe
-    //   • Real key appears with gold glow
-    //   • Fake walls fade slightly to hint they've dissolved
-    // ═══════════════════════════════════════════════════
     const plateActive = !!P.ghostPlateActive;
 
     if (it.o.isMemoryPlatform) {
@@ -380,8 +345,6 @@ export function drawScenery() {
         alpha = 0.75 + 0.25 * Math.sin(now * 0.02);
     }
 
-    // Fake wall: full opacity before plate. After plate, fade
-    // to ~40% so the player can see they've dissolved.
     if (it.o.isFakeWall) {
       alpha = it.o.dissolved ? 0.40 + 0.10 * Math.sin(now * 0.005) : 1.0;
     }
@@ -390,11 +353,6 @@ export function drawScenery() {
 
     // ──── Branch by render-mode ────────────────────────
     if (it.o.isPressurePlate) {
-      // ═══════════════════════════════════════════════════
-      // PRESSURE PLATE — blue glowing floor disc
-      // (matches the diagram exactly: blue gem-like square
-      //  on the road, turns green when activated)
-      // ═══════════════════════════════════════════════════
       const activated = !!it.o.activated || plateActive;
       const pulse = 0.55 + 0.45 * Math.sin(now * 0.006);
 
@@ -452,15 +410,6 @@ export function drawScenery() {
       ctx.fill();
 
     } else if (it.o.isFakeWall) {
-      // ═══════════════════════════════════════════════════
-      // FAKE WALL — looks 100% SOLID, real stone
-      // ─────────────────────────────────────────────────
-      // No tint, no shimmer, no glow. Just a normal stone
-      // wall sprite at full opacity. The "lie" is that it
-      // has no collision — visually it must read as real.
-      // After plate activation we add a tiny dust/shimmer
-      // hint so the player notices it's dissolved.
-      // ═══════════════════════════════════════════════════
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
       if (it.o.dissolved) {
@@ -472,17 +421,6 @@ export function drawScenery() {
       }
 
     } else if (it.o.isFakeDoor) {
-      // ═══════════════════════════════════════════════════
-      // FAKE DOOR (PERMANENT TRAP) — stone arch with skull
-      // ─────────────────────────────────────────────────
-      // Diagram invariant: the fake door is ALWAYS a trap.
-      // It never opens. It never turns green. The pressure
-      // plate does NOT change this — the plate's job is to
-      // unlock Road2, not to disarm this door.
-      //
-      // Renderer always shows the red skull warning tint and
-      // ignores any `isDoorOpen` / `plateActive` state.
-      // ═══════════════════════════════════════════════════
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
       const pulse = 0.55 + 0.45 * Math.sin(now * 0.005);
@@ -503,10 +441,6 @@ export function drawScenery() {
       ctx.fillText('💀', x + drawW / 2, y + drawH * 0.18);
 
     } else if (it.o.isRealKey) {
-      // ═══════════════════════════════════════════════════
-      // REAL KEY — pre-placed but `hidden:true` until plate
-      // activates. Once visible, gold key + bright halo.
-      // ═══════════════════════════════════════════════════
       drawSprite(ctx, atlas, s.sx, s.sy, s.sw, s.sh, x, y, drawW, drawH);
 
       const pulse = 0.85 + 0.15 * Math.sin(now * 0.006);

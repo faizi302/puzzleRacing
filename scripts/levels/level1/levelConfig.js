@@ -1,22 +1,5 @@
 // ═══════════════════════════════════════════════════════
 // LEVEL 1 — "THE GHOST START"
-// ─────────────────────────────────────────────────────
-// "What you see is a beautiful lie."
-//
-// Layered puzzle:
-//   1. Player spawns and sees: FAKE KEY 🔑, FAKE DOOR 🚪, clear path 🟢
-//   2. Wrong-but-obvious play: grab key → drive through door → TRAP
-//   3. Real solution:
-//        • Ignore the fake key
-//        • Reverse the car
-//        • Find the HIDDEN WALL behind the spawn
-//        • Cross the PRESSURE PLATE  ⬜
-//        • Fake key turns REAL, the safe path opens 🟢
-//        • The original reverse-road secret (Road2) still unlocks
-//          afterward for full completion.
-//
-// And at the end of the first lap: THREE monsters block the
-// finish line — one per lane — crawling toward the player.
 // ═══════════════════════════════════════════════════════
 export const LEVEL_META = {
   id:   'level1',

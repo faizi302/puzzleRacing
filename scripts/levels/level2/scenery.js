@@ -3,37 +3,6 @@ import { trackLen } from '../../core/roadMap.js';
 
 // ═══════════════════════════════════════════════════════
 // LEVEL 2 — THE SHIFTING MAZE — SCENERY
-// ─────────────────────────────────────────────────────
-// Shadow checkpoints replace the old arrow system.
-//
-// CHECKPOINT DESIGN:
-//   Each checkpoint zone has 3 gates (one per lane):
-//     LEFT   = -0.60
-//     CENTER =  0.00
-//     RIGHT  = +0.60
-//
-//   BEFORE GLITCH (preview phase):
-//     • RED gates look dangerous  → are actually SAFE
-//     • GREEN gates look safe     → are actually DANGER
-//     • Hint text says "GREEN = safe, RED = danger"
-//       (This is the deception — the hint is WRONG)
-//
-//   AFTER GLITCH (run phase):
-//     • Truth stays the same (red=safe, green=danger)
-//     • The hint flips to "RED = safe!" to reveal truth
-//     • Player who trusted the hint loses; player who
-//       noticed the deception wins.
-//
-// CHECKPOINT GATE OBJECT SHAPE:
-//   kind        : 'checkpoint'
-//   z           : road z position
-//   offset      : lane centre (-0.60 / 0.00 / 0.60)
-//   side        : 0  (road centre)
-//   isCheckpoint: true
-//   isSafeGate  : true  → RED visual, actually safe
-//   isDangerGate: true  → GREEN visual, actually danger
-//   passed      : false → set true when player drives through
-//   active      : true  (always collidable for scoring/punishment)
 // ═══════════════════════════════════════════════════════
 
 export function buildSceneryObjects() {
