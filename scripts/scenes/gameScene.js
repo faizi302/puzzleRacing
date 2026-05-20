@@ -37,23 +37,15 @@ import {
 
 import {
   resetOpponents, updateOpponents,
-  getOpponentCount, getPlayerRacePosition,
+  getOpponentCount, getPlayerRacePosition, getOpponents,
 } from '../systems/opponentSystem.js';
 
 import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
 
-// Optional opponent enumeration (loaded async, optional)
-let _listOpponents = null;
-import('../systems/opponentSystem.js').then((mod) => {
-  _listOpponents = mod.getOpponents || mod.listOpponents || mod.getOpponentList || null;
-}).catch(() => { });
-
-// Throttle intervals (ms)
 const HUD_UPDATE_MS = 60;
 const MINIMAP_UPDATE_MS = 100;
 
-// Hard cap on physics steps per frame — prevents death spiral after tab switch.
 const MAX_PHYS_STEPS = 5;
 const MAX_DT_RAW = 0.05;
 
@@ -73,32 +65,26 @@ export class GameScene {
     this._failReason = null;
     this.level = null;
 
-    // Pickup tracking
     this._raceCoins = 0;
     this._raceKeys = 0;
     this._lastKeyCount = 0;
     this._lastCoinCount = 0;
 
-    // Race position
     this._opponents = 6;
     this._position = 1;
     this._showStartRank = false;
 
-    // Progress
     this._raceDistance = 0;
     this._lastProgressPos = 0;
 
-    // Minimap
     this._minimapCanvas = null;
     this._minimapCtx = null;
 
-    // Throttle timestamps
     this._lastHudUpdate = 0;
     this._lastMinimapUpdate = 0;
 
     this._autoPausedByTab = false;
 
-    // Hooks
     setReverseHintCallback(() => {
       if (getSetting('soundOn')) safeCall(playSfx, 'coin');
     });
@@ -122,7 +108,6 @@ export class GameScene {
 
   isPaused() { return this.paused; }
 
-  // Lap progress (wrap-aware)
   _tickRaceDistance() {
     if (!trackLen) return;
     const curPos = P.pos || 0;
@@ -130,7 +115,7 @@ export class GameScene {
 
     if (moved < -trackLen * 0.5) {
       moved += trackLen;
-      this._raceDistance = 0;  // new lap → reset HUD progress
+      this._raceDistance = 0;
     }
     if (moved > trackLen * 0.5) moved -= trackLen;
 
@@ -149,7 +134,6 @@ export class GameScene {
 
     unlockAudio();
 
-    // Reset run flags
     this.winShown = false;
     this.loseShown = false;
     this._failReason = null;
@@ -177,7 +161,7 @@ export class GameScene {
         || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!'));
       if (getSetting('soundOn')) safeCall(playSfx, 'nitro');
     });
-    this.level?.setDeathCallback?.(() => { /* lose modal handled via P.raceFailed */ });
+    this.level?.setDeathCallback?.(() => {});
 
     safeCall(clearMinimapCache);
     this._ensureMinimap();
@@ -190,7 +174,7 @@ export class GameScene {
     resetOpponents(this.level?.id || 'level1');
 
     this._opponents = getOpponentCount();
-    this._position = getPlayerRacePosition();
+    this._position  = getPlayerRacePosition();
 
     show('game');
     sizeCanvas();
@@ -218,7 +202,7 @@ export class GameScene {
     if (getSetting('musicOn')) startMusic();
 
     const title = this.level.startMessage || 'LAP 1';
-    const sub = this.level.hintMessage || '';
+    const sub   = this.level.hintMessage  || '';
     showRaceHint(title, sub, 4200);
 
     this.running = true;
@@ -230,7 +214,6 @@ export class GameScene {
 
   exit() { hideRaceHUD(); }
 
-  // Minimap setup
   _ensureMinimap() {
     if (this._minimapCanvas && document.body.contains(this._minimapCanvas)) return;
     const host = document.getElementById('s-game') || document.body;
@@ -257,13 +240,8 @@ export class GameScene {
   _paintMinimap() {
     if (!this._minimapCanvas) return;
 
-    let opps = [];
-    if (_listOpponents) {
-      try {
-        const raw = _listOpponents();
-        if (Array.isArray(raw)) opps = raw;
-      } catch (e) { opps = []; }
-    }
+    // Directly read the live opponents array — no dynamic-import fallback.
+    const opps = getOpponents() || [];
 
     renderInGameMinimap(this._minimapCanvas, {
       level: this.level,
@@ -332,7 +310,7 @@ export class GameScene {
     if (getSetting('soundOn')) playSfx('win');
 
     if (this._raceCoins > 0) addCoins(this._raceCoins);
-    if (this._raceKeys > 0) addKeys(this._raceKeys);
+    if (this._raceKeys  > 0) addKeys(this._raceKeys);
 
     const levelNum = parseInt((this.level?.id || 'level1').replace('level', ''), 10) || 1;
     completeLevel(levelNum, P.raceTime);
@@ -355,20 +333,20 @@ export class GameScene {
     if (getSetting('soundOn')) safeCall(playSfx, 'coin');
 
     const totalLaps = this.level?.totalLaps || P.totalLaps || 1;
-    const lapsDone = Math.max(0, P.lapCount || 0);
-    const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
-    const progress = Math.min(1, (lapsDone + lapFrac) / totalLaps);
-    const pct = Math.round(progress * 100);
+    const lapsDone  = Math.max(0, P.lapCount || 0);
+    const lapFrac   = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress  = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct       = Math.round(progress * 100);
 
     const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
-    const posTxt = `${this._position} / ${this._opponents}`;
+    const posTxt   = `${this._position} / ${this._opponents}`;
 
     const reasonEl = document.getElementById('ls-reason');
     if (reasonEl) reasonEl.textContent = reason || "You didn't make it this time";
 
-    document.getElementById('ls-t').textContent = fmtT(P.raceTime || 0);
-    document.getElementById('ls-l').textContent = `${lapShown} / ${totalLaps}`;
-    document.getElementById('ls-p').textContent = posTxt;
+    document.getElementById('ls-t').textContent        = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent        = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent        = posTxt;
     document.getElementById('ls-prog-pct').textContent = `${pct}%`;
 
     hideRaceHUD();
@@ -433,7 +411,6 @@ export class GameScene {
     const STEP = C.STEP;
     const inp = readInput();
 
-    // Bounded physics — drop overflow rather than spiraling.
     let steps = 0;
     while (this.accum >= STEP && steps < MAX_PHYS_STEPS) {
       updatePhys(inp, STEP, trackLen);
@@ -441,7 +418,7 @@ export class GameScene {
       this.level?.updatePuzzle?.(STEP, sceneryObjs);
 
       updateOpponents(STEP, sceneryObjs);
-      this._position = getPlayerRacePosition();
+      this._position  = getPlayerRacePosition();
       this._opponents = getOpponentCount();
 
       const a = getCarAnchor();
@@ -450,14 +427,12 @@ export class GameScene {
       this.accum -= STEP;
       steps++;
     }
-    if (this.accum >= STEP) this.accum = 0; // drop overflow
+    if (this.accum >= STEP) this.accum = 0;
 
     this._trackPickups();
 
     if (P._needsTrackSwitch) {
       P._needsTrackSwitch = false;
-      // Defer the heavy scenery rebuild to the next animation frame so
-      // it doesn't hitch the physics tick on low-end devices.
       requestAnimationFrame(() => buildScenery());
       safeCall(() => notify(this.level.forkMessage
         || 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!'));
@@ -471,7 +446,6 @@ export class GameScene {
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
 
-    // Throttled HUD + minimap
     if (now - this._lastHudUpdate >= HUD_UPDATE_MS) {
       updateRaceHUD(this._hudSnapshot());
       this._lastHudUpdate = now;
@@ -481,7 +455,6 @@ export class GameScene {
       this._lastMinimapUpdate = now;
     }
 
-    // FPS counter
     this.fpsT += dtRaw;
     this.fpsN++;
     if (this.fpsT >= 0.5) {
@@ -492,6 +465,8 @@ export class GameScene {
         updateDebugHUD({
           fps: this.fps,
           opponents: this._opponents,
+          position: this._position,
+          avgKmh: Math.round(P.avgSpeedKmh || 0),
         });
       }
     }

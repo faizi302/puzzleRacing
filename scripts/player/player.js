@@ -5,26 +5,19 @@ import { C } from '../configs/roadConfig.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from '../visuals/objectRender.js';
 import { consumeNitroPress, K } from '../core/inputController.js';
-import {
-  loadPlayerCarSprites,
-  getSelectedPlayerSprite,
-} from '../visuals/playerCarSprites.js';
+import { loadPlayerCarSprites, getSelectedPlayerSprite } from '../visuals/playerCarSprites.js';
 import * as Audio from '../core/audio.js';
 import { clamp } from '../utils/math.js';
 
-// Tunables — change these to retune the player without hunting through the file.
-const BASE_SCALE      = 1.0;   // Car sprite size. Was 1.5 — caused oversized car.
-const DUST_HZ         = 20;    // Max base-dust spawns per second.
-const MAX_DRIFT_LINES = 80;    // Hard cap on rendered drift marks.
-const MAX_ONE_SHOTS   = 24;    // Hard cap on simultaneous one-shot FX.
-
-const sfx = (name, opts) => {
-  try { Audio.playSfx?.(name, opts); } catch (_) {}
-};
+// Tunables
+const BASE_SCALE      = 1.0;
+const DUST_HZ         = 20;
+const MAX_DRIFT_LINES = 80;
+const MAX_ONE_SHOTS   = 24;
 
 const NITRO_LOOP_KEY = 'nitroLoop';
 const nitroLoopStart = (v = 0.85) => { try { Audio.playSfx?.('nitro', { loop: true, key: NITRO_LOOP_KEY, volume: v }); } catch (_) {} };
-const nitroLoopStop  = ()          => { try { Audio.playSfx?.('nitro', { stop: true, key: NITRO_LOOP_KEY }); } catch (_) {} };
+const nitroLoopStop  = ()         => { try { Audio.playSfx?.('nitro', { stop: true, key: NITRO_LOOP_KEY }); } catch (_) {} };
 
 // Sprite loading
 
@@ -64,7 +57,7 @@ export const getCamCarScale = () => 1;
 export const getCamCarYOff  = () => 0;
 export const getFadeAlpha   = () => (camAnim.intro ? Math.max(0, 1 - camAnim.t * 1.4) : 0);
 
-// JSON sprite frame state
+// Sprite state
 
 let _frameFloat = 9;
 let _frameTarget = 9;
@@ -74,7 +67,6 @@ function getPlayerSpriteSafe() {
   return getSelectedPlayerSprite();
 }
 
-// Cached base size — updated when sprite changes
 let _baseSize = { srcW: 140, srcH: 173, dirty: true };
 function getBaseCarSize() {
   if (_baseSize.dirty) {
@@ -88,7 +80,6 @@ function getBaseCarSize() {
   return _baseSize;
 }
 
-// Allow other modules / car-select UI to invalidate the cache.
 export function invalidatePlayerSpriteCache() { _baseSize.dirty = true; }
 
 function getStraightIndex(sprite) {
@@ -96,7 +87,7 @@ function getStraightIndex(sprite) {
   return sprite.straightIndex ?? Math.floor(sprite.frames.length / 2);
 }
 
-// Effects.json atlas
+// Effects atlas
 
 let FX_ATLAS = null;
 let FX_READY = false;
@@ -105,11 +96,7 @@ let _fxLoadStarted = false;
 function loadEffectsJsonOnce() {
   if (_fxLoadStarted) return;
   _fxLoadStarted = true;
-  const paths = [
-    'assets/player/Effects.json',
-    'assets/Effects.json',
-    'Effects.json',
-  ];
+  const paths = ['assets/player/Effects.json', 'assets/Effects.json', 'Effects.json'];
   (async () => {
     for (const p of paths) {
       try {
@@ -205,7 +192,7 @@ function drawOneShots(ctx) {
   }
 }
 
-// Nitro state machine
+// Nitro state
 
 const NITRO_MAX_PERCENT    = 100;
 const NITRO_PER_BOTTLE     = 25;
@@ -248,7 +235,6 @@ function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
 
   const normalMax = C.NORMAL_MAX || 100;
   const nitroMax  = C.NITRO_MAX  || normalMax + NITRO_SPEED_BONUS;
-
   P._nitroTargetSpeed = nitroMax;
   P.speed = Math.max(P.speed || 0, P._nitroTargetSpeed);
 
@@ -263,18 +249,12 @@ function tryActivateNitro(anchorX, anchorY, drawW, drawH) {
 
 function stopNitro() {
   if (!P.nitroActive) {
-    if (P._nitroLoopOn) {
-      nitroLoopStop();
-      P._nitroLoopOn = false;
-    }
+    if (P._nitroLoopOn) { nitroLoopStop(); P._nitroLoopOn = false; }
     return;
   }
   P.nitroActive = false;
   P._nitroTargetSpeed = 0;
-  if (P._nitroLoopOn) {
-    nitroLoopStop();
-    P._nitroLoopOn = false;
-  }
+  if (P._nitroLoopOn) { nitroLoopStop(); P._nitroLoopOn = false; }
 }
 
 function watchExternalPickupSignals() {
@@ -331,10 +311,7 @@ export function updateNitro(dt) {
     }
   } else {
     P._lastDownForCancel = !!K.down;
-    if (P._nitroLoopOn) {
-      nitroLoopStop();
-      P._nitroLoopOn = false;
-    }
+    if (P._nitroLoopOn) { nitroLoopStop(); P._nitroLoopOn = false; }
   }
 }
 
@@ -367,9 +344,7 @@ export function launchPlayerJump(jumpObj, jumpSpr = {}) {
 }
 
 export function updateJumpPhysics(dt) {
-  if (P._jumpCooldown > 0) {
-    P._jumpCooldown = Math.max(0, P._jumpCooldown - dt);
-  }
+  if (P._jumpCooldown > 0) P._jumpCooldown = Math.max(0, P._jumpCooldown - dt);
   if (!P.isAirborne) return;
 
   P.airY  += P.airVy * dt;
@@ -384,12 +359,17 @@ export function updateJumpPhysics(dt) {
   }
 }
 
-// Visual helpers — clock and dust throttle
+// Hoisted flame puff config — was allocated on every nitro frame.
+const FLAME_OFFS   = [0, 4, 8, 12, 14];
+const FLAME_DYS    = [0.10, 0.55, 1.10, 1.70, 2.30];
+const FLAME_SIZES  = [1.10, 1.30, 1.45, 1.40, 1.25];
+const FLAME_ALPHAS = [1.00, 0.95, 0.85, 0.65, 0.45];
 
 let _fxClock = 0;
 let _dustAccum = 0;
+let _lastImpact = 0;
+let _lastTime = 0;
 
-// Rear nitro flame — single ctx.save/restore, 5 puff layers
 function drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH) {
   if (!P.nitroActive || P.nitroStored <= 0) return;
 
@@ -402,18 +382,12 @@ function drawRearNitroFlame(ctx, anchorX, anchorY, drawW, drawH) {
   const TOTAL = 16;
   const baseFrame = _fxClock * FPS;
 
-  // Stagger offsets for streaming-jet effect
-  const offs  = [0, 4, 8, 12, 14];
-  const dys   = [0.10, 0.55, 1.10, 1.70, 2.30];
-  const sizes = [1.10, 1.30, 1.45, 1.40, 1.25];
-  const alphas= [1.00, 0.95, 0.85, 0.65, 0.45];
-
   for (let i = 0; i < 5; i++) {
-    const cy   = baseY + drawH * dys[i] * pulse;
-    const size = drawW * sizes[i] * pulse;
-    const frame = (baseFrame + offs[i]) % TOTAL;
+    const cy = baseY + drawH * FLAME_DYS[i] * pulse;
+    const size = drawW * FLAME_SIZES[i] * pulse;
+    const frame = (baseFrame + FLAME_OFFS[i]) % TOTAL;
     drawFxFrame(ctx, 'Boost', frame, baseX, cy, size, {
-      alpha: ramp * alphas[i],
+      alpha: ramp * FLAME_ALPHAS[i],
       blend: 'lighter',
     });
   }
@@ -429,12 +403,10 @@ function drawNitroPickupCharge(ctx, anchorX, anchorY, drawW, drawH) {
   });
 }
 
-// Drift tyre lines — capped + early continue
 function drawDriftTyreLines(ctx, anchorX, anchorY, drawW, drawH) {
   const lines = P.driftLines;
   if (!lines?.length) return;
 
-  // Hard cap: trim oldest if it grew past the limit.
   if (lines.length > MAX_DRIFT_LINES) {
     lines.splice(0, lines.length - MAX_DRIFT_LINES);
   }
@@ -495,14 +467,12 @@ function drawLensFlare(ctx, anchorX, anchorY, drawW, drawH) {
   });
 }
 
-// Base dust — throttled to DUST_HZ, reduced stroke count
 function drawBaseDust(ctx, anchorX, anchorY, drawW, drawH, dt) {
   if (P.nitroActive || P.driftSmokePower > 0.12) return;
 
   const speed01 = clamp(Math.abs(P.speed) / C.NORMAL_MAX, 0, 1);
   if (speed01 < 0.08) return;
 
-  // Throttle: only draw a fresh batch at DUST_HZ
   _dustAccum += dt;
   const interval = 1 / DUST_HZ;
   if (_dustAccum < interval) return;
@@ -515,10 +485,11 @@ function drawBaseDust(ctx, anchorX, anchorY, drawW, drawH, dt) {
   ctx.lineCap = 'round';
   ctx.strokeStyle = 'rgba(190,170,125,1)';
 
-  const tireXs = [anchorX - drawW * 0.30, anchorX + drawW * 0.30];
-  // 2 strokes per tire instead of 4 — halves cost, looks the same.
+  const tireX0 = anchorX - drawW * 0.30;
+  const tireX1 = anchorX + drawW * 0.30;
+
   for (let t = 0; t < 2; t++) {
-    const tireX = tireXs[t];
+    const tireX = t === 0 ? tireX0 : tireX1;
     for (let i = 0; i < 2; i++) {
       const r = Math.random() - 0.5;
       const sx = tireX + r * drawW * 0.08;
@@ -542,10 +513,7 @@ function drawBaseDust(ctx, anchorX, anchorY, drawW, drawH, dt) {
   ctx.restore();
 }
 
-let _lastImpact = 0;
-let _lastTime = 0;
-
-// Main car render
+// Main car render — called once per frame from render.js
 
 export function drawCar(steerVisual = 0) {
   const now = performance.now() / 1000;
@@ -580,7 +548,6 @@ export function drawCar(steerVisual = 0) {
   const f = frames[idx];
 
   const { srcW, srcH } = getBaseCarSize();
-
   const SCALE = BASE_SCALE * getCamCarScale();
   const drawH = (srcH * res * SCALE) | 0;
   const drawW = (srcW * res * SCALE) | 0;
@@ -630,16 +597,14 @@ export function drawCar(steerVisual = 0) {
   drawOneShots(ctx);
 }
 
-// Public anchor / collision
+// Public anchor / collision helpers
 
 export function getCarAnchor() {
   const res = getRes();
   const { srcW, srcH } = getBaseCarSize();
-
   const SCALE = BASE_SCALE * getCamCarScale();
   const drawW = (srcW * res * SCALE) | 0;
   const drawH = (srcH * res * SCALE) | 0;
-
   const W = getW();
   const H = getH();
 
@@ -649,8 +614,7 @@ export function getCarAnchor() {
   return {
     anchorX: W / 2 + roadOffsetX,
     anchorY: (((H * 0.89) + getCamCarYOff() * res) - airOffset) | 0,
-    drawW,
-    drawH,
+    drawW, drawH,
   };
 }
 
@@ -659,10 +623,8 @@ export function getPlayerCollisionInfo() {
   return {
     x: P.playerX || 0,
     z: P.pos + (P.playerZ || 0),
-    screenX: car.anchorX,
-    screenY: car.anchorY,
-    screenW: car.drawW,
-    screenH: car.drawH,
+    screenX: car.anchorX, screenY: car.anchorY,
+    screenW: car.drawW,   screenH: car.drawH,
     halfW: C.SIDE_BODY_HALF_WIDTH || 0.18,
     halfZ: 90,
   };
@@ -670,12 +632,11 @@ export function getPlayerCollisionInfo() {
 
 export function forceStopNitro() { stopNitro(); }
 
-// Fullscreen nitro speed-line overlay
+// Nitro speed-line overlay
 
 let _nitroStreakAlpha = 0;
 
 export function drawNitroSpeedLines(ctx, W, H, dt) {
-  // Use real dt when provided, fall back to 1/60.
   const stepDt = (typeof dt === 'number' && dt > 0 && dt < 0.1) ? dt : (1 / 60);
 
   const target = (P.nitroActive && P.nitroStored > 0) ? 1 : 0;
@@ -695,7 +656,6 @@ export function drawNitroSpeedLines(ctx, W, H, dt) {
 
   const dispW = SPRITE_W * scale;
   const dispH = SPRITE_H * scale;
-
   const cx = W * 0.5;
   const cy = H * 0.78;
 

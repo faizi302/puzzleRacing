@@ -5,7 +5,7 @@ import { playSfx } from '../../core/audio.js';
 
 const CORRECT_ORDER = ['star', 'moon', 'diamond', 'key'];
 
-const MAX_LAPS = 2;
+const MAX_LAPS = 3;
 
 let sequence = [];
 let solved = false;

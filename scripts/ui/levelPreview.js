@@ -1,5 +1,5 @@
+// Level preview SVG + in-game minimap (8% local window).
 
-// ── Biome palette ──────────────────────────────────────
 const BIOME_COLORS = {
   forest:  { road: '#5fd17a', grass: '#1b3a1f', accent: '#a0ff8c' },
   city:    { road: '#7ec8ff', grass: '#1f2735', accent: '#9be1ff' },
@@ -8,8 +8,7 @@ const BIOME_COLORS = {
   default: { road: '#a0c0ff', grass: '#1f2630', accent: '#d4e3ff' },
 };
 
-// ═══════════════════════════════════════════════════════
-// SHAPE EXTRACTOR
+// Shape extraction
 
 function extractRoadShape(segs) {
   if (!segs || !segs.length) return [];
@@ -17,7 +16,7 @@ function extractRoadShape(segs) {
   const FWD_STEP   = 1.0;
   const CURVE_RATE = 0.018;
 
-  let x = 0, y = 0, ang = -Math.PI / 2;     // start heading "up"
+  let x = 0, y = 0, ang = -Math.PI / 2;
   const pts = [[x, y]];
 
   for (let i = 0; i < segs.length; i++) {
@@ -35,7 +34,8 @@ function fitShape(pts, boxW, boxH, pad = 14) {
 
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
-  for (const [x, y] of pts) {
+  for (let i = 0; i < pts.length; i++) {
+    const x = pts[i][0], y = pts[i][1];
     if (x < minX) minX = x;
     if (x > maxX) maxX = x;
     if (y < minY) minY = y;
@@ -48,13 +48,15 @@ function fitShape(pts, boxW, boxH, pad = 14) {
   const ox = (boxW - w * scale) / 2 - minX * scale;
   const oy = (boxH - h * scale) / 2 - minY * scale;
 
-  const scaled = pts.map(([x, y]) => [x * scale + ox, y * scale + oy]);
+  const scaled = new Array(pts.length);
+  for (let i = 0; i < pts.length; i++) {
+    scaled[i] = [pts[i][0] * scale + ox, pts[i][1] * scale + oy];
+  }
   return { pts: scaled, scale, ox, oy };
 }
 
-// ═══════════════════════════════════════════════════════
-// CAREER CARD PREVIEW (SVG)
-// ═══════════════════════════════════════════════════════
+// Career card preview SVG
+
 export function renderLevelPreview(mountEl, opts = {}) {
   if (!mountEl) return;
 
@@ -66,16 +68,14 @@ export function renderLevelPreview(mountEl, opts = {}) {
   const W = mountEl.clientWidth  || 320;
   const H = mountEl.clientHeight || 180;
 
-  // Try the real shape from the level module.
   let segs = null;
   try {
     if (module && typeof module.buildRoads === 'function') {
       const roads = module.buildRoads();
       segs = roads?.road1?.segs || null;
     }
-  } catch (e) { segs = null; }
+  } catch (_) { segs = null; }
 
-  // Fallback if level didn't provide buildRoads.
   if (!segs) segs = fallbackShape(opts.seed || levelNum * 17);
 
   const rawPts = extractRoadShape(segs);
@@ -90,9 +90,8 @@ export function renderLevelPreview(mountEl, opts = {}) {
   const startPt  = pts[0]              || [W / 2, H - 16];
   const finishPt = pts[pts.length - 1] || [W / 2, 16];
 
-  // Preserve the badge elements the card builder appended.
-  const numBadge  = mountEl.querySelector('.num-badge')?.outerHTML  || '';
-  const biomeTag  = mountEl.querySelector('.biome-tag')?.outerHTML  || '';
+  const numBadge = mountEl.querySelector('.num-badge')?.outerHTML || '';
+  const biomeTag = mountEl.querySelector('.biome-tag')?.outerHTML || '';
 
   mountEl.innerHTML = `
     ${biomeTag}
@@ -109,33 +108,17 @@ export function renderLevelPreview(mountEl, opts = {}) {
           <feGaussianBlur stdDeviation="2.2" />
         </filter>
       </defs>
-
-      <rect x="0" y="0" width="${W}" height="${H}"
-            fill="url(#lp-bg-${levelNum})" />
-
-      <!-- Glow underlay -->
-      <path d="${d}" fill="none"
-            stroke="${palette.road}" stroke-opacity="0.35"
-            stroke-width="9" stroke-linecap="round"
-            stroke-linejoin="round"
+      <rect x="0" y="0" width="${W}" height="${H}" fill="url(#lp-bg-${levelNum})" />
+      <path d="${d}" fill="none" stroke="${palette.road}" stroke-opacity="0.35"
+            stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
             filter="url(#lp-glow-${levelNum})" />
-
-      <!-- Main road -->
-      <path d="${d}" fill="none"
-            stroke="${palette.road}" stroke-width="3"
+      <path d="${d}" fill="none" stroke="${palette.road}" stroke-width="3"
             stroke-linecap="round" stroke-linejoin="round" />
-
-      <!-- Center dashes -->
-      <path d="${d}" fill="none"
-            stroke="${palette.accent}" stroke-opacity="0.75"
+      <path d="${d}" fill="none" stroke="${palette.accent}" stroke-opacity="0.75"
             stroke-width="1" stroke-dasharray="3 5"
             stroke-linecap="round" stroke-linejoin="round" />
-
-      <!-- Start dot -->
       <circle cx="${startPt[0].toFixed(1)}" cy="${startPt[1].toFixed(1)}"
               r="4.5" fill="#3df56a" stroke="#fff" stroke-width="1.2" />
-
-      <!-- Finish pin -->
       <g transform="translate(${finishPt[0].toFixed(1)},${finishPt[1].toFixed(1)})">
         <circle r="6" fill="#1a1a1a" stroke="#fff" stroke-width="1.5"/>
         <path d="M-3,-3 h3 v3 h-3 z M0,0 h3 v3 h-3 z" fill="#fff"/>
@@ -144,15 +127,13 @@ export function renderLevelPreview(mountEl, opts = {}) {
   `;
 }
 
-const _miniCache = new Map();
+// In-game minimap (8% local window, painted each frame)
 
-// ═══════════════════════════════════════════════════════
-// IN-GAME MINIMAP (Canvas 2D)  — painted each frame.
-// ─────────────────────────────────────────────────────
+const _miniCache = new Map();
 
 function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
   const lvlId = snapshot.level?.id || 'level1';
-  const key   = lvlId + '|' + (snapshot.onRoad2 ? 'r2' : 'r1') + '|' + canvasW + 'x' + canvasH;
+  const key = lvlId + '|' + (snapshot.onRoad2 ? 'r2' : 'r1') + '|' + canvasW + 'x' + canvasH;
   if (_miniCache.has(key)) return _miniCache.get(key);
 
   let segs = null;
@@ -161,7 +142,7 @@ function getOrBuildMiniShape(snapshot, canvasW, canvasH) {
       const roads = snapshot.level.buildRoads();
       segs = snapshot.onRoad2 ? roads?.road2?.segs : roads?.road1?.segs;
     }
-  } catch (e) { segs = null; }
+  } catch (_) { segs = null; }
 
   if (!segs) segs = fallbackShape(11);
 
@@ -189,34 +170,27 @@ export function renderInGameMinimap(canvas, snapshot) {
   const pts = built.pts;
   if (!pts.length) return;
 
-  const trackLen = snapshot.trackLen || 1;
+  const trackLen  = snapshot.trackLen || 1;
   const playerPos = Math.max(0, Math.min(trackLen, snapshot.playerPos || 0));
 
-  // Asphalt-style local map window:
-  // 8% total visible = 4% behind + 4% forward
+  // Asphalt-style local view: ±4% of track around player = 8% total
   const VIEW_PCT = 0.08;
   const HALF_VIEW = VIEW_PCT / 2;
 
   const playerT = playerPos / trackLen;
-  const startT = Math.max(0, playerT - HALF_VIEW);
-  const endT = Math.min(1, playerT + HALF_VIEW);
+  const startT  = Math.max(0, playerT - HALF_VIEW);
+  const endT    = Math.min(1, playerT + HALF_VIEW);
 
   const startIndex = Math.floor(startT * (pts.length - 1));
-  const endIndex = Math.ceil(endT * (pts.length - 1));
-  const localPts = pts.slice(startIndex, Math.max(startIndex + 2, endIndex + 1));
-
+  const endIndex   = Math.ceil(endT * (pts.length - 1));
+  const localPts   = pts.slice(startIndex, Math.max(startIndex + 2, endIndex + 1));
   if (localPts.length < 2) return;
 
-  // Fit only local 8% segment into minimap canvas
-  const fit = fitShape(
-    localPts.map(([x, y]) => [x, y]),
-    W,
-    H,
-    12
-  );
-
+  // Fit local segment into canvas
+  const fit = fitShape(localPts, W, H, 12);
   const viewPts = fit.pts;
 
+  // Road draw
   const drawPath = (lineWidth, strokeStyle) => {
     ctx.strokeStyle = strokeStyle;
     ctx.lineWidth = lineWidth;
@@ -229,40 +203,64 @@ export function renderInGameMinimap(canvas, snapshot) {
     }
     ctx.stroke();
   };
-
-  // Glow + bold road
   drawPath(11, 'rgba(80, 220, 255, 0.28)');
-  drawPath(6, snapshot.onRoad2 ? '#9eff9e' : '#a0d8ff');
+  drawPath(6,  snapshot.onRoad2 ? '#9eff9e' : '#a0d8ff');
 
+  // Map a world Z to a screen point within the visible local window.
+  // Returns null if Z is outside the 8% window.
   function localPosToPt(zPos) {
-    const t = Math.max(startT, Math.min(endT, zPos / trackLen));
+    if (zPos < 0) return null;
+    const t = zPos / trackLen;
+    if (t < startT || t > endT) return null;
     const globalF = t * (pts.length - 1);
     const globalI = Math.floor(globalF);
-    const localI = Math.max(0, Math.min(viewPts.length - 1, globalI - startIndex));
-
+    const localI  = Math.max(0, Math.min(viewPts.length - 1, globalI - startIndex));
     return viewPts[localI] || viewPts[0];
   }
 
-  // Opponents only if inside visible 8%
+  // Opponent dots — bigger, with border, color matches their road
   if (Array.isArray(snapshot.opponents)) {
-    ctx.fillStyle = '#ffd14a';
-    for (const op of snapshot.opponents) {
-      const z = typeof op === 'number' ? op : (op?.pos ?? op?.z ?? 0);
-      const t = z / trackLen;
-      if (t < startT || t > endT) continue;
+    for (let i = 0; i < snapshot.opponents.length; i++) {
+      const op = snapshot.opponents[i];
+      if (!op) continue;
 
-      const [x, y] = localPosToPt(z);
+      // Read pos from object or accept raw number
+      const z = typeof op === 'number' ? op : (op.pos ?? op.z ?? 0);
+      const opOnRoad2 = !!(typeof op === 'object' && op.onRoad2);
+
+      // Only show opponents on the same road the minimap is rendering
+      if (opOnRoad2 !== !!snapshot.onRoad2) continue;
+
+      const pt = localPosToPt(z);
+      if (!pt) continue;
+
+      // Dot with outline so it stands out on any road color
       ctx.beginPath();
-      ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+      ctx.arc(pt[0], pt[1], 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffd14a';
       ctx.fill();
+
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.stroke();
+
+      // Position number above the dot (only if there's space)
+      if (typeof op === 'object' && op.position && H > 80) {
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.font = 'bold 9px Rajdhani, Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)';
+        ctx.shadowBlur = 3;
+        ctx.fillText(String(op.position), pt[0], pt[1] - 6);
+        ctx.shadowBlur = 0;
+      }
     }
   }
 
-  // Player always near center of local map
+  // Player arrow — always at the center, rotated to road direction
   const playerLocalT = (playerT - startT) / Math.max(0.0001, endT - startT);
-  const playerIndex = Math.round(playerLocalT * (viewPts.length - 1));
-  const p = viewPts[Math.max(0, Math.min(viewPts.length - 1, playerIndex))];
-
+  const playerIndex  = Math.round(playerLocalT * (viewPts.length - 1));
+  const p  = viewPts[Math.max(0, Math.min(viewPts.length - 1, playerIndex))];
   const p2 = viewPts[Math.min(viewPts.length - 1, playerIndex + 1)] || p;
   const p1 = viewPts[Math.max(0, playerIndex - 1)] || p;
   const ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
@@ -287,47 +285,16 @@ export function renderInGameMinimap(canvas, snapshot) {
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-
   ctx.restore();
 
-  // Small progress label
+  // Progress label
   ctx.fillStyle = 'rgba(255,255,255,0.78)';
   ctx.font = 'bold 9px Rajdhani, Arial';
   ctx.textAlign = 'left';
   ctx.fillText(`${Math.round(playerT * 100)}%`, 4, 4);
 }
 
-// ── Helpers ────────────────────────────────────────────
-function drawCheckerPin(ctx, x, y) {
-  ctx.fillStyle = '#1a1a1a';
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.arc(x, y, 4.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x - 2.5, y - 2.5, 1.7, 1.7);
-  ctx.fillRect(x - 0.8, y - 0.8, 1.7, 1.7);
-  ctx.fillRect(x + 0.9, y - 2.5, 1.7, 1.7);
-  ctx.fillRect(x - 2.5, y + 0.9, 1.7, 1.7);
-  ctx.fillRect(x + 0.9, y + 0.9, 1.7, 1.7);
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
+// Helpers
 
 function fallbackShape(seed) {
   const segs = [];
