@@ -309,6 +309,15 @@
             </div>
             <input type="range" min="0" max="100" value="35" class="slider" id="sl-music">
           </div>
+
+          <div class="setting-row">
+            <div>
+              <span class="label">🖥 Fullscreen</span>
+              <span class="desc">Immersive mode</span>
+            </div>
+            <div class="toggle" id="tog-fullscreen"></div>
+          </div>
+
         </div>
 
         <div class="help-card">
@@ -341,26 +350,26 @@
 
 
   <div id="s-touch-editor" class="scr ov">
-  <div class="touch-edit-top">
-    <h2>EDIT TOUCH CONTROLS</h2>
-    <p>Drag buttons where you feel comfortable.</p>
-  </div>
+    <div class="touch-edit-top">
+      <h2>EDIT TOUCH CONTROLS</h2>
+      <p>Drag buttons where you feel comfortable.</p>
+    </div>
 
-  <div id="touch-edit-stage">
-    <button class="tb touch-edit-btn" data-target="tc-l">◀</button>
-    <button class="tb touch-edit-btn" data-target="tc-r">▶</button>
-    <button class="tb acc touch-edit-btn" data-target="tc-a">▲<br><small>GAS</small></button>
-    <button class="tb touch-edit-btn" data-target="tc-b">▼<br><small>BRK</small></button>
-    <button class="tb nitro touch-edit-btn" data-target="tc-n">⚡<br><small>NITRO</small></button>
-    <button class="tb brake touch-edit-btn" data-target="tc-ib">⛔<br><small>BRAKE</small></button>
-  </div>
+    <div id="touch-edit-stage">
+      <button class="tb touch-edit-btn" data-target="tc-l">◀</button>
+      <button class="tb touch-edit-btn" data-target="tc-r">▶</button>
+      <button class="tb acc touch-edit-btn" data-target="tc-a">▲<br><small>GAS</small></button>
+      <button class="tb touch-edit-btn" data-target="tc-b">▼<br><small>BRK</small></button>
+      <button class="tb nitro touch-edit-btn" data-target="tc-n">⚡<br><small>NITRO</small></button>
+      <button class="tb brake touch-edit-btn" data-target="tc-ib">⛔<br><small>BRAKE</small></button>
+    </div>
 
-  <div class="touch-edit-actions">
-    <button id="btn-touch-ok" class="mb pr">✅ OK / SAVE</button>
-    <button id="btn-touch-cancel" class="mb">↩ BACK</button>
-    <button id="btn-touch-reset-editor" class="mb">↺ RESET</button>
+    <div class="touch-edit-actions">
+      <button id="btn-touch-ok" class="mb pr">✅ OK / SAVE</button>
+      <button id="btn-touch-cancel" class="mb">↩ BACK</button>
+      <button id="btn-touch-reset-editor" class="mb">↺ RESET</button>
+    </div>
   </div>
-</div>
 
   <!-- ════════════════════════════════════════════════════════
        GAME (race)
@@ -387,15 +396,15 @@
   <!-- ════════════════════════════════════════════════════════
        PAUSE / WIN
        ════════════════════════════════════════════════════════ -->
-<div id="s-pause" class="scr ov">
-  <div class="mbox">
-    <h2>PAUSED</h2>
-    <button id="btn-resume" class="mb pr">▶ RESUME</button>
-    <button id="btn-pause-settings" class="mb">⚙️ SETTINGS</button>
-    <button id="btn-restart" class="mb">🔄 RESTART</button>
-    <button id="btn-quit" class="mb">🏠 HUB</button>
+  <div id="s-pause" class="scr ov">
+    <div class="mbox">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="mb pr">▶ RESUME</button>
+      <button id="btn-pause-settings" class="mb">⚙️ SETTINGS</button>
+      <button id="btn-restart" class="mb">🔄 RESTART</button>
+      <button id="btn-quit" class="mb">🏠 HUB</button>
+    </div>
   </div>
-</div>
 
   <div id="s-win" class="scr ov">
     <div class="mbox">
