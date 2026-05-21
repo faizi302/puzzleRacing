@@ -189,11 +189,15 @@ function tickPlayerProgress(dt) {
   }
 
   // Only count forward motion toward total distance
-  if ((P.speed || 0) >= 0 && moved > 0) {
-    _playerTotalDist += moved;
-  }
+if (moved > 0) {
+  _playerTotalDist += moved;
+}
 
   _lastPlayerPos = curPos;
+
+  if (P.onRoad2 && (P.speed || 0) > 0) {
+  _playerTotalDist += Math.abs(P.speed * dt);
+}
 
   // Race time accumulator (separate from P.raceTime in case it's reset elsewhere)
   if (P.endPhase < 1) _raceTimeAccum += dt;
@@ -211,8 +215,7 @@ function tickPlayerProgress(dt) {
 }
 
 function getPlayerProgress() {
-  // Cumulative non-wrapping distance — what we sort by
-  return (_playerLap * trackLen) + (P.pos || 0);
+  return P.totalDistance || 0;
 }
 
 function getAIProgress(ai) {
@@ -619,37 +622,40 @@ const _rankScratch = [];
 export function updateRacePositions() {
   _rankScratch.length = 0;
 
-  // Player entry
+  // PLAYER
   _rankScratch.push({
     type: 'player',
     progress: getPlayerProgress(),
-    ai: null,
+    ref: P,
   });
 
-  // Opponents
+  // OPPONENTS
   for (let i = 0; i < opponents.length; i++) {
     const ai = opponents[i];
+
     _rankScratch.push({
       type: 'ai',
       progress: getAIProgress(ai),
-      ai,
+      ref: ai,
     });
   }
 
-  // Highest progress = position 1
+  // HIGHEST DISTANCE = FIRST POSITION
   _rankScratch.sort((a, b) => b.progress - a.progress);
 
   raceOrder.length = 0;
+
   for (let i = 0; i < _rankScratch.length; i++) {
-    const r = _rankScratch[i];
-    const pos = i + 1;
-    if (r.type === 'player') {
-      P.racePosition = pos;
+    const item = _rankScratch[i];
+    const rank = i + 1;
+
+    raceOrder.push(item);
+
+    if (item.type === 'player') {
+      P.racePosition = rank;
     } else {
-      r.ai.position = pos;
-      r.ai.rankNumber = pos;
+      item.ref.position = rank;
     }
-    raceOrder.push(r);
   }
 }
 
@@ -662,7 +668,8 @@ export function updateOpponents(dt, sceneryObjs = []) {
   const d = dt > 0.05 ? 0.05 : dt;
 
   // 1) Player progress + avg-speed
-  tickPlayerProgress(d);
+  tickPlayerProgress(dt);
+  updateRacePositions();
 
   // 2) Per-opponent logic
   for (let i = 0; i < opponents.length; i++) {

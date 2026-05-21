@@ -32,11 +32,28 @@ export const LEVEL_META = {
   ],
 
   // ── UI Messages ──────────────────────────────────────────────
-  startMessage: '🏁 Level 5: The Key of Survival – Choose wisely!',
-  hintMessage: '🗝️ Pick the correct key before each obstacle!',
-  reverseMessage: '✨ Secret mountain route discovered!',
-  forkMessage: '🔄 Hidden survival path opened!',
-  winMessage: '🏆 You survived! Level 5 complete!',
+startMessage:
+  '🏁 LEVEL 5 · THE KEY OF SURVIVAL',
+
+hintMessage:
+  '🧩 Every obstacle has only one true key...',
+
+repeatHints: [
+  '🧩 One choice opens survival. The others open death.',
+  '🧩 Watch the road before choosing a key.',
+  '🧩 Obstacles reveal clues before impact.',
+  '🧩 The wrong key changes the world against you.',
+  '🧩 Survival depends on observation, not luck.',
+],
+
+reverseMessage:
+  '✨ Secret mountain route discovered!',
+
+forkMessage:
+  '🔄 Hidden survival route unlocked!',
+
+winMessage:
+  '🏆 You mastered the trials of survival.',
 
   // ── Puzzle identity ──────────────────────────────────────────
   puzzleId: 'survival_keys',

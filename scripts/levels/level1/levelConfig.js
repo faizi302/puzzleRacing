@@ -11,6 +11,14 @@ export const LEVEL_META = {
   hintMessage:
     '🧩 Don\'t trust the key. Try going BACKWARD instead...',
 
+    repeatHints: [
+  '🧩 The visible road is lying to you...',
+  '🧩 Sometimes the answer is behind you.',
+  '🧩 Not every wall is real.',
+  '🧩 The finish is not on the main road.',
+  '🧩 Truth hides where racers never look.',
+],
+
   // Triggered when player drives over the pressure plate
   // for GHOST_PLATE_HOLD_TIME seconds.
   plateMessage:

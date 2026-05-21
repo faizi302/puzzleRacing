@@ -22,18 +22,26 @@ export const LEVEL_META = {
     'assets/level/level3/LocationBSegments.jpg',
   ],
 
-  startMessage:
-    '🔢 Level 3: The Symbol Code',
+startMessage:
+  '🔢 LEVEL 3 · THE SYMBOL CODE',
 
-  hintMessage:
-    'The walls are whispering the answer...',
+hintMessage:
+  '🧩 The walls remember the sequence...',
 
-  reverseMessage:
-    '⭐ 🌙 💎 🗝️',
+repeatHints: [
+  '🧩 Symbols appear more than once for a reason.',
+  '🧩 Not every answer is spoken aloud.',
+  '🧩 The correct order is hidden in plain sight.',
+  '🧩 Watch carefully before the next lap begins.',
+  '🧩 Memory is more important than speed.',
+],
 
-  forkMessage:
-    '🔓 Hidden path unlocked!',
+reverseMessage:
+  '⭐ 🌙 💎 🗝️',
 
-  winMessage:
-    '🏆 Symbol Code completed!',
+forkMessage:
+  '🔓 Hidden sequence understood.',
+
+winMessage:
+  '🏆 The code has been solved.',
 };

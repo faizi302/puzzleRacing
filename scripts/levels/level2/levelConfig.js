@@ -13,9 +13,27 @@ export const LEVEL_META = {
     'assets/level/level2/LocationDSegments.jpg',
   ],
 
-  startMessage: '🔄 Level 2: The Shifting Maze',
-  hintMessage: '🟢 GREEN = safe path!  🔴 RED = danger! Trust the colours...',
-  reverseMessage: '⚡ The maze shifted! RED was safe all along!',
-  forkMessage: '⚠️ Drive through RED checkpoints — avoid the GREEN ones!',
-  winMessage: '🏆 Shifting Maze completed!',
+startMessage:
+  '🔄 LEVEL 2 · THE SHIFTING MAZE',
+
+hintMessage:
+  '🧩 Colours can betray you...',
+
+repeatHints: [
+  '🧩 The obvious path is not always safe.',
+  '🧩 Some checkpoints want you to fail.',
+  '🧩 Trust patterns — not instincts.',
+  '🧩 The maze changes its truth.',
+  '🧩 One colour hides the real escape.',
+],
+
+reverseMessage:
+  '⚡ The maze shifted! RED was safe all along!',
+
+forkMessage:
+  '⚠️ Drive through RED checkpoints — avoid the GREEN ones!',
+
+winMessage:
+  '🏆 The maze could not deceive you.',
+  
 };

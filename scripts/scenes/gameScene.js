@@ -83,6 +83,15 @@ export class GameScene {
     this._lastHudUpdate = 0;
     this._lastMinimapUpdate = 0;
 
+    // Smart hint system
+    this._lastProgressCheck = 0;
+    this._lastHintProgress = 0;
+    this._hintIndex = 0;
+    this._stuckTimer = 0;
+
+    this._lastHintTime = 0;
+    this._hintInterval = 15000; // 15 seconds
+
     this._autoPausedByTab = false;
 
     setReverseHintCallback(() => {
@@ -146,6 +155,14 @@ export class GameScene {
     this._lastHudUpdate = 0;
     this._lastMinimapUpdate = 0;
 
+    this._lastHintTime = performance.now();
+    this._lastProgressCheck = P.pos || 0;
+    this._lastHintProgress = P.pos || 0;
+    this._hintIndex = 0;
+    this._stuckTimer = 0;
+
+    this._lastHintTime = performance.now();
+
     ['s-win', 's-lose', 's-pause', 's-gameover'].forEach((id) => {
       document.getElementById(id)?.classList.remove('on');
     });
@@ -161,7 +178,7 @@ export class GameScene {
         || 'SECRET ROAD UNLOCKED — HEAD FOR THE FINISH!'));
       if (getSetting('soundOn')) safeCall(playSfx, 'nitro');
     });
-    this.level?.setDeathCallback?.(() => {});
+    this.level?.setDeathCallback?.(() => { });
 
     safeCall(clearMinimapCache);
     this._ensureMinimap();
@@ -174,7 +191,7 @@ export class GameScene {
     resetOpponents(this.level?.id || 'level1');
 
     this._opponents = getOpponentCount();
-    this._position  = getPlayerRacePosition();
+    this._position = getPlayerRacePosition();
 
     show('game');
     sizeCanvas();
@@ -202,7 +219,7 @@ export class GameScene {
     if (getSetting('musicOn')) startMusic();
 
     const title = this.level.startMessage || 'LAP 1';
-    const sub   = this.level.hintMessage  || '';
+    const sub = this.level.hintMessage || '';
     showRaceHint(title, sub, 4200);
 
     this.running = true;
@@ -310,7 +327,7 @@ export class GameScene {
     if (getSetting('soundOn')) playSfx('win');
 
     if (this._raceCoins > 0) addCoins(this._raceCoins);
-    if (this._raceKeys  > 0) addKeys(this._raceKeys);
+    if (this._raceKeys > 0) addKeys(this._raceKeys);
 
     const levelNum = parseInt((this.level?.id || 'level1').replace('level', ''), 10) || 1;
     completeLevel(levelNum, P.raceTime);
@@ -333,20 +350,20 @@ export class GameScene {
     if (getSetting('soundOn')) safeCall(playSfx, 'coin');
 
     const totalLaps = this.level?.totalLaps || P.totalLaps || 1;
-    const lapsDone  = Math.max(0, P.lapCount || 0);
-    const lapFrac   = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
-    const progress  = Math.min(1, (lapsDone + lapFrac) / totalLaps);
-    const pct       = Math.round(progress * 100);
+    const lapsDone = Math.max(0, P.lapCount || 0);
+    const lapFrac = trackLen > 0 ? Math.min(1, this._raceDistance / trackLen) : 0;
+    const progress = Math.min(1, (lapsDone + lapFrac) / totalLaps);
+    const pct = Math.round(progress * 100);
 
     const lapShown = Math.max(1, Math.min(totalLaps, lapsDone + 1));
-    const posTxt   = `${this._position} / ${this._opponents}`;
+    const posTxt = `${this._position} / ${this._opponents}`;
 
     const reasonEl = document.getElementById('ls-reason');
     if (reasonEl) reasonEl.textContent = reason || "You didn't make it this time";
 
-    document.getElementById('ls-t').textContent        = fmtT(P.raceTime || 0);
-    document.getElementById('ls-l').textContent        = `${lapShown} / ${totalLaps}`;
-    document.getElementById('ls-p').textContent        = posTxt;
+    document.getElementById('ls-t').textContent = fmtT(P.raceTime || 0);
+    document.getElementById('ls-l').textContent = `${lapShown} / ${totalLaps}`;
+    document.getElementById('ls-p').textContent = posTxt;
     document.getElementById('ls-prog-pct').textContent = `${pct}%`;
 
     hideRaceHUD();
@@ -418,7 +435,7 @@ export class GameScene {
       this.level?.updatePuzzle?.(STEP, sceneryObjs);
 
       updateOpponents(STEP, sceneryObjs);
-      this._position  = getPlayerRacePosition();
+      this._position = getPlayerRacePosition();
       this._opponents = getOpponentCount();
 
       const a = getCarAnchor();
@@ -442,6 +459,7 @@ export class GameScene {
     tickParts(dtRaw);
     tickCamAnim(dtRaw);
     tickEdgeScrape();
+    this._checkSmartHints(now);
 
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
@@ -454,6 +472,8 @@ export class GameScene {
       this._paintMinimap();
       this._lastMinimapUpdate = now;
     }
+
+
 
     this.fpsT += dtRaw;
     this.fpsN++;
@@ -479,4 +499,141 @@ export class GameScene {
 
     requestAnimationFrame(this.loop);
   };
+
+  _checkSmartHints(now) {
+
+  if (!this.level) return;
+  if (this.winShown || this.loseShown) return;
+
+  const speed = Math.abs(P.speed || 0);
+  const moved = Math.abs((P.pos || 0) - this._lastProgressCheck);
+
+  // Track "stuck" state
+  if (speed < 20 && moved < 50) {
+    this._stuckTimer += C.STEP;
+  } else {
+    this._stuckTimer = 0;
+  }
+
+  // Save progress sample
+  this._lastProgressCheck = P.pos || 0;
+
+  let shouldShowHint = false;
+
+  // 1. Player stuck too long
+  if (this._stuckTimer > 8) {
+    shouldShowHint = true;
+  }
+
+  // 2. No meaningful progress for long duration
+  const progressDelta =
+    Math.abs((P.pos || 0) - this._lastHintProgress);
+
+  if (progressDelta < C.SEG_LEN * 2 &&
+      now - this._lastHintTime > 15000) {
+    shouldShowHint = true;
+  }
+
+  // 3. Driving wrong direction on level1
+  if (
+  this.level.id === 'level1' &&
+  !P.ghostRoad2Open &&
+  (P.reverseDistance || 0) < 100 &&
+  now - this._lastHintTime > 20000
+) {
+    shouldShowHint = true;
+  }
+
+  // 4. Near fake wall but not solving puzzle
+ if (
+  this.level.id === 'level1' &&
+  !P.ghostRoad2Open &&
+  (P.pos || 0) > trackLen * 0.35 &&
+  now - this._lastHintTime > 12000
+){
+    shouldShowHint = true;
+  }
+
+  // 5. Level 2 wrong-path detection
+if (
+  this.level.id === 'level2' &&
+  (P.level2CpHit || 0) >= 2 &&
+  now - this._lastHintTime > 15000
+) {
+  shouldShowHint = true;
+}
+
+//    level3  
+// 6. Level 3 — Symbol sequence puzzle stuck / wrong order
+if (
+  this.level.id === 'level3' &&
+  !P.level3PuzzleSolved &&
+  now - this._lastHintTime > 15000
+) {
+  const noProgress = (P.speed || 0) < 60;
+  const notStarted = !P.level3PuzzleStarted;
+  const wrongLoop = (P.level3LapCrossings || 0) >= 2;
+
+  if (noProgress || notStarted || wrongLoop) {
+    shouldShowHint = true;
+  }
+}
+
+// level4 — hidden path hint
+// 7. Level 4 — Memory Sprint (stuck / failing checkpoints / confusion)
+if (
+  this.level.id === 'level4' &&
+  L4_MEMORY.phase !== 'finished' &&
+  now - this._lastHintTime > 15000
+) {
+  const slow = (P.speed || 0) < 70;
+  const forgetting = (L4_MEMORY.visited || []).filter(v => v === false).length >= 2;
+  const stuckPreview = L4_MEMORY.phase === 'preview' && L4_MEMORY.timer > 3;
+
+  if (slow || forgetting || stuckPreview) {
+    shouldShowHint = true;
+  }
+}
+
+// 8. Level 5 — Key / hurdle puzzle stuck or wrong picks
+if (
+  this.level.id === 'level5' &&
+  !P.level5Completed &&
+  now - this._lastHintTime > 15000
+) {
+  const slowProgress = (P.speed || 0) < 60;
+
+  const wrongKeyHit =
+    Array.isArray(P.level5KeyPicked) &&
+    P.level5KeyPicked.includes('wrong');
+
+  const stuckSection =
+    (P.currentSection || 0) >= 2 &&
+    !(P.level5Completed);
+
+  if (slowProgress || wrongKeyHit || stuckSection) {
+    shouldShowHint = true;
+  }
+}
+
+
+
+  if (!shouldShowHint) return;
+
+  const hints = this.level.repeatHints || [];
+
+  if (!hints.length) return;
+
+  const msg = hints[this._hintIndex % hints.length];
+
+  showRaceHint(
+    '🧠 HINT',
+    msg,
+    4200
+  );
+
+  this._hintIndex++;
+  this._lastHintTime = now;
+  this._lastHintProgress = P.pos || 0;
+}
 }

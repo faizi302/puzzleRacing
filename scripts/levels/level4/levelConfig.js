@@ -13,9 +13,26 @@ export const LEVEL_META = {
     'assets/level/level4/LocationASegments.jpg',
   ],
 
-  startMessage: '🧠 LEVEL 4 · THE MEMORY SPRINT',
-  hintMessage:  '3 lanes · 9 checkpoints · only ONE lane is safe at each',
-  reverseMessage: '🌫️ Platforms vanished — drive from memory!',
-  forkMessage:  '💨 The safe path shifts!',
-  winMessage:   '🏆 Perfect memory! All safe platforms cleared.',
+startMessage:
+  '🧠 LEVEL 4 · THE MEMORY SPRINT',
+
+hintMessage:
+  '🧩 The road disappears faster than memory fades...',
+
+repeatHints: [
+  '🧩 Only one lane survives each checkpoint.',
+  '🧩 Hesitation leads to falling.',
+  '🧩 Memorize before the platforms vanish.',
+  '🧩 Your eyes help once — memory helps forever.',
+  '🧩 The safe route never stays visible for long.',
+],
+
+reverseMessage:
+  '🌫️ Platforms vanished — trust your memory!',
+
+forkMessage:
+  '💨 The safe path keeps shifting!',
+
+winMessage:
+  '🏆 Memory defeated the illusion.',
 };
