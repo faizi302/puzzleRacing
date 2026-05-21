@@ -2673,3 +2673,15 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
   box-shadow: none !important;
   background: transparent !important;
 }
+
+#s-pause {
+  z-index: 100;
+}
+
+#s-settings {
+  z-index: 200;
+}
+
+#s-touch-editor {
+  z-index: 300;
+}

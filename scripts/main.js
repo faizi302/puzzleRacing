@@ -1,17 +1,17 @@
 // Boot. Wires renderer, input, audio, scenes, and global UI buttons.
 
 import { initRenderer, sizeCanvas } from './core/canvas.js';
-import { initInput, bindTouch }     from './core/inputController.js';
-import { SceneManager }             from './core/sceneManager.js';
-import { setActiveLevel }           from './core/activeLevel.js';
-import { loadPlayerData }           from './player/playerData.js';
+import { initInput, bindTouch } from './core/inputController.js';
+import { SceneManager } from './core/sceneManager.js';
+import { setActiveLevel } from './core/activeLevel.js';
+import { loadPlayerData } from './player/playerData.js';
 
-import { MenuScene }     from './scenes/menuScene.js';
-import { HubScene }      from './scenes/hubScene.js';
-import { CareerScene }   from './scenes/careerScene.js';
-import { GarageScene }   from './scenes/garageScene.js';
+import { MenuScene } from './scenes/menuScene.js';
+import { HubScene } from './scenes/hubScene.js';
+import { CareerScene } from './scenes/careerScene.js';
+import { GarageScene } from './scenes/garageScene.js';
 import { SettingsScene } from './scenes/settingsScene.js';
-import { GameScene }     from './scenes/gameScene.js';
+import { GameScene } from './scenes/gameScene.js';
 
 import { initGlobalAudioButtons, startMenuMusic } from './core/audio.js';
 import { initBackground } from './ui/background.js';
@@ -34,10 +34,10 @@ initGlobalAudioButtons();
 startMenuMusic();
 
 initBackground({
-  basePath  : 'assets/menuBackgrounds/',
-  images    : ['bg1.jpg', 'bg2.jpg', 'bg3.jpg', 'bg4.jpg', 'bg5.jpg'],
+  basePath: 'assets/menuBackgrounds/',
+  images: ['bg1.jpg', 'bg2.jpg', 'bg3.jpg', 'bg4.jpg', 'bg5.jpg'],
   intervalMs: 7500,
-  parallax  : true,
+  parallax: true,
 });
 
 bindTouch('tc-l', 'left');
@@ -156,38 +156,38 @@ setActiveLevel(level1);
 
 // Scenes
 const scenes = new SceneManager();
-const menuScene     = new MenuScene(scenes);
-const hubScene      = new HubScene(scenes);
-const careerScene   = new CareerScene(scenes);
-const garageScene   = new GarageScene(scenes);
+const menuScene = new MenuScene(scenes);
+const hubScene = new HubScene(scenes);
+const careerScene = new CareerScene(scenes);
+const garageScene = new GarageScene(scenes);
 const settingsScene = new SettingsScene(scenes);
-const gameScene     = new GameScene(scenes);
+const gameScene = new GameScene(scenes);
 
-scenes.register('menu',     menuScene);
-scenes.register('hub',      hubScene);
-scenes.register('career',   careerScene);
-scenes.register('garage',   garageScene);
+scenes.register('menu', menuScene);
+scenes.register('hub', hubScene);
+scenes.register('career', careerScene);
+scenes.register('garage', garageScene);
 scenes.register('settings', settingsScene);
-scenes.register('game',     gameScene);
+scenes.register('game', gameScene);
 
 // Modal buttons
 const $ = (id) => document.getElementById(id);
 
 $('btn-resume')?.addEventListener('click', () => gameScene.resume());
 $('btn-restart')?.addEventListener('click', () => gameScene.restart());
-$('btn-quit')?.addEventListener('click',    () => { gameScene.quit(); scenes.go('hub'); });
-$('btn-again')?.addEventListener('click',   () => scenes.go('career'));
-$('btn-tomenu')?.addEventListener('click',  () => { gameScene.quit(); scenes.go('hub'); });
-$('pbtn')?.addEventListener('click',        () => gameScene.pause());
+$('btn-quit')?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
+$('btn-again')?.addEventListener('click', () => scenes.go('career'));
+$('btn-tomenu')?.addEventListener('click', () => { gameScene.quit(); scenes.go('hub'); });
+$('pbtn')?.addEventListener('click', () => gameScene.pause());
 
 $('btn-lose-restart')?.addEventListener('click', () => gameScene.restart());
-$('btn-lose-menu')?.addEventListener('click',    () => { gameScene.quit(); scenes.go('menu'); });
+$('btn-lose-menu')?.addEventListener('click', () => { gameScene.quit(); scenes.go('menu'); });
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' || e.code === 'KeyP') {
     if (scenes.is('game')) {
       if (gameScene.isPaused()) gameScene.resume();
-      else                       gameScene.pause();
+      else gameScene.pause();
     }
   }
 });
@@ -196,8 +196,12 @@ scenes.go('menu');
 
 
 $('btn-pause-settings')?.addEventListener('click', () => {
-  document.getElementById('s-pause')?.classList.remove('on');
-  showSettingsFromPause();
+  const settings = document.getElementById('s-settings');
+
+  if (!settings) return;
+
+  settings.classList.add('from-pause');
+  settings.classList.add('on');
 });
 
 function showSettingsFromPause() {
