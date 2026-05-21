@@ -281,7 +281,7 @@ function resetPickupWhenBehind(o, dz) {
 
 function objCat(o) {
   if (!o || o._dead) return null;
-  if (o.isMonster) return o.isHurdle ? 'hurdle' : null;
+  if (o.isMonster) return null;
   if (o.isPressurePlate) return null;
   if (o.isFakeWall) return null;   // drive-through
   if (o.isFakeDoor) return null;
@@ -765,25 +765,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // ── LEVEL 2 FINISH LINE ──
-    if (o.isFinishLine) {
-      const lvl = getActiveLevel();
-
-      const laneDiff = Math.abs((P.playerX || 0) - (o.offset || 0));
-
-      if (
-        laneDiff < 0.4 &&
-        dz > -120 &&
-        dz < 220 &&
-        P.level2ReadyToFinish
-      ) {
-        completeLevel2();
-        spawnPickup(screenAnchorX, screenAnchorY - 80, true);
-      }
-
-      continue;
-    }
-
     // ── HURDLE ──
     if (cat === 'hurdle') {
       const lvl = getActiveLevel();
@@ -852,3 +833,5 @@ export function tickEdgeScrape() {
     _scrapeWasOn = false;
   }
 }
+
+
