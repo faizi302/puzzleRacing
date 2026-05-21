@@ -1,18 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// SETTINGS SCENE — Audio, display, controls.
-// Fully wired into core/audio.js so toggles take effect live.
-// ─────────────────────────────────────────────────────
-// Setting          │ playerData key │ audio.js call
-// ─────────────────┼────────────────┼─────────────────────
-// Sound on/off     │ soundOn        │ setMuted(!on)
-// SFX volume       │ sfxVolume      │ setSfxVolume(v/100)
-// Music on/off     │ musicOn        │ startMenuMusic / stopMusic
-// Music volume     │ musicVolume    │ setMusicVolume(v/100)
-// Fullscreen       │ fullscreen     │ requestFullscreen / exit
-// Vibration        │ vibration      │ navigator.vibrate(60) test
-// Graphics preset  │ graphics       │ (read by render layer)
-// Controls scheme  │ controls       │ (read by input layer)
-// ═══════════════════════════════════════════════════════
 import { show } from '../systems/gameState.js';
 import {
   getSetting, updateSetting, resetPlayerData,
@@ -21,7 +6,7 @@ import {
   setMuted, setSfxVolume, setMusicVolume,
   startMenuMusic, stopMusic, playSfx,
 } from '../core/audio.js';
-import { toast } from '../ui/uiFX.js';
+import { toast } from '../ui/uifx.js';
 import {
   setControlKey,
   resetControls,

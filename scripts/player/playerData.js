@@ -1,23 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// PLAYER DATA — localStorage manager (v2 schema)
-// ─────────────────────────────────────────────────────
-// Backwards-compatible upgrade of the original v1 file:
-//  • Same STORAGE_KEY so existing saves load (no progress wipe)
-//  • Old saves are deep-merged with new defaults on load, so
-//    fields like `gems`, `sfxVolume`, `vibration`, `_missions`
-//    appear automatically without needing a reset.
-//
-// All function signatures used elsewhere are preserved:
-//   loadPlayerData, savePlayerData, getPlayerData, addCoins,
-//   addKeys, spendCoins, isLevelUnlocked, unlockLevel,
-//   completeLevel, selectCar, unlockCar, updateSetting,
-//   getSetting, resetPlayerData
-//
-// New helpers exported for the redesigned scenes:
-//   addGems, claimDaily, hasClaimedDaily, updateMission,
-//   getMissions
-// ═══════════════════════════════════════════════════════
-
 const STORAGE_KEY = 'racingGame_playerData_v1';   // unchanged on purpose
 
 const DEFAULT_DATA = {

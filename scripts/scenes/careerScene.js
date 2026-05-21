@@ -1,11 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// CAREER SCENE — Rich level select grid. Each card has:
-//   • Procedural SVG mini-map preview (biome-tinted)
-//   • Number badge + biome tag
-//   • Difficulty chip + reward chip
-//   • Mission line + 3-star rating + best time
-//   • Locked overlay with shake feedback
-// ═══════════════════════════════════════════════════════
 import { show } from '../systems/gameState.js';
 import { getPlayerData, isLevelUnlocked } from '../player/playerData.js';
 import { renderLevelPreview } from '../ui/levelPreview.js';

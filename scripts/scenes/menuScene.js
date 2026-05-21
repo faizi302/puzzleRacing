@@ -1,19 +1,10 @@
-// ═══════════════════════════════════════════════════════
-// MENU SCENE — Title screen with profile chip, currencies,
-// quick-actions (Daily / Events / Store / Ranks).
-// ─────────────────────────────────────────────────────
-// Decorative menu-stars canvas is no longer used because the
-// global cinematic background (background.js) lives behind every
-// non-game scene. drawMenuStars() is left importable in uiRender.js
-// for backward compatibility but isn't called from here.
-// ═══════════════════════════════════════════════════════
 import { show }                               from '../systems/gameState.js';
 import {
   getPlayerData, hasClaimedDaily, claimDaily,
 } from '../player/playerData.js';
 import {
   toast, rewardBurst, popStat, tweenNumber,
-} from '../ui/uiFX.js';
+} from '../ui/uifx.js';
 
 function rankFor(completed) {
   if (completed >= 3) return 'LEGEND';

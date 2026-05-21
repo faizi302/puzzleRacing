@@ -1,11 +1,6 @@
-// ═══════════════════════════════════════════════════════
-// HUB SCENE — Central nav. Shows currencies, mission cards,
-// daily login reward panel, and 4 routes:
-//   Career, Garage, Settings, How-to-play
-// ═══════════════════════════════════════════════════════
 import { show } from '../systems/gameState.js';
 import { getPlayerData, getMissions } from '../player/playerData.js';
-import { tweenNumber } from '../ui/uiFX.js';
+import { tweenNumber } from '../ui/uifx.js';
 
 export class HubScene {
   constructor(sceneManager) {

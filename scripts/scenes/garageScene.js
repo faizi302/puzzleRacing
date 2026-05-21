@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// GARAGE SCENE — JSON sprite car selection + color selector
-// Player selection is used by player.js through playerCarSprites.js
-// ═══════════════════════════════════════════════════════
-
 import { show } from '../systems/gameState.js';
 import {
   getPlayerData,
