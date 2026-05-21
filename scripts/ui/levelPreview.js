@@ -1,10 +1,11 @@
 // Level preview SVG + in-game minimap (8% local window).
+import { START_PRE_FINISH } from "../configs/roadConfig.js"
 
 const BIOME_COLORS = {
-  forest:  { road: '#5fd17a', grass: '#1b3a1f', accent: '#a0ff8c' },
-  city:    { road: '#7ec8ff', grass: '#1f2735', accent: '#9be1ff' },
-  desert:  { road: '#ffd07a', grass: '#3a2c14', accent: '#ffe2a0' },
-  ice:     { road: '#a9e8ff', grass: '#1c2b3a', accent: '#dff4ff' },
+  forest: { road: '#5fd17a', grass: '#1b3a1f', accent: '#a0ff8c' },
+  city: { road: '#7ec8ff', grass: '#1f2735', accent: '#9be1ff' },
+  desert: { road: '#ffd07a', grass: '#3a2c14', accent: '#ffe2a0' },
+  ice: { road: '#a9e8ff', grass: '#1c2b3a', accent: '#dff4ff' },
   default: { road: '#a0c0ff', grass: '#1f2630', accent: '#d4e3ff' },
 };
 
@@ -13,7 +14,7 @@ const BIOME_COLORS = {
 function extractRoadShape(segs) {
   if (!segs || !segs.length) return [];
 
-  const FWD_STEP   = 1.0;
+  const FWD_STEP = 1.0;
   const CURVE_RATE = 0.018;
 
   let x = 0, y = 0, ang = -Math.PI / 2;
@@ -60,12 +61,12 @@ function fitShape(pts, boxW, boxH, pad = 14) {
 export function renderLevelPreview(mountEl, opts = {}) {
   if (!mountEl) return;
 
-  const biome    = opts.biome    || 'default';
-  const palette  = BIOME_COLORS[biome] || BIOME_COLORS.default;
+  const biome = opts.biome || 'default';
+  const palette = BIOME_COLORS[biome] || BIOME_COLORS.default;
   const levelNum = opts.levelNum || 1;
-  const module   = opts.module   || null;
+  const module = opts.module || null;
 
-  const W = mountEl.clientWidth  || 320;
+  const W = mountEl.clientWidth || 320;
   const H = mountEl.clientHeight || 180;
 
   let segs = null;
@@ -79,15 +80,15 @@ export function renderLevelPreview(mountEl, opts = {}) {
   if (!segs) segs = fallbackShape(opts.seed || levelNum * 17);
 
   const rawPts = extractRoadShape(segs);
-  const fit    = fitShape(rawPts, W, H, 18);
-  const pts    = fit.pts;
+  const fit = fitShape(rawPts, W, H, 18);
+  const pts = fit.pts;
 
   let d = '';
   for (let i = 0; i < pts.length; i++) {
     d += (i === 0 ? 'M' : 'L') + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1) + ' ';
   }
 
-  const startPt  = pts[0]              || [W / 2, H - 16];
+  const startPt = pts[0] || [W / 2, H - 16];
   const finishPt = pts[pts.length - 1] || [W / 2, 16];
 
   const numBadge = mountEl.querySelector('.num-badge')?.outerHTML || '';
@@ -170,20 +171,29 @@ export function renderInGameMinimap(canvas, snapshot) {
   const pts = built.pts;
   if (!pts.length) return;
 
-  const trackLen  = snapshot.trackLen || 1;
+  const trackLen = snapshot.trackLen || 1;
   const playerPos = Math.max(0, Math.min(trackLen, snapshot.playerPos || 0));
 
   // Asphalt-style local view: ±4% of track around player = 8% total
   const VIEW_PCT = 0.08;
   const HALF_VIEW = VIEW_PCT / 2;
 
-  const playerT = playerPos / trackLen;
-  const startT  = Math.max(0, playerT - HALF_VIEW);
-  const endT    = Math.min(1, playerT + HALF_VIEW);
+  // Convert world position into race-relative progress
+  const startOffset = trackLen - START_PRE_FINISH;
+
+  let relativePos = playerPos - startOffset;
+
+  if (relativePos < 0) {
+    relativePos += trackLen;
+  }
+
+  const playerT = relativePos / trackLen;
+  const startT = Math.max(0, playerT - HALF_VIEW);
+  const endT = Math.min(1, playerT + HALF_VIEW);
 
   const startIndex = Math.floor(startT * (pts.length - 1));
-  const endIndex   = Math.ceil(endT * (pts.length - 1));
-  const localPts   = pts.slice(startIndex, Math.max(startIndex + 2, endIndex + 1));
+  const endIndex = Math.ceil(endT * (pts.length - 1));
+  const localPts = pts.slice(startIndex, Math.max(startIndex + 2, endIndex + 1));
   if (localPts.length < 2) return;
 
   // Fit local segment into canvas
@@ -204,7 +214,7 @@ export function renderInGameMinimap(canvas, snapshot) {
     ctx.stroke();
   };
   drawPath(11, 'rgba(80, 220, 255, 0.28)');
-  drawPath(6,  snapshot.onRoad2 ? '#9eff9e' : '#a0d8ff');
+  drawPath(6, snapshot.onRoad2 ? '#9eff9e' : '#a0d8ff');
 
   // Map a world Z to a screen point within the visible local window.
   // Returns null if Z is outside the 8% window.
@@ -214,7 +224,7 @@ export function renderInGameMinimap(canvas, snapshot) {
     if (t < startT || t > endT) return null;
     const globalF = t * (pts.length - 1);
     const globalI = Math.floor(globalF);
-    const localI  = Math.max(0, Math.min(viewPts.length - 1, globalI - startIndex));
+    const localI = Math.max(0, Math.min(viewPts.length - 1, globalI - startIndex));
     return viewPts[localI] || viewPts[0];
   }
 
@@ -259,8 +269,8 @@ export function renderInGameMinimap(canvas, snapshot) {
 
   // Player arrow — always at the center, rotated to road direction
   const playerLocalT = (playerT - startT) / Math.max(0.0001, endT - startT);
-  const playerIndex  = Math.round(playerLocalT * (viewPts.length - 1));
-  const p  = viewPts[Math.max(0, Math.min(viewPts.length - 1, playerIndex))];
+  const playerIndex = Math.round(playerLocalT * (viewPts.length - 1));
+  const p = viewPts[Math.max(0, Math.min(viewPts.length - 1, playerIndex))];
   const p2 = viewPts[Math.min(viewPts.length - 1, playerIndex + 1)] || p;
   const p1 = viewPts[Math.max(0, playerIndex - 1)] || p;
   const ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
@@ -303,7 +313,7 @@ function fallbackShape(seed) {
   for (let i = 0; i < total; i++) {
     const t = i / total;
     const curve = Math.sin(phase + t * Math.PI * 6) * 1.4
-                + Math.cos(phase * 1.3 + t * Math.PI * 4) * 0.7;
+      + Math.cos(phase * 1.3 + t * Math.PI * 4) * 0.7;
     segs.push({ curve });
   }
   return segs;

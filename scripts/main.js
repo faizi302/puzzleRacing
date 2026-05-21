@@ -34,8 +34,8 @@ initGlobalAudioButtons();
 startMenuMusic();
 
 initBackground({
-  basePath  : 'assets/fassets/',
-  images    : ['gambg1.jpg', 'gambg2.jpg', 'gambg3.jpg', 'gambg4.png', 'gambg5.jpg'],
+  basePath  : 'assets/menuBackgrounds/',
+  images    : ['bg1.jpg', 'bg2.jpg', 'bg3.jpg', 'bg4.jpg', 'bg5.jpg'],
   intervalMs: 7500,
   parallax  : true,
 });

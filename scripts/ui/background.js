@@ -1,26 +1,11 @@
 // ════════════════════════════════════════════════════════════════
 // BACKGROUND SYSTEM — Slideshow + Parallax + Particles
-// ─────────────────────────────────────────────────────────────────
-// Creates a cinematic, always-alive background:
-//   • Cross-fades between 5 scenic images on a timed loop
-//   • Slow Ken-Burns zoom keeps the active image moving
-//   • Subtle parallax on pointer/device-motion
-//   • Pure CSS particle field (cheap & GPU-friendly)
-//
-// Asset path convention (configurable):
-//   assets/fassets/gambg1.jpg  ... gambg5.jpg/png
-//
-// Public API:
-//   initBackground({ basePath, images, intervalMs, parallax })
-//   pauseBackground() / resumeBackground()
 // ════════════════════════════════════════════════════════════════
 
 const DEFAULT_IMAGES = [
-  'gambg1.jpg',
-  'gambg2.jpg',
-  'gambg3.jpg',
-  'gambg4.png',
-  'gambg5.jpg',
+  'bg1.jpg',
+  'bg2.jpg',
+  'bg3.jpg',
 ];
 
 let _state = {
@@ -33,7 +18,7 @@ let _state = {
 };
 
 export function initBackground({
-  basePath = 'assets/fassets/',
+  basePath = 'assets/menuBackgrounds/',
   images   = DEFAULT_IMAGES,
   intervalMs = 7500,
   parallax = true,

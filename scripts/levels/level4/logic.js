@@ -39,6 +39,18 @@ export const L4_MEMORY = {
   visited: [],        // boolean per checkpoint: did we even register a pass?
   lastSfxAt: -1,
   startPos: 0,
+
+  // Finish detection — we look for the player wrapping the track from
+  // near-end back to near-start (P.pos goes high → low) AFTER the run
+  // phase has begun. That wrap-around is the only reliable signal that
+  // they actually crossed the physical finish line.
+  //
+  // Because the player spawns NEAR the finish line, the very first
+  // wrap right at race start is not the finish — it's just crossing
+  // the start line. We only count a wrap once `farSideReached` is true.
+  prevPos: 0,
+  farSideReached: false,
+  finishCrossed: false,
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -89,6 +101,9 @@ export function resetLevel4Puzzle() {
   L4_MEMORY.visited = new Array(n).fill(false);
   L4_MEMORY.lastSfxAt = -1;
   L4_MEMORY.startPos = 0;
+  L4_MEMORY.prevPos = 0;
+  L4_MEMORY.farSideReached = false;
+  L4_MEMORY.finishCrossed = false;
 
   // Clear the lazily-built checkpoint-z cache. trackLen may have
   // changed since the last race (different level, rebuilt track),
@@ -174,6 +189,9 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     L4_MEMORY.phase = 'preview';
     L4_MEMORY.timer = 0;
     L4_MEMORY.startPos = P.pos || 0;
+    L4_MEMORY.prevPos = P.pos || 0;
+    L4_MEMORY.farSideReached = false;
+    L4_MEMORY.finishCrossed = false;
     return;
   }
 
@@ -240,26 +258,46 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     }
   }
 
-  // ── 3) Decide outcome — ONLY at the finish line ──────────────────
+  // ── 3) Decide outcome — ONLY when the player actually crosses
+  //                       the physical finish line ──────────────────
   //
-  // IMPORTANT: We never call evaluateOutcome() just because all
-  // checkpoints have been visited.  The player must physically reach
-  // the finish trigger.  This prevents any false-positive that could
-  // arise from stale state, wrapped positions, or anything else that
-  // isn't the player completing the lap.
+  // The player spawns just before the finish line (resetPhys puts them
+  // at trackLen - START_PRE_FINISH), so the very first frames of the
+  // race produce a wrap from high→low pos as they cross the start.
+  // That wrap is NOT the finish — the finish is the SECOND such wrap,
+  // after the player has driven the full lap.
   //
-  // Extra guards (belt-and-suspenders):
-  //   • Visited array must be non-empty (allVisited on [] is trivially true).
-  //   • Player must have covered at least 5 % of the track so we
-  //     never fire on the very first frame of a new race.
+  // We detect this in two stages:
+  //   (a) `farSideReached` becomes true once the player gets past the
+  //       middle of the track (somewhere in [40%, 60%]). This means
+  //       they've actually been driving the lap, not just sitting
+  //       near the start line.
+  //   (b) After `farSideReached`, the next high→low wrap is the real
+  //       finish — fire evaluateOutcome() exactly once.
 
-  if (L4_MEMORY.visited.length === 0) return;
+  const prevPos = L4_MEMORY.prevPos;
 
-  const MIN_MOVEMENT = trackLen * 0.05;
-  if (levelProgress < MIN_MOVEMENT) return;
+  // Stage (a): mark that the player has reached the far side of the track.
+  if (!L4_MEMORY.farSideReached &&
+      playerPos > trackLen * 0.40 &&
+      playerPos < trackLen * 0.60) {
+    L4_MEMORY.farSideReached = true;
+  }
 
-  const nearFinish = levelProgress >= trackLen * FINISH_TRIGGER_FRAC;
-  if (!nearFinish) return;
+  // Stage (b): detect the wrap from end-of-track → start-of-track.
+  const wrapped =
+    prevPos > trackLen * 0.70 &&
+    playerPos < trackLen * 0.30 &&
+    P.speed > 0;
+
+  // Update prevPos for the next tick.
+  L4_MEMORY.prevPos = playerPos;
+
+  if (!wrapped) return;
+  if (!L4_MEMORY.farSideReached) return;   // wrap before reaching far side = start-line wrap, ignore
+  if (L4_MEMORY.finishCrossed) return;     // only fire once
+
+  L4_MEMORY.finishCrossed = true;
 
   // Mark any checkpoint the player somehow skipped as a miss.
   for (let i = 0; i < L4_MEMORY.visited.length; i++) {
