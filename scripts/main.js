@@ -6,12 +6,12 @@ import { SceneManager }             from './core/sceneManager.js';
 import { setActiveLevel }           from './core/activeLevel.js';
 import { loadPlayerData }           from './player/playerData.js';
 
-import { MenuScene }     from './scenes/MenuScene.js';
-import { HubScene }      from './scenes/HubScene.js';
-import { CareerScene }   from './scenes/CareerScene.js';
-import { GarageScene }   from './scenes/GarageScene.js';
-import { SettingsScene } from './scenes/SettingsScene.js';
-import { GameScene }     from './scenes/GameScene.js';
+import { MenuScene }     from './scenes/menuScene.js';
+import { HubScene }      from './scenes/hubScene.js';
+import { CareerScene }   from './scenes/careerScene.js';
+import { GarageScene }   from './scenes/garageScene.js';
+import { SettingsScene } from './scenes/settingsScene.js';
+import { GameScene }     from './scenes/gameScene.js';
 
 import { initGlobalAudioButtons, startMenuMusic } from './core/audio.js';
 import { initBackground } from './ui/background.js';
