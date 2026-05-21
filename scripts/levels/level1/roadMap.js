@@ -1,6 +1,3 @@
-// Level 1 road geometry — Road1 is the trap path, Road2 is the winning path.
-// Closing segments of both roads are deliberately straight so trap/jump/finish
-// line all read clearly to the player.
 
 import { C, LCOL } from '../../configs/roadConfig.js';
 import { easeInOut } from '../../utils/math.js';

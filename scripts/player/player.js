@@ -10,7 +10,7 @@ import * as Audio from '../core/audio.js';
 import { clamp } from '../utils/math.js';
 
 // Tunables
-const BASE_SCALE      = 1.0;
+const BASE_SCALE      = 2.0;
 const DUST_HZ         = 20;
 const MAX_DRIFT_LINES = 80;
 const MAX_ONE_SHOTS   = 24;

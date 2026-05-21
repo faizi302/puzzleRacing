@@ -416,13 +416,27 @@ export function updatePhys(inp, dt, len) {
     P.speed += C.ACCEL * d * (P.nitroActive ? 1.35 : 1.0);
   } else if (inp.down && !P.secretUnlocked) {
     P.speed -= reverseAccel * d;
-  } else if (inp.down && P.secretUnlocked) {
-    P.isBraking = true;
-    P.speed = moveToward(P.speed, 0, brakePower * d);
-  } else if (inp.hand) {
-    P.isBraking = true;
-    P.speed = moveToward(P.speed, 0, brakePower * d);
-  } else {
+} else if (inp.down && P.secretUnlocked) {
+  P.isBraking = true;
+
+  // Instant brake
+  P.speed *= 0.78;
+
+  // Hard stop threshold
+  if (Math.abs(P.speed) < 15) {
+    P.speed = 0;
+  }
+
+} else if (inp.hand) {
+  P.isBraking = true;
+
+  // Handbrake stronger
+  P.speed *= 0.78;
+
+  if (Math.abs(P.speed) < 15) {
+    P.speed = 0;
+  }
+} else {
     P.speed = moveToward(P.speed, 0, Math.abs(C.DECEL) * d);
   }
 
