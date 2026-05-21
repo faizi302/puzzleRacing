@@ -9,7 +9,7 @@
 import { show } from '../systems/gameState.js';
 import { getPlayerData, isLevelUnlocked } from '../player/playerData.js';
 import { renderLevelPreview } from '../ui/levelPreview.js';
-import { toast, shake, tweenNumber } from '../ui/uiFX.js';
+import { toast, shake, tweenNumber } from '../ui/uifx.js';
 
 import level1 from '../levels/level1/index.js';
 import level2 from '../levels/level2/index.js';

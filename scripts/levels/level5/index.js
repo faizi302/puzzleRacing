@@ -1,5 +1,5 @@
 import { LEVEL_META } from './levelConfig.js';
-import { buildRoads } from './roadMap.js';
+import { buildRoads } from './roadmap.js';
 import { buildSceneryObjects } from './scenery.js';
 import { createPuzzleState, tick, renderHUD, onFinishReached } from './logic.js';
 
