@@ -412,33 +412,37 @@ export function updatePhys(inp, dt, len) {
 
   P.isBraking = false;
 
-  if (inp.up) {
-    P.speed += C.ACCEL * d * (P.nitroActive ? 1.35 : 1.0);
-  } else if (inp.down && !P.secretUnlocked) {
+if (inp.up) {
+
+  // ACCELERATE
+  P.speed += C.ACCEL * d * (P.nitroActive ? 1.35 : 1.0);
+
+} else if (inp.down) {
+
+  // If moving forward -> BRAKE FIRST
+  if (P.speed > 0) {
+
+    P.isBraking = true;
+
+    // Strong instant brake
+    P.speed *= 0.72;
+
+    // Snap stop
+    if (P.speed < 10) {
+      P.speed = 0;
+    }
+
+  } else {
+
+    // Once stopped -> move backward
     P.speed -= reverseAccel * d;
-} else if (inp.down && P.secretUnlocked) {
-  P.isBraking = true;
-
-  // Instant brake
-  P.speed *= 0.78;
-
-  // Hard stop threshold
-  if (Math.abs(P.speed) < 15) {
-    P.speed = 0;
   }
 
-} else if (inp.hand) {
-  P.isBraking = true;
-
-  // Handbrake stronger
-  P.speed *= 0.78;
-
-  if (Math.abs(P.speed) < 15) {
-    P.speed = 0;
-  }
 } else {
-    P.speed = moveToward(P.speed, 0, Math.abs(C.DECEL) * d);
-  }
+
+  // Natural deceleration
+  P.speed = moveToward(P.speed, 0, Math.abs(C.DECEL) * d);
+}
 
   P.speed = clamp(P.speed, reverseMax, speedCap);
 
