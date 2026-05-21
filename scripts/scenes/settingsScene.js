@@ -6,7 +6,7 @@ import {
   setMuted, setSfxVolume, setMusicVolume,
   startMenuMusic, stopMusic, playSfx,
 } from '../core/audio.js';
-import { toast } from '../ui/uifx.js';
+import { toast } from '../ui/Uifx.js';
 import {
   setControlKey,
   resetControls,

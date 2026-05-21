@@ -1,6 +1,6 @@
 import { show } from '../systems/gameState.js';
 import { getPlayerData, getMissions } from '../player/playerData.js';
-import { tweenNumber } from '../ui/uifx.js';
+import { tweenNumber } from '../ui/Uifx.js';
 
 export class HubScene {
   constructor(sceneManager) {

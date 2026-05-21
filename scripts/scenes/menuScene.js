@@ -4,7 +4,7 @@ import {
 } from '../player/playerData.js';
 import {
   toast, rewardBurst, popStat, tweenNumber,
-} from '../ui/uifx.js';
+} from '../ui/Uifx.js';
 
 function rankFor(completed) {
   if (completed >= 3) return 'LEGEND';

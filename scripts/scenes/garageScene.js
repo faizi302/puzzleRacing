@@ -7,7 +7,7 @@ import {
   savePlayerData,
 } from '../player/playerData.js';
 
-import { toast, shake, tweenNumber, rewardBurst } from '../ui/uiFX.js';
+import { toast, shake, tweenNumber, rewardBurst } from '../ui/Uifx.js';
 
 import {
   setSelectedPlayerCar,
