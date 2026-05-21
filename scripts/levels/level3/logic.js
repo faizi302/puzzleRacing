@@ -2,6 +2,7 @@ import { P, clamp, addCameraShake } from '../../systems/roadSystem.js';
 import { switchToTrack } from '../../core/roadMap.js';
 import { notify } from '../../player/playerAnimation.js';
 import { playSfx } from '../../core/audio.js';
+import { C } from '../../configs/roadConfig.js';
 
 const CORRECT_ORDER = ['star', 'moon', 'diamond', 'key'];
 
@@ -105,7 +106,7 @@ export function pressSymbolSwitch(symbol) {
 
     P.pos = 8 * 240;
     P.playerX = 0;
-    P.speed = Math.max(700, Math.abs(P.speed) * 0.65);
+    P.speed = 100 * C.KMH_TO_WORLD;
 
     notify('🔓 Symbol Code solved! Hidden path opened!');
 

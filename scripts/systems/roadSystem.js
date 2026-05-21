@@ -234,7 +234,10 @@ function unlockReverseSecret() {
   switchToTrack(2);
 
   P.pos = C.SEG_LEN * (C.RUMBLE * 2 + 3);
-  P.speed = Math.max(700, Math.abs(P.speed) * 0.45);
+  // Enter Road 2 at exactly 100 km/h. From here, if the player doesn't
+  // hold accelerate, the regular DECEL path below will bleed the speed
+  // off naturally (same as anywhere else on the track).
+  P.speed = 100 * C.KMH_TO_WORLD;
   P.playerX = 0;
   P.cameraX = 0;
   P.roadCurve = 0;
@@ -365,7 +368,10 @@ export function updatePhys(inp, dt, len) {
   if (P.cameraTurning) {
     P.cameraTurnTime += d;
     P.cameraFlip = smooth01(P.cameraTurnTime / C.REVERSE_CAMERA_TIME);
-    P.speed *= 0.985;
+    // NOTE: previously P.speed *= 0.985 here, which drained the
+    // Road 2 entry speed almost to zero by the time the flip ended.
+    // We now let the normal decel/accel pipeline below handle speed,
+    // so the player keeps the entry speed and can press up to maintain it.
 
     if (P.cameraTurnTime >= C.REVERSE_CAMERA_TIME) {
       P.cameraFlip = 1;

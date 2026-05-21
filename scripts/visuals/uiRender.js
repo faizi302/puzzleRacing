@@ -1,17 +1,3 @@
-// ════════════════════════════════════════════════════════════════════
-// UI RENDER — Combined module
-// ─────────────────────────────────────────────────────────────────────
-// Contains:
-//   • Menu starfield / sky background           (drawMenuStars)
-//   • Reward bursts, toasts, pop, shake, tween  (FX helpers, ex-uiFX)
-//   • Asphalt-Legends-style in-race HUD          (build/update/destroy)
-//   • Race start hint banner (auto-hides)        (showRaceHint, hideRaceHint)
-//
-// REPLACES BOTH:  uiRender.js  +  Uifx.js
-// All ex-Uifx exports are re-exported from this file so existing
-// `import { toast } from '../ui/uiFX.js'` paths can be redirected
-// here, OR keep a tiny `uiFX.js` shim that just re-exports from this.
-// ════════════════════════════════════════════════════════════════════
 import { sizeMenuCanvas, getMenuCtx } from '../core/canvas.js';
 
 /* ════════════════════════════════════════════════════════════════════

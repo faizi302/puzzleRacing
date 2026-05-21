@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════
 // BACKGROUND RENDER — Forward HorizonE, Backward HorizonC
-// Smooth fake 180° camera turn
 // ═══════════════════════════════════════════════════════
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { clamp, P } from '../systems/roadSystem.js';
