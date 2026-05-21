@@ -1,16 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// INPUT CONTROLLER — Keyboard + Touch + Lock flag
-// ─────────────────────────────────────────────────────────
-// CHANGES (Asphalt-9 style nitro):
-//   • Added edge-detected `nitroPressed` (true ONLY on the
-//     frame Space transitions from up→down). Prevents the
-//     player.js nitro logic from re-triggering every tick.
-//   • `consumeNitroPress()` clears the edge so it can only
-//     be read once per press.
-//   • Down arrow remains brake/reverse for normal driving;
-//     player.js uses it to *cancel* an active nitro burn
-//     while leaving the underlying brake input intact.
-// ═══════════════════════════════════════════════════════
 
 export const K = {
   up: false, down: false, left: false, right: false,

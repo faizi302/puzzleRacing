@@ -1,7 +1,3 @@
-// Road map — live facade that delegates geometry to the active level.
-// `segs` and `trackLen` are reassigned when a level is loaded or
-// when switchToTrack hot-swaps Road1 <-> Road2.
-
 import { C } from '../configs/roadConfig.js';
 import { getActiveLevel } from './activeLevel.js';
 
