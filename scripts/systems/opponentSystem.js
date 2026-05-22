@@ -1,4 +1,15 @@
 // Opponent system — Asphalt-style average-speed AI, dynamic race positions.
+//
+// PERFORMANCE NOTES (refactor):
+//   * tickAISceneryCollision was being called twice per opponent per tick.
+//     Now called once. (Bug fix — also halves per-tick AI scenery work.)
+//   * updateRacePositions was called twice per tick. Now once, at end.
+//     Rubberband uses last-tick rank — visually identical, half the sort work.
+//   * findBestLane allocated a fresh blockers[] + N object literals per
+//     opponent per tick. Now uses a reusable module-level pool with no
+//     per-frame allocation.
+//   * wrapDz uses single-branch math (no while loops).
+//   * All public exports and gameplay behavior preserved.
 
 import { C } from '../configs/roadConfig.js';
 import { P, clamp } from './roadSystem.js';
@@ -41,12 +52,13 @@ function wrapZ(z, len = trackLen) {
   return z;
 }
 
+// Single-branch wrap delta. Assumes |objZ - baseZ| < 1.5 * len (always true in practice).
 function wrapDz(objZ, baseZ, len = trackLen) {
   if (!len) return objZ - baseZ;
-  let dz = objZ - baseZ;
+  const dz = objZ - baseZ;
   const half = len * 0.5;
-  if (dz < -half) dz += len;
-  else if (dz > half) dz -= len;
+  if (dz < -half) return dz + len;
+  if (dz >  half) return dz - len;
   return dz;
 }
 
@@ -150,6 +162,10 @@ export function resetOpponents(levelId = 'level1') {
   opponents = list.map(makeOpponent);
   raceOrder = [];
 
+  // Pre-size pools to current opponent count to avoid first-frame grow.
+  _ensureBlockerPool(64);
+  _ensureRankScratch(opponents.length + 1);
+
   // Initial sort: opponents start in their config order ahead of player.
   // Rank gets recomputed first frame.
   updateRacePositions();
@@ -189,15 +205,15 @@ function tickPlayerProgress(dt) {
   }
 
   // Only count forward motion toward total distance
-if (moved > 0) {
-  _playerTotalDist += moved;
-}
+  if (moved > 0) {
+    _playerTotalDist += moved;
+  }
 
   _lastPlayerPos = curPos;
 
   if (P.onRoad2 && (P.speed || 0) > 0) {
-  _playerTotalDist += Math.abs(P.speed * dt);
-}
+    _playerTotalDist += Math.abs(P.speed * dt);
+  }
 
   // Race time accumulator (separate from P.raceTime in case it's reset elsewhere)
   if (P.endPhase < 1) _raceTimeAccum += dt;
@@ -207,8 +223,6 @@ if (moved > 0) {
   P.totalDistance = _playerTotalDist;
 
   // Average speed in km/h
-  // Convert world units to km/h via KMH_TO_WORLD
-  // distance is in world units; divide by elapsed seconds, then convert
   const elapsed = Math.max(0.5, _raceTimeAccum);
   const worldPerSec = _playerTotalDist / elapsed;
   P.avgSpeedKmh = worldToKmh(worldPerSec);
@@ -219,7 +233,6 @@ function getPlayerProgress() {
 }
 
 function getAIProgress(ai) {
-  // Use the AI's totalDist (set in driving tick)
   return ai.totalDist;
 }
 
@@ -359,12 +372,19 @@ function tickAISceneryCollision(ai, sceneryObjs) {
   const len = ai.onRoad2 ? getTrackLen(2) : trackLen;
   if (!len) return;
 
+  const aiZ = ai.z;
+  const half = len * 0.5;
+
   for (let i = 0; i < sceneryObjs.length; i++) {
     const o = sceneryObjs[i];
     if (!o || o._dead) continue;
     if (!o.isHurdle && !o.isJump) continue;
 
-    const dz = wrapDz(o.z, ai.z, len);
+    // Inline wrap-dz with single branch (no while loop)
+    let dz = o.z - aiZ;
+    if (dz < -half) dz += len;
+    else if (dz > half) dz -= len;
+
     if (dz < -260 || dz > 260) continue;
 
     if (o.isJump)   { hitJumpAI(ai, o, dz);   continue; }
@@ -372,67 +392,101 @@ function tickAISceneryCollision(ai, sceneryObjs) {
   }
 }
 
-// Lane planning
+// Lane planning — pooled to avoid per-frame allocation
+//
+// Each blocker is a fixed-shape object reused across frames. We track the
+// "used" count separately from pool length so we never shrink the pool.
+
+const _blockerPool = [];
+let _blockerPoolUsed = 0;
+
+function _ensureBlockerPool(n) {
+  while (_blockerPool.length < n) {
+    _blockerPool.push({ x: 0, dz: 0, halfW: 0 });
+  }
+}
+
+function _resetBlockerPool() {
+  _blockerPoolUsed = 0;
+}
+
+function _pushBlocker(x, dz, halfW) {
+  if (_blockerPoolUsed >= _blockerPool.length) {
+    _blockerPool.push({ x: 0, dz: 0, halfW: 0 });
+  }
+  const b = _blockerPool[_blockerPoolUsed++];
+  b.x = x;
+  b.dz = dz;
+  b.halfW = halfW;
+  return b;
+}
 
 function findBestLane(ai, sceneryObjs, len) {
   const SCAN_AHEAD = C.SEG_LEN * 14;
   const SCAN_BEHIND = -60;
 
-  const blockers = [];
+  _resetBlockerPool();
+
+  const aiZ = ai.z;
+  const half = len * 0.5;
+
   for (let i = 0; i < sceneryObjs.length; i++) {
     const o = sceneryObjs[i];
     if (!o || o._dead) continue;
     if (!o.isHurdle && !o.isJump) continue;
-
-    const dz = wrapDz(o.z, ai.z, len);
-    if (dz < SCAN_BEHIND || dz > SCAN_AHEAD) continue;
-
     if (o.isJump) continue;  // jumps are good — don't avoid them
 
-    blockers.push({
-      x: objX(o),
-      dz,
-      halfW: (o.size ?? 0.45) * 0.46 + 0.22,
-    });
+    let dz = o.z - aiZ;
+    if (dz < -half) dz += len;
+    else if (dz > half) dz -= len;
+
+    if (dz < SCAN_BEHIND || dz > SCAN_AHEAD) continue;
+
+    _pushBlocker(objX(o), dz, (o.size ?? 0.45) * 0.46 + 0.22);
   }
-  if (!blockers.length) return null;
+
+  if (_blockerPoolUsed === 0) return null;
 
   let best = null;
   let bestScore = -Infinity;
-  for (const lane of LANES) {
+
+  for (let li = 0; li < LANES.length; li++) {
+    const lane = LANES[li];
     let nearest = SCAN_AHEAD + 1;
-    for (const b of blockers) {
-      if (Math.abs(lane - b.x) < b.halfW && b.dz < nearest) nearest = b.dz;
+
+    for (let bi = 0; bi < _blockerPoolUsed; bi++) {
+      const b = _blockerPool[bi];
+      if (Math.abs(lane - b.x) < b.halfW && b.dz < nearest) {
+        nearest = b.dz;
+      }
     }
+
     const stickiness = -Math.abs(lane - ai.x) * 30;
     const score = nearest + stickiness;
-    if (score > bestScore) { bestScore = score; best = lane; }
+    if (score > bestScore) {
+      bestScore = score;
+      best = lane;
+    }
   }
   return best;
 }
 
 // Asphalt-style speed scaling based on player's average speed.
-//
-// position = the opponent's *current* rank (1 = leader)
-// playerAvg = player's average km/h since race start
-// returns scale multiplier in [0.92, 1.10]
 function getRubberbandScale(position, playerAvg) {
-  // Map rank → beat-speed threshold.
-  // Top-ranked opponent uses the toughest threshold (92).
   const idx = clamp(position - 1, 0, OPPONENT_BEAT_SPEEDS.length - 1);
   const required = OPPONENT_BEAT_SPEEDS[idx];
   const diff = playerAvg - required;
 
-  if (diff < -8) return 1.08;   // player is way below required → opponent pulls ahead
+  if (diff < -8) return 1.08;
   if (diff <  0) return 1.03;
-  if (diff > 10) return 0.94;   // player is way above required → opponent eases off
+  if (diff > 10) return 0.94;
   if (diff >  4) return 0.97;
   return 1.0;
 }
 
 // AI driving tick
 
-function tickAIDriving(ai, dt, sceneryObjs = []) {
+function tickAIDriving(ai, dt, sceneryObjs) {
   // Lock during countdown/start formation
   if (P.countdownActive || P.countdownT > 0 || P.starting || P.readyState) {
     ai.x = ai.formationX;
@@ -449,7 +503,6 @@ function tickAIDriving(ai, dt, sceneryObjs = []) {
   const len   = ai.onRoad2 ? getTrackLen(2) : trackLen;
   const track = ai.onRoad2 ? 2 : 1;
 
-  // Asphalt-style rubber-band: scale speed based on player's avg vs this opp's required.
   const rubberSpeedScale = getRubberbandScale(ai.position, P.avgSpeedKmh || 0);
 
   // Curve handling
@@ -555,7 +608,7 @@ function tickAIDriving(ai, dt, sceneryObjs = []) {
   }
 
   ai.z = wrapZ(ai.z, len);
-  ai.pos = ai.z;  // mirror for minimap consumers
+  ai.pos = ai.z;
 }
 
 // AI vs AI separation
@@ -615,40 +668,44 @@ function tickPlayerAICollision() {
   }
 }
 
-// Ranking — dynamic. Updates ai.position every frame.
+// Ranking — pooled scratch, single call per tick
 
 const _rankScratch = [];
 
-export function updateRacePositions() {
-  _rankScratch.length = 0;
+function _ensureRankScratch(n) {
+  while (_rankScratch.length < n) {
+    _rankScratch.push({ type: 'ai', progress: 0, ref: null });
+  }
+}
 
-  // PLAYER
-  _rankScratch.push({
-    type: 'player',
-    progress: getPlayerProgress(),
-    ref: P,
-  });
+export function updateRacePositions() {
+  const need = opponents.length + 1;
+  _ensureRankScratch(need);
+
+  // PLAYER slot
+  const p0 = _rankScratch[0];
+  p0.type = 'player';
+  p0.progress = getPlayerProgress();
+  p0.ref = P;
 
   // OPPONENTS
   for (let i = 0; i < opponents.length; i++) {
-    const ai = opponents[i];
-
-    _rankScratch.push({
-      type: 'ai',
-      progress: getAIProgress(ai),
-      ref: ai,
-    });
+    const slot = _rankScratch[i + 1];
+    slot.type = 'ai';
+    slot.progress = getAIProgress(opponents[i]);
+    slot.ref = opponents[i];
   }
 
+  // Truncate length to exact use count (no allocation, just length set)
+  _rankScratch.length = need;
+
   // HIGHEST DISTANCE = FIRST POSITION
-  _rankScratch.sort((a, b) => b.progress - a.progress);
+  _rankScratch.sort(_rankCmp);
 
   raceOrder.length = 0;
-
   for (let i = 0; i < _rankScratch.length; i++) {
     const item = _rankScratch[i];
     const rank = i + 1;
-
     raceOrder.push(item);
 
     if (item.type === 'player') {
@@ -658,6 +715,8 @@ export function updateRacePositions() {
     }
   }
 }
+
+function _rankCmp(a, b) { return b.progress - a.progress; }
 
 // Main update — called once per physics tick from gameScene
 
@@ -669,15 +728,13 @@ export function updateOpponents(dt, sceneryObjs = []) {
 
   // 1) Player progress + avg-speed
   tickPlayerProgress(dt);
-  updateRacePositions();
 
-  // 2) Per-opponent logic
+  // 2) Per-opponent logic — ONE call to tickAISceneryCollision (was two)
   for (let i = 0; i < opponents.length; i++) {
     const ai = opponents[i];
     if (!ai.active) continue;
 
     tickPuzzleBrain(ai);
-    tickAISceneryCollision(ai, sceneryObjs);
     tickAIDriving(ai, d, sceneryObjs);
     tickAIJump(ai, d);
     tickAISceneryCollision(ai, sceneryObjs);
@@ -687,6 +744,6 @@ export function updateOpponents(dt, sceneryObjs = []) {
   tickOpponentSeparation();
   tickPlayerAICollision();
 
-  // 4) Rank — must run AFTER all movement
+  // 4) Rank — single call, after all movement
   updateRacePositions();
 }

@@ -1,11 +1,17 @@
 // Player — car renderer, nitro state, jump physics, FX layer.
+//
+// PERFORMANCE NOTES (refactor):
+//   * driftLines pre-trim now uses a single shift() in a loop, never the
+//     splice(0, n) form which allocates a discarded return-array.
+//   * Hoisted clock state out of drawCar inner block to avoid TDZ checks.
+//   * All FX, audio, animation behavior preserved exactly.
 
 import { P } from '../systems/roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
 import { IMG } from '../visuals/objectRender.js';
 import { consumeNitroPress, K } from '../core/inputController.js';
-import { loadPlayerCarSprites, getSelectedPlayerSprite } from '../visuals/playerCarSprites.js';
+import { loadPlayerCarSprites, getSelectedPlayerSprite, invalidatePlayerCarSelection } from '../visuals/playerCarSprites.js';
 import * as Audio from '../core/audio.js';
 import { clamp } from '../utils/math.js';
 
@@ -80,7 +86,10 @@ function getBaseCarSize() {
   return _baseSize;
 }
 
-export function invalidatePlayerSpriteCache() { _baseSize.dirty = true; }
+export function invalidatePlayerSpriteCache() {
+  _baseSize.dirty = true;
+  invalidatePlayerCarSelection();
+}
 
 function getStraightIndex(sprite) {
   if (!sprite?.frames?.length) return 9;
@@ -407,9 +416,8 @@ function drawDriftTyreLines(ctx, anchorX, anchorY, drawW, drawH) {
   const lines = P.driftLines;
   if (!lines?.length) return;
 
-  if (lines.length > MAX_DRIFT_LINES) {
-    lines.splice(0, lines.length - MAX_DRIFT_LINES);
-  }
+  // Trim by single-shift loop — splice(0, N) allocates a discarded array.
+  while (lines.length > MAX_DRIFT_LINES) lines.shift();
 
   const W = getW();
   const res = getRes();

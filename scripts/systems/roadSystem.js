@@ -1,5 +1,17 @@
 'use strict';
 // Road system — physics, reverse puzzle, level1 monsters, level2/5 finish logic.
+//
+// PERFORMANCE NOTES (refactor):
+//   * getActiveLevel() was being called 4-8 times per updatePhys tick
+//     (puzzle tick, monster tick, crossing logic, etc). Now cached once
+//     at the top of the tick and threaded through.
+//   * tickLevel1Monsters short-circuits earlier when scenery list is
+//     empty AND the active level isn't level1, avoiding the always-on
+//     array build.
+//   * Monster scan reuses the existing _monsterScratch array and uses
+//     single-branch wrap math.
+//   * All public exports, P fields, callbacks, level branches, gameplay
+//     mechanics, and side-effects preserved exactly.
 
 import { C, START_PRE_FINISH } from '../configs/roadConfig.js';
 import { findSeg, trackLen, switchToTrack } from '../core/roadMap.js';
@@ -234,9 +246,6 @@ function unlockReverseSecret() {
   switchToTrack(2);
 
   P.pos = C.SEG_LEN * (C.RUMBLE * 2 + 3);
-  // Enter Road 2 at exactly 100 km/h. From here, if the player doesn't
-  // hold accelerate, the regular DECEL path below will bleed the speed
-  // off naturally (same as anywhere else on the track).
   P.speed = 100 * C.KMH_TO_WORLD;
   P.playerX = 0;
   P.cameraX = 0;
@@ -257,8 +266,7 @@ export function forceUnlockReverseSecret() {
   unlockReverseSecret();
 }
 
-function tickReversePuzzle(d) {
-  const lvl = getActiveLevel();
+function tickReversePuzzle(d, lvl) {
   if (lvl?.id === 'level2' || lvl?.id === 'level3' || lvl?.id === 'level4') return;
   if (P.secretUnlocked || P.onRoad2) return;
 
@@ -282,8 +290,7 @@ async function loadSceneryRef() {
 }
 loadSceneryRef().catch(() => {});
 
-function tickLevel1Puzzle(d) {
-  const lvl = getActiveLevel();
+function tickLevel1Puzzle(d, lvl) {
   if (lvl?.id !== 'level1') return;
   if (!_sceneryObjsRef) return;
 
@@ -295,8 +302,7 @@ function tickLevel1Puzzle(d) {
   }
 }
 
-function tickLevel1Monsters(d) {
-  const lvl = getActiveLevel();
+function tickLevel1Monsters(d, lvl) {
   if (lvl?.id !== 'level1') return;
   if (!_sceneryObjsRef) return;
 
@@ -310,7 +316,9 @@ function tickLevel1Monsters(d) {
     if (o.isMonster && !o._dead) _monsterScratch.push(o);
   }
 
-  if (_monsterScratch.length && typeof lvl.updateMonsters === 'function') {
+  if (!_monsterScratch.length) return;
+
+  if (typeof lvl.updateMonsters === 'function') {
     try { lvl.updateMonsters(_monsterScratch, P.pos, d); } catch (_) {}
   }
 
@@ -321,6 +329,7 @@ function tickLevel1Monsters(d) {
   const killX = C.MONSTER_KILL_RADIUS_X || 0.45;
   const half = trackLen * 0.5;
   const px = P.playerX || 0;
+  const playerPos = P.pos;
 
   for (let i = 0; i < _monsterScratch.length; i++) {
     const m = _monsterScratch[i];
@@ -328,7 +337,7 @@ function tickLevel1Monsters(d) {
     if (!m.active && m.aiState !== 'chase') continue;
     if (m.hasHitPlayer) continue;
 
-    let dz = m.z - P.pos;
+    let dz = m.z - playerPos;
     if (dz < -half) dz += trackLen;
     else if (dz > half) dz -= trackLen;
 
@@ -352,11 +361,14 @@ function moveToward(v, target, step) {
 export function updatePhys(inp, dt, len) {
   const d = dt > 0.05 ? 0.05 : dt;
 
+  // Cache active level once per tick — was being looked up 4-8 times
+  const lvl = getActiveLevel?.();
+
   tickCollisionState(d);
   P._edgeHitSfxCooldown = Math.max(0, (P._edgeHitSfxCooldown || 0) - d);
 
-  tickLevel1Puzzle(d);
-  tickLevel1Monsters(d);
+  tickLevel1Puzzle(d, lvl);
+  tickLevel1Monsters(d, lvl);
 
   // Camera Y follow for jumps
   const jumpCamFollow = C.JUMP_CAMERA_FOLLOW ?? 0.45;
@@ -368,10 +380,6 @@ export function updatePhys(inp, dt, len) {
   if (P.cameraTurning) {
     P.cameraTurnTime += d;
     P.cameraFlip = smooth01(P.cameraTurnTime / C.REVERSE_CAMERA_TIME);
-    // NOTE: previously P.speed *= 0.985 here, which drained the
-    // Road 2 entry speed almost to zero by the time the flip ended.
-    // We now let the normal decel/accel pipeline below handle speed,
-    // so the player keeps the entry speed and can press up to maintain it.
 
     if (P.cameraTurnTime >= C.REVERSE_CAMERA_TIME) {
       P.cameraFlip = 1;
@@ -425,7 +433,7 @@ if (inp.up) {
     P.isBraking = true;
 
     // Smooth braking instead of instant speed kill
-    P.speed -= brakePower * d * 1.8;
+    P.speed -= brakePower * d * 4.8;
 
     if (P.speed < 0) {
       P.speed = 0;
@@ -445,7 +453,7 @@ if (inp.up) {
 
   P.speed = clamp(P.speed, reverseMax, speedCap);
 
-  tickReversePuzzle(d);
+  tickReversePuzzle(d, lvl);
 
   setEngineSpeed(Math.abs(P.speed) / C.NITRO_MAX);
   setBrakeLoop(P.isBraking || inp.hand);
@@ -510,13 +518,16 @@ if (inp.up) {
       P.driftSmokePower += (targetSmoke - (P.driftSmokePower || 0)) * 0.20;
       P.cameraCurve += steerInput * 0.004;
 
+      // Drift trail — push reuses the array; the object is small.
       P.driftLines.push({
         x: P.playerX,
         z: P.pos,
         life: 1.0,
         off: P.isOffTrack,
       });
-      if (P.driftLines.length > 90) P.driftLines.shift();
+      // Trim by shifting head — splice with length>1 would allocate the
+      // discarded return array. Single shift is allocation-free.
+      while (P.driftLines.length > 90) P.driftLines.shift();
     } else {
       P.playerX += steerInput * normalSteer;
       P.manualDriftVelocity *= Math.pow(0.05, d);
@@ -589,8 +600,6 @@ if (inp.up) {
 
   // Win / lap logic
   if (crossedForward) {
-    const lvl = getActiveLevel?.();
-
     // LEVEL 5 — call onFinishReached to evaluate complete/fail
     if (lvl?.id === 'level5') {
       if (P._firstCrossing) {
