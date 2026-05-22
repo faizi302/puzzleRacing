@@ -116,13 +116,32 @@ export function buildSceneryObjects(puzzleState) {
 
       // ── HURDLE 1: Stone Block ────────────────────────────
       case 'StoneBlock':
-        addRoad('StoneBlock', hurdleSeg, 0, 1.20, {
+        addRoad('StoneBlock', hurdleSeg, 0, 0.50, {
           isHurdle: true,
           hurdleType: 'StoneBlock',
           sectionIndex: idx,
           isConditional: true,
           noCollision: false,
           clearAirHeight: 0,
+        });
+
+        // giant rock/tunnel blocking full road
+        addRoad('StoneBlock', hurdleSeg, -0.87, 0.50, {
+          isHurdle: true,
+          hurdleType: 'BrokenRoad',
+          sectionIndex: idx,
+          isConditional: true,
+          noCollision: false,
+          clearAirHeight: 999,
+        });
+
+        addRoad('StoneBlock', hurdleSeg, 0.87, 0.50, {
+          isHurdle: true,
+          hurdleType: 'BrokenRoad',
+          sectionIndex: idx,
+          isConditional: true,
+          noCollision: false,
+          clearAirHeight: 999,
         });
 
         // jump appears only after correct key
@@ -150,6 +169,25 @@ export function buildSceneryObjects(puzzleState) {
       case 'BrokenRoad':
         // giant rock/tunnel blocking full road
         addRoad('StoneBlock', hurdleSeg, 0, 0.50, {
+          isHurdle: true,
+          hurdleType: 'BrokenRoad',
+          sectionIndex: idx,
+          isConditional: true,
+          noCollision: false,
+          clearAirHeight: 999,
+        });
+
+        // giant rock/tunnel blocking full road
+        addRoad('StoneBlock', hurdleSeg, -0.87, 0.50, {
+          isHurdle: true,
+          hurdleType: 'BrokenRoad',
+          sectionIndex: idx,
+          isConditional: true,
+          noCollision: false,
+          clearAirHeight: 999,
+        });
+
+        addRoad('StoneBlock', hurdleSeg, 0.87, 0.50, {
           isHurdle: true,
           hurdleType: 'BrokenRoad',
           sectionIndex: idx,
