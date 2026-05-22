@@ -17,7 +17,7 @@ import { rewardCheckpoint, punishCheckpoint } from '../levels/level2/logic.js';
 import { triggerGatePass } from '../levels/level2/checkpointRender.js';
 import { JUMP_SPR } from '../configs/sceneryConfig.js';
 import { launchPlayerJump } from '../player/player.js';
-import { onKeyCollected, onHurdleReached, onGapFall } from '../levels/level5/logic.js';
+import { onKeyCollected, onHurdleReached, onGapFall, respawnAfterWrongKey } from '../levels/level5/logic.js';
 // ─── Effects atlas frame data ──────────────────────────
 const BURST = [
   { x: 1920, y: 624, w: 127, h: 127 },
@@ -82,7 +82,6 @@ const COIN_SPARK = [
   { x: 1531, y: 1556, w: 128, h: 97 },
 ];
 
-// ─── Particle pool ─────────────────────────────────────
 export let parts = [];
 
 export function resetParts() {
@@ -237,9 +236,6 @@ export function drawParts(ctx) {
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// COLLISION HELPERS
-// ═══════════════════════════════════════════════════════
 const HIT = {
   PLAYER_Z_BACK: -135,
   PLAYER_Z_AHEAD: 210,
@@ -281,7 +277,7 @@ function resetPickupWhenBehind(o, dz) {
 
 function objCat(o) {
   if (!o || o._dead) return null;
-  if (o.isMonster) return null;
+  if (o.isMonster) return "hurdle";
   if (o.isPressurePlate) return null;
   if (o.isFakeWall) return null;   // drive-through
   if (o.isFakeDoor) return null;
@@ -301,7 +297,7 @@ function objCat(o) {
     o.kind === 'rallyArch' ||
     o.kind === 'HayArch'
   ) {
-    return null; // no collision only for rally arch
+    return null; 
   }
 
   if (
@@ -385,24 +381,16 @@ function resolveTunnelGateCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
 
   if (!hitPillar) return;
 
-  // Collision with tunnel pillar:
-  // do NOT auto-fix player direction.
-  // Player must manually reverse + turn.
-
   const pushDir = px < objX ? 1 : -1;
 
-  // Push player slightly backward in road depth
   P.pos -= 42;
   if (P.pos < 0) P.pos += trackLen;
 
-  // Strong speed reduction
   P.speed = Math.min(
     P.speed * 0.20,
     C.NORMAL_MAX * 0.18
   );
 
-  // Keep current lane position.
-  // No auto side correction.
   clampPlayerX();
 
   try {
@@ -451,9 +439,6 @@ function resolveSideSceneryCollision(o, cat, dz, screenAnchorX, screenAnchorY) {
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// HURDLE COLLISION 
-// ═══════════════════════════════════════════════════════
 const HURDLE_SPR_SCALE = {
   gorillaRock: 1.00,
   woodFence: 0.65,
@@ -494,7 +479,6 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   const zPushSign = dz > 0 ? -1 : 1;
 
   if (penXnorm <= penZnorm) {
-    // Side hit
     P.playerX += lateralPushDir * (penXraw + 0.02);
     clampPlayerX();
 
@@ -508,7 +492,6 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
       safeSfx('crash', { volume: 0.28 });
     }
   } else {
-    // Front / back hit
     const posDelta = (penZraw + C.SEG_LEN * 0.18) * zPushSign;
     P.pos += posDelta;
     if (P.pos < 0) P.pos += trackLen;
@@ -547,9 +530,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
 
     const objX = objLateralX(o);
 
-    // ═══════════════════════════════════════════════════
-    // LEVEL 5 KEY PICKUP — checked BEFORE general dz filter
-    // ═══════════════════════════════════════════════════
     if (cat === 'key') {
       const hitKey =
         Math.abs(px - objX) < 0.46 &&
@@ -557,14 +537,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
         dz > -280;
 
       if (hitKey) {
-        console.log('L5 KEY COLLISION DETECTED', {
-          kind: o.kind,
-          sectionIndex: o.sectionIndex,
-          laneIndex: o.laneIndex,
-          dz,
-          px,
-          objX,
-        });
 
         o._dead = true;
         P.keysCollected++;
@@ -578,12 +550,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
             o.laneIndex
           );
 
-          console.log('L5 AFTER KEY LOGIC', {
-            picked: lvl.puzzleState.keyPicked[o.sectionIndex],
-            open: lvl.puzzleState.hurdleOpen[o.sectionIndex],
-            safeLane: lvl.puzzleState.safeKeySequence[o.sectionIndex],
-          });
-
           // Remove all 3 keys from same key set
           for (const k of sceneryObjs) {
             if (k.isKey && k.sectionIndex === o.sectionIndex) {
@@ -591,8 +557,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
             }
           }
 
-          // Show jump ramp only if correct key opened hurdle
-          // Show jump ramp for the SAME section whose correct key was collected
           if (lvl.puzzleState.hurdleOpen[o.sectionIndex]) {
             let foundRamp = false;
 
@@ -602,14 +566,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
                 r._dead = false;
                 r.forceVisible = true;
                 foundRamp = true;
-
-                console.log('L5 RAMP SHOWN:', {
-                  section: o.sectionIndex,
-                  kind: r.kind,
-                  hidden: r.hidden,
-                  dead: r._dead,
-                  z: r.z,
-                });
               }
             }
 
@@ -626,7 +582,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
       continue;
     }
 
-    // General collision range for non-key objects
     if (dz < HIT.PLAYER_Z_BACK || dz > HIT.PLAYER_Z_AHEAD) continue;
 
     // ── REAL KEY ──
@@ -781,6 +736,71 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
           continue;
         }
 
+     
+        const pickedForSection = lvl.puzzleState.keyPicked[o.sectionIndex];
+        const retryUsed = lvl.puzzleState.retryUsed === true;
+        const retrySection = lvl.puzzleState.retrySection;
+
+        if (
+          pickedForSection === null &&
+          retryUsed &&
+          retrySection === o.sectionIndex
+        ) {
+          continue;
+        }
+
+        if (pickedForSection === 'wrong' && !retryUsed) {
+          let keyZ = null;
+          const sectionKeys = [];
+          const sectionRamps = [];
+
+          for (const obj of sceneryObjs) {
+            if (obj.sectionIndex !== o.sectionIndex) continue;
+            if (obj.isKey) {
+              sectionKeys.push(obj);
+              if (keyZ == null) keyZ = obj.z;
+            }
+            if (obj.isJumpRamp) sectionRamps.push(obj);
+          }
+
+          if (keyZ != null) {
+            const backOffset = 60 * C.SEG_LEN;
+            let newPos = keyZ - backOffset;
+            while (newPos < 0) newPos += trackLen;
+            while (newPos >= trackLen) newPos -= trackLen;
+            P.pos = newPos;
+          }
+
+          P.playerX = 0;
+          P.speed = 0;
+          P.airY = 0;
+          P.isAirborne = false;
+          P.endPhase = 0;
+          P.endTime = 0;
+          P.raceFailed = false;
+          P._failReason = null;
+
+          for (const k of sectionKeys) {
+            k._dead = false;
+          }
+
+          for (const r of sectionRamps) {
+            r.hidden = true;
+            r._dead = false;
+            r.forceVisible = false;
+          }
+
+          // Reset the puzzle-state side + show "try again" HUD.
+          respawnAfterWrongKey(lvl.puzzleState, o.sectionIndex);
+
+          if (canFx(o, 600)) {
+            spawnCrash(screenAnchorX, screenAnchorY - 30);
+            safeSfx('crash', { volume: 0.20 });
+          }
+
+          continue;
+        }
+
         onHurdleReached(lvl.puzzleState, o.sectionIndex);
 
         P.raceFailed = true;
@@ -808,9 +828,6 @@ export function checkSceneryCollisions(sceneryObjs, screenAnchorX, screenAnchorY
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// EDGE SCRAPE SOUND
-// ═══════════════════════════════════════════════════════
 let _scrapeWasOn = false;
 
 export function tickEdgeScrape() {
@@ -833,5 +850,3 @@ export function tickEdgeScrape() {
     _scrapeWasOn = false;
   }
 }
-
-
