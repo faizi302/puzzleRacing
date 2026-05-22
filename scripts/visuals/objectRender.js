@@ -59,7 +59,6 @@ const DEFAULT_LEVEL_IMAGES = {
   ],
 
   jumps: [
-    'assets/level/level1/jumps.png',
     'assets/level/level2/jumps.png',
     'assets/scenery/jumps.png',
     'assets/jumps.png',
