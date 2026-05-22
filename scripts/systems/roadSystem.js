@@ -419,28 +419,27 @@ if (inp.up) {
 
 } else if (inp.down) {
 
-  // If moving forward -> BRAKE FIRST
+  // BRAKE FORWARD FIRST
   if (P.speed > 0) {
 
     P.isBraking = true;
 
-    // Strong instant brake
-    P.speed *= 0.72;
+    // Smooth braking instead of instant speed kill
+    P.speed -= brakePower * d * 1.8;
 
-    // Snap stop
-    if (P.speed < 10) {
+    if (P.speed < 0) {
       P.speed = 0;
     }
 
   } else {
 
-    // Once stopped -> move backward
+    // REVERSE AFTER FULL STOP
     P.speed -= reverseAccel * d;
   }
 
 } else {
 
-  // Natural deceleration
+  // NATURAL DECELERATION
   P.speed = moveToward(P.speed, 0, Math.abs(C.DECEL) * d);
 }
 
