@@ -223,8 +223,10 @@ button:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 3px
    #s-game.on), so the background must be transparent-ish and we only
    want a subtle dim so the frozen race is still visible underneath. */
 .scr.ov {
-  overflow: hidden;
-  justify-content: center;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  justify-content: flex-center;
   background: rgba(0, 0, 0, 0.55);
   /* backdrop blur removed so the game canvas stays crisp behind the panel.
      Re-enable with a very small radius if you prefer a glassy feel. */

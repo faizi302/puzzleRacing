@@ -5,58 +5,27 @@ import { notify } from '../../player/playerAnimation.js';
 import { L4_LAYOUT } from './scenery.js';
 
 // ═════════════════════════════════════════════════════════════════
-// LEVEL 4 — MEMORY SPRINT logic
-// ─────────────────────────────────────────────────────────────────
-// Phases
-//   "waiting"  → race not yet started (countdown in progress)
-//                timer does NOT tick; no checkpoint logic runs
-//   "preview"  → race started; all platforms visible; player memorises
-//                the safe lane in each of the 9 checkpoints
-//   "run"      → preview time elapsed; all platforms hidden;
-//                player drives by memory
-//   "finished" → terminal, win/lose already decided
-//
-// Checkpoint resolution
-//   When P.pos crosses a checkpoint's z position, we sample the
-//   player's lateral X to find which lane they're in, and compare
-//   it to that checkpoint's safe lane index. The result is recorded
-//   in `L4_MEMORY.cleared[cpIdx]` (true = safe, false = danger).
-//
-// Win / lose decision
-//   ONLY triggered when the player actually reaches the finish line
-//   (P.pos >= trackLen * FINISH_TRIGGER_FRAC). Opponent car positions
-//   are never read here — this logic only ever touches P.*
-// ═════════════════════════════════════════════════════════════════
 
-const PREVIEW_TIME = 4.0;    // seconds of preview once race starts
-const LANE_HALF_WIDTH = 0.275;  // half the gap between lanes (0.55 / 2)
-const FINISH_TRIGGER_FRAC = 0.97;   // fraction of track where outcome is decided
+
+const PREVIEW_TIME = 4.0;   
+const LANE_HALF_WIDTH = 0.275; 
+const FINISH_TRIGGER_FRAC = 0.97;   
 
 export const L4_MEMORY = {
-  phase: 'waiting',   // 'waiting' | 'preview' | 'run' | 'finished'
+  phase: 'waiting',  
   timer: 0,
-  cleared: [],        // boolean per checkpoint: true=safe pass, false=danger pass
-  visited: [],        // boolean per checkpoint: did we even register a pass?
+  cleared: [],       
+  visited: [],        
   lastSfxAt: -1,
   startPos: 0,
 
-  // Finish detection — we look for the player wrapping the track from
-  // near-end back to near-start (P.pos goes high → low) AFTER the run
-  // phase has begun. That wrap-around is the only reliable signal that
-  // they actually crossed the physical finish line.
-  //
-  // Because the player spawns NEAR the finish line, the very first
-  // wrap right at race start is not the finish — it's just crossing
-  // the start line. We only count a wrap once `farSideReached` is true.
+
   prevPos: 0,
   farSideReached: false,
   finishCrossed: false,
 };
 
-// ─────────────────────────────────────────────────────────────────
-// Detect whether the countdown / start-formation is still active.
-// Once all of these flags are clear the race is truly running.
-// ─────────────────────────────────────────────────────────────────
+
 function raceIsRunning() {
   return (
     !P.countdownActive &&
@@ -66,9 +35,7 @@ function raceIsRunning() {
   );
 }
 
-// Resolves where the player is laterally. The pseudo-3D engine in
-// this codebase stores it on P.x (range ~ -1..+1).  Fallbacks are
-// provided for builds where the property name was tweaked.
+
 function getPlayerLateral() {
   if (typeof P.playerX === 'number') return P.playerX;
   if (typeof P.x === 'number') return P.x;
@@ -105,9 +72,7 @@ export function resetLevel4Puzzle() {
   L4_MEMORY.farSideReached = false;
   L4_MEMORY.finishCrossed = false;
 
-  // Clear the lazily-built checkpoint-z cache. trackLen may have
-  // changed since the last race (different level, rebuilt track),
-  // so stale entries would point to the wrong positions.
+
   _checkpointZ.length = 0;
 
   P.level4MemoryStarted = true;
@@ -137,11 +102,6 @@ function checkpointZ(cpIdx) {
   return z;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// evaluateOutcome
-// Called ONLY when the player has reached the finish trigger.
-// Flips P.raceFinished or P.raceFailed exactly once.
-// Opponent car state is never consulted here.
 // ─────────────────────────────────────────────────────────────────
 function evaluateOutcome() {
   if (L4_MEMORY.phase === 'finished') return;
@@ -176,12 +136,7 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
   // Terminal phase — nothing to do.
   if (L4_MEMORY.phase === 'finished') return;
 
-  // ── 0) Waiting phase: hold until the countdown is done ──────────
-  // The timer must NOT tick while the start countdown plays.
-  // Without this guard the preview window expires before the player
-  // can even move, and the "all unvisited → all failed" path fires
-  // the moment they cross the finish (or, with a short track,
-  // immediately at the start line).
+
   if (L4_MEMORY.phase === 'waiting') {
     if (!raceIsRunning()) return;   // still in countdown → do nothing
 
@@ -210,11 +165,6 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     return;
   }
 
-  // ── 2) Run phase: check checkpoint crossings ─────────────────────
-  // Only P.pos is used — opponent cars have no effect on this logic.
-
-  // Safety net: if trackLen is 0 or unknown, bail — the "nearFinish"
-  // calculation would be 0 >= 0 → true and falsely fire the outcome.
   if (!trackLen || trackLen <= 0) return;
 
   const playerPos = P.pos || 0;
@@ -234,13 +184,7 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
     const safe = L4_LAYOUT.SAFE_LANE_INDEX_BY_CHECKPOINT[i];
     const ok = lane === safe;
 
-    // console.log('L4 CHECK', {
-    //   checkpoint: i + 1,
-    //   playerX,
-    //   lane,
-    //   safe,
-    //   ok,
-    // });
+
 
     L4_MEMORY.visited[i] = true;
     L4_MEMORY.cleared[i] = ok;
@@ -259,21 +203,6 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
   }
 
   // ── 3) Decide outcome — ONLY when the player actually crosses
-  //                       the physical finish line ──────────────────
-  //
-  // The player spawns just before the finish line (resetPhys puts them
-  // at trackLen - START_PRE_FINISH), so the very first frames of the
-  // race produce a wrap from high→low pos as they cross the start.
-  // That wrap is NOT the finish — the finish is the SECOND such wrap,
-  // after the player has driven the full lap.
-  //
-  // We detect this in two stages:
-  //   (a) `farSideReached` becomes true once the player gets past the
-  //       middle of the track (somewhere in [40%, 60%]). This means
-  //       they've actually been driving the lap, not just sitting
-  //       near the start line.
-  //   (b) After `farSideReached`, the next high→low wrap is the real
-  //       finish — fire evaluateOutcome() exactly once.
 
   const prevPos = L4_MEMORY.prevPos;
 
@@ -294,8 +223,8 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
   L4_MEMORY.prevPos = playerPos;
 
   if (!wrapped) return;
-  if (!L4_MEMORY.farSideReached) return;   // wrap before reaching far side = start-line wrap, ignore
-  if (L4_MEMORY.finishCrossed) return;     // only fire once
+  if (!L4_MEMORY.farSideReached) return;   
+  if (L4_MEMORY.finishCrossed) return;    
 
   L4_MEMORY.finishCrossed = true;
 
@@ -310,10 +239,6 @@ export function updateLevel4Puzzle(dt, sceneryObjs = []) {
   evaluateOutcome();
 }
 
-// ─────────────────────────────────────────────────────────────────
-// punishMemoryMistake
-// Kept exported for compatibility — call from other systems to flag
-// a memory mistake outside the normal checkpoint flow.
 // ─────────────────────────────────────────────────────────────────
 export function punishMemoryMistake() {
   P.damage = clamp((P.damage || 0) + 20, 0, 100);

@@ -43,6 +43,8 @@ import {
 import { loadOpponentSprites } from '../visuals/opponentSprites.js';
 import { renderInGameMinimap, clearMinimapCache } from '../ui/levelPreview.js';
 
+import { L4_MEMORY } from '../levels/level4/logic.js';
+
 const HUD_UPDATE_MS = 60;
 const MINIMAP_UPDATE_MS = 100;
 
@@ -629,7 +631,7 @@ if (
   showRaceHint(
     '🧠 HINT',
     msg,
-    4200
+    6200
   );
 
   this._hintIndex++;
