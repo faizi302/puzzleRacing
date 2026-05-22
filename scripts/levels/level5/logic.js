@@ -267,10 +267,10 @@ function _triggerFail(ps, reason, sectionIndex) {
 function _hurdleName(idx) {
   const names = [
     'Stone Block',
-    'Broken Road',
-    'Giant Wall',
-    'Fire Gate',
+    'Mountain Bridge',
+    'Big Monster',
     'Police Blockade',
+    'Road Hurdles',
   ];
   return names[idx] ?? `Hurdle ${idx + 1}`;
 }
@@ -279,11 +279,11 @@ function _failMessage(sectionIndex, keyPicked) {
   const hurdleName = _hurdleName(sectionIndex);
   if (keyPicked === 'wrong') {
     const msgs = {
-      StoneBlock: `💥 Wrong key! The stone wall crushed you!`,
-      BrokenRoad: `💀 Wrong key! You fell into the gap!`,
-      GiantWall: `🧱 Wrong key! No ramp – you crashed the wall!`,
-      FireGate: `🔥 Wrong key! The fire gate burned you!`,
-      PoliceBlockade: `🚔 Wrong key! The blockade stopped you dead!`,
+      StoneBlock: `Wrong key! The stone wall crushed you!`,
+      MountainBride: `Wrong key! You choosed wrong. `,
+      BigMonster: `Wrong key! Monster is waiting for you!`,
+      PoliceBlockade: `Wrong key! Your car is crashed.`,
+      RoadHurdles: `Wrong key! The blockade stopped you dead!`,
     };
     return msgs[HURDLE_TYPES[sectionIndex]] ?? `❌ Wrong key! ${hurdleName} killed you!`;
   }

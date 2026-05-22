@@ -9,14 +9,14 @@ export const LEVEL_META = {
     '👁️ THE GHOST START — What you see is a beautiful lie.',
 
   hintMessage:
-    '🧩 Don\'t trust the key. Try going BACKWARD instead...',
+    '🧩 The visible road is lying to you...',
 
     repeatHints: [
-  '🧩 The visible road is lying to you...',
-  '🧩 Sometimes the answer is behind you.',
-  '🧩 Not every wall is real.',
+  '🧩 Go where racers never look',
+  '🧩 Road 2 exists. It is not in front of you.',
+  '🧩 Your wheels know the way. Your eyes do not',
   '🧩 The finish is not on the main road.',
-  '🧩 Truth hides where racers never look.',
+  '🧩 The finish is behind you',
 ],
 
   // Triggered when player drives over the pressure plate

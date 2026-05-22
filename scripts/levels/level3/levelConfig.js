@@ -29,10 +29,10 @@ hintMessage:
   '🧩 The walls remember the sequence...',
 
 repeatHints: [
+  '🧩 Four shapes. One truth. The sequence is always there',
   '🧩 Symbols appear more than once for a reason.',
   '🧩 Not every answer is spoken aloud.',
-  '🧩 The correct order is hidden in plain sight.',
-  '🧩 Watch carefully before the next lap begins.',
+  '🧩 The Environment props is wispering. Were you listening?',
   '🧩 Memory is more important than speed.',
 ],
 

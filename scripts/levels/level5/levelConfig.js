@@ -39,10 +39,10 @@ hintMessage:
   '🧩 Every obstacle has only one true key...',
 
 repeatHints: [
-  '🧩 One choice opens survival. The others open death.',
-  '🧩 Watch the road before choosing a key.',
-  '🧩 Obstacles reveal clues before impact.',
-  '🧩 The wrong key changes the world against you.',
+  '🧩 The first safe place is never at the edge.',
+  '🧩 Left all if you can.',
+  '🧩 One side wants you twice. Trust it again.',
+  '🧩 Right is right, you know that.',
   '🧩 Survival depends on observation, not luck.',
 ],
 
@@ -60,7 +60,7 @@ winMessage:
 
   // ── Safe key lane for each of the 5 hurdle sections ─────────
   //   0 = left lane  |  1 = center lane  |  2 = right lane
-  SAFE_KEY_SEQUENCE: [0, 2, 1, 0, 1],
+  SAFE_KEY_SEQUENCE: [1, 0, 2, 2, 1],
 
   // ── Hurdle types in order ────────────────────────────────────
   HURDLE_TYPES: [

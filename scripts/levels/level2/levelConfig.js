@@ -17,14 +17,14 @@ startMessage:
   '🔄 LEVEL 2 · THE SHIFTING MAZE',
 
 hintMessage:
-  '🧩 Colours can betray you...',
+  '🧩 Comfort here comes at a price',
 
 repeatHints: [
-  '🧩 The obvious path is not always safe.',
+  '🧩 Danger wears the friendly colour.',
+  '🧩 Colors may betray you.',
   '🧩 Some checkpoints want you to fail.',
-  '🧩 Trust patterns — not instincts.',
   '🧩 The maze changes its truth.',
-  '🧩 One colour hides the real escape.',
+  '🧩 Stop following instinct. Start reading the road.',
 ],
 
 reverseMessage:

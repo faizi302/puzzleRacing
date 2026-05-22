@@ -17,14 +17,14 @@ startMessage:
   '🧠 LEVEL 4 · THE MEMORY SPRINT',
 
 hintMessage:
-  '🧩 The road disappears faster than memory fades...',
+  '🧩 Start in the middle. It is the safest first thought.',
 
 repeatHints: [
   '🧩 Only one lane survives each checkpoint.',
-  '🧩 Hesitation leads to falling.',
-  '🧩 Memorize before the platforms vanish.',
-  '🧩 Your eyes help once — memory helps forever.',
-  '🧩 The safe route never stays visible for long.',
+  '🧩 The path drifts left, then right. Follow it.',
+  '🧩 Platforms follow a rhythm. But not always',
+  '🧩 Right before left. This comes first.',
+  '🧩 The cycle runs twice, then breaks.',
 ],
 
 reverseMessage:
