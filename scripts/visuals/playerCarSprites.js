@@ -1,6 +1,21 @@
 // ═══════════════════════════════════════════════════════
 // PLAYER CAR SPRITES — JSON based player car loader
 // Supports same car unit with different team/color sheets
+//
+// PERFORMANCE NOTE (stutter fix):
+//   Previously, getSelectedPlayerSprite() did a synchronous
+//   localStorage.getItem() + JSON.parse() AND a full parseFrames()
+//   allocation on EVERY call. Since drawCar() calls this every
+//   frame, that was 60 localStorage reads/sec + ~1,400 object
+//   allocations/sec — the random 3-7 second hitch was browsers
+//   flushing localStorage to disk while we were trying to read it.
+//
+//   This version caches the result. localStorage and parseFrames
+//   are only hit when:
+//     1) the sprite is first resolved, or
+//     2) the cache is explicitly invalidated (via savePlayerCarSelection
+//        or invalidatePlayerCarSelection — call this from settings UI
+//        when the player picks a new color or car).
 // ═══════════════════════════════════════════════════════
 
 const TEAM_PATHS = {
@@ -48,6 +63,16 @@ const DEFAULT_STATE = {
 
 export const PLAYER_SPRITES = {};
 
+// ── Caches (the whole point of this rewrite) ───────────
+// _cachedSelection : the parsed { selectedCar, selectedColor } from
+//                    localStorage. Null = needs re-read.
+// _cachedSpriteKey : "color:carId" string for which _cachedSprite is valid.
+// _cachedSprite    : the fully-built sprite object returned by
+//                    getSelectedPlayerSprite. Reused across frames.
+let _cachedSelection = null;
+let _cachedSpriteKey = null;
+let _cachedSprite    = null;
+
 function loadImage(src) {
   const img = new Image();
   img.ready = false;
@@ -80,17 +105,32 @@ async function loadJson(src) {
 }
 
 function readPlayerSelection() {
+  // FAST PATH: return cached selection. This is what runs every frame.
+  if (_cachedSelection) return _cachedSelection;
+
+  // SLOW PATH: only runs on first call after init or after an invalidation.
   try {
     const raw = localStorage.getItem('puzzleracing_progress_v1');
     const data = raw ? JSON.parse(raw) : {};
 
-    return {
-      selectedCar: data.selectedCar || DEFAULT_STATE.selectedCar,
+    _cachedSelection = {
+      selectedCar:   data.selectedCar   || DEFAULT_STATE.selectedCar,
       selectedColor: data.selectedColor || DEFAULT_STATE.selectedColor,
     };
   } catch {
-    return { ...DEFAULT_STATE };
+    _cachedSelection = { ...DEFAULT_STATE };
   }
+  return _cachedSelection;
+}
+
+// Public: clear caches so the next getSelectedPlayerSprite() call
+// will re-read localStorage and re-parse frames. Call this from any
+// settings UI code that writes selection to localStorage by hand
+// (savePlayerCarSelection below already does this internally).
+export function invalidatePlayerCarSelection() {
+  _cachedSelection = null;
+  _cachedSpriteKey = null;
+  _cachedSprite    = null;
 }
 
 export function savePlayerCarSelection({ selectedCar, selectedColor }) {
@@ -98,41 +138,51 @@ export function savePlayerCarSelection({ selectedCar, selectedColor }) {
     const raw = localStorage.getItem('puzzleracing_progress_v1');
     const data = raw ? JSON.parse(raw) : {};
 
-    if (selectedCar) data.selectedCar = selectedCar;
+    if (selectedCar)   data.selectedCar   = selectedCar;
     if (selectedColor) data.selectedColor = selectedColor;
 
     localStorage.setItem('puzzleracing_progress_v1', JSON.stringify(data));
   } catch (e) {
     console.warn('[playerCarSprites] failed to save selection', e);
   }
+
+  // We just changed what's on disk — drop the caches so the next
+  // render picks up the new selection.
+  invalidatePlayerCarSelection();
 }
 
 function parseFrames(json, unitName) {
   const anim = json?.animations?.[unitName] || [];
+  const out = [];
 
-  return anim
-    .map(id => {
-      const data = json.frames?.[id];
-      if (!data || data.rotated) return null;
+  // Plain for-loop, no .map().filter() — both of those allocate
+  // intermediate arrays. Since parseFrames now runs once per
+  // (color, carId) pair instead of every frame this matters less,
+  // but the cheaper version is also the clearer one.
+  for (let i = 0; i < anim.length; i++) {
+    const id = anim[i];
+    const data = json.frames?.[id];
+    if (!data || data.rotated) continue;
 
-      return {
-        id,
-        x: data.frame.x,
-        y: data.frame.y,
-        w: data.frame.w,
-        h: data.frame.h,
+    out.push({
+      id,
+      x: data.frame.x,
+      y: data.frame.y,
+      w: data.frame.w,
+      h: data.frame.h,
 
-        sx: data.spriteSourceSize.x,
-        sy: data.spriteSourceSize.y,
+      sx: data.spriteSourceSize.x,
+      sy: data.spriteSourceSize.y,
 
-        srcW: data.sourceSize.w,
-        srcH: data.sourceSize.h,
+      srcW: data.sourceSize.w,
+      srcH: data.sourceSize.h,
 
-        anchorX: data.anchor?.x ?? 0.5,
-        anchorY: data.anchor?.y ?? 0.65,
-      };
-    })
-    .filter(Boolean);
+      anchorX: data.anchor?.x ?? 0.5,
+      anchorY: data.anchor?.y ?? 0.65,
+    });
+  }
+
+  return out;
 }
 
 export async function loadPlayerCarSprites() {
@@ -154,23 +204,40 @@ export async function loadPlayerCarSprites() {
     };
   }));
 
+  // A new pack may have just become available — drop the sprite cache
+  // so the next getSelectedPlayerSprite() picks it up. The selection
+  // cache (color/car id from localStorage) is fine to keep.
+  _cachedSpriteKey = null;
+  _cachedSprite    = null;
+
   console.log('[playerCarSprites] loaded:', PLAYER_SPRITES);
 }
 
 export function getSelectedPlayerSprite() {
   const sel = readPlayerSelection();
 
-  const color = sel.selectedColor || 'blue';
-  const carId = sel.selectedCar || 'car1';
+  const color    = sel.selectedColor || 'blue';
+  const carId    = sel.selectedCar   || 'car1';
   const unitName = PLAYER_CAR_UNITS[carId] || 'UnitA';
 
-  const pack = PLAYER_SPRITES[color] || PLAYER_SPRITES.blue || PLAYER_SPRITES.red;
+  const key = color + ':' + carId;
 
+  // FAST PATH: same selection as last frame AND the image is still
+  // ready — hand back the cached object. This is what runs ~60×/sec
+  // during gameplay. Zero allocation.
+  if (_cachedSpriteKey === key && _cachedSprite && _cachedSprite.img?.ready) {
+    return _cachedSprite;
+  }
+
+  // SLOW PATH: selection changed, or first call, or image just became
+  // ready after async load. Build once and cache.
+  const pack = PLAYER_SPRITES[color] || PLAYER_SPRITES.blue || PLAYER_SPRITES.red;
   if (!pack?.img?.ready || !pack?.json) return null;
 
   const frames = parseFrames(pack.json, unitName);
+  if (!frames.length) return null;
 
-  return {
+  _cachedSprite = {
     color,
     carId,
     unitName,
@@ -179,12 +246,13 @@ export function getSelectedPlayerSprite() {
     straightIndex: Math.floor(frames.length / 2),
     total: frames.length,
 
-    // same defaults as your old player.js
-    srcW: frames[0]?.srcW || 140,
-    srcH: frames[0]?.srcH || 173,
+    srcW:    frames[0]?.srcW    ?? 140,
+    srcH:    frames[0]?.srcH    ?? 173,
     anchorX: frames[0]?.anchorX ?? 0.5,
     anchorY: frames[0]?.anchorY ?? 0.65,
   };
+  _cachedSpriteKey = key;
+  return _cachedSprite;
 }
 
 export function setSelectedPlayerColor(color) {

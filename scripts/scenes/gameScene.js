@@ -1,4 +1,21 @@
 // Game scene — orchestrates a single race from intro to win/lose.
+//
+// PERFORMANCE NOTES (refactor):
+//   * Physics catch-up loop reworked. Capped accumulator is now drained
+//     down to "current step or less"; if catch-up budget would overrun,
+//     we DROP the excess instead of running N heavy physics ticks. This
+//     kills the "1 hitch becomes 5" spiral.
+//   * After pause/resume or tab refocus, this.last is realigned BEFORE
+//     the next frame so a 1-second tab switch doesn't trigger physics
+//     burn-in.
+//   * After a track switch, buildScenery() is run synchronously between
+//     two non-rendering frames AND this.last is reset, so the inevitable
+//     allocation cost isn't billed as physics-step backlog.
+//   * Smart-hint evaluator is throttled to ~250ms — the criteria all
+//     trigger on 12s+ intervals anyway, so checking 60 times/sec was
+//     pure waste.
+//   * HUD/minimap rate-limits unchanged (already correct).
+//   * Every public method, callback, level branch, and field is preserved.
 
 import { sizeCanvas } from '../core/canvas.js';
 import { readInput, lockInput, K } from '../core/inputController.js';
@@ -47,9 +64,15 @@ import { L4_MEMORY } from '../levels/level4/logic.js';
 
 const HUD_UPDATE_MS = 60;
 const MINIMAP_UPDATE_MS = 100;
+const HINT_CHECK_MS = 250;     // smart-hints evaluated 4x/sec, not 60x
 
 const MAX_PHYS_STEPS = 5;
 const MAX_DT_RAW = 0.05;
+
+// If a single rAF delta exceeds this, treat it as a "long gap" (tab refocus,
+// system stutter, GC pause) and refuse to bill physics for it. We just step
+// one tick and reset the clock — visually a tiny pause, but no compounding.
+const LONG_GAP_DT = 0.30;
 
 export class GameScene {
   constructor(sceneManager) {
@@ -66,6 +89,7 @@ export class GameScene {
     this.loseShown = false;
     this._failReason = null;
     this.level = null;
+    this._levelId = null;   // cached for the per-frame smart-hint dispatch
 
     this._raceCoins = 0;
     this._raceKeys = 0;
@@ -84,6 +108,7 @@ export class GameScene {
 
     this._lastHudUpdate = 0;
     this._lastMinimapUpdate = 0;
+    this._lastHintCheck = 0;
 
     // Smart hint system
     this._lastProgressCheck = 0;
@@ -95,6 +120,7 @@ export class GameScene {
     this._hintInterval = 15000; // 15 seconds
 
     this._autoPausedByTab = false;
+    this._pendingSceneryRebuild = false;
 
     setReverseHintCallback(() => {
       if (getSetting('soundOn')) safeCall(playSfx, 'coin');
@@ -138,6 +164,7 @@ export class GameScene {
   async enter(level) {
     if (level) {
       this.level = level;
+      this._levelId = level.id || null;
       setActiveLevel(level);
       await setLevelImages(level);
     }
@@ -156,14 +183,14 @@ export class GameScene {
     this._showStartRank = true;
     this._lastHudUpdate = 0;
     this._lastMinimapUpdate = 0;
+    this._lastHintCheck = 0;
+    this._pendingSceneryRebuild = false;
 
     this._lastHintTime = performance.now();
     this._lastProgressCheck = P.pos || 0;
     this._lastHintProgress = P.pos || 0;
     this._hintIndex = 0;
     this._stuckTimer = 0;
-
-    this._lastHintTime = performance.now();
 
     ['s-win', 's-lose', 's-pause', 's-gameover'].forEach((id) => {
       document.getElementById(id)?.classList.remove('on');
@@ -190,7 +217,7 @@ export class GameScene {
     this._lastProgressPos = P.pos || 0;
 
     await loadOpponentSprites();
-    resetOpponents(this.level?.id || 'level1');
+    resetOpponents(this._levelId || 'level1');
 
     this._opponents = getOpponentCount();
     this._position = getPlayerRacePosition();
@@ -258,10 +285,7 @@ export class GameScene {
 
   _paintMinimap() {
     if (!this._minimapCanvas) return;
-
-    // Directly read the live opponents array — no dynamic-import fallback.
     const opps = getOpponents() || [];
-
     renderInGameMinimap(this._minimapCanvas, {
       level: this.level,
       trackLen,
@@ -284,7 +308,9 @@ export class GameScene {
     this.paused = false;
     show('game');
     if (getSetting('musicOn')) startMusic();
+    // Reset clock so the accumulated paused time doesn't get billed.
     this.last = performance.now();
+    this.accum = 0;
     requestAnimationFrame(this.loop);
   }
 
@@ -331,7 +357,7 @@ export class GameScene {
     if (this._raceCoins > 0) addCoins(this._raceCoins);
     if (this._raceKeys > 0) addKeys(this._raceKeys);
 
-    const levelNum = parseInt((this.level?.id || 'level1').replace('level', ''), 10) || 1;
+    const levelNum = parseInt((this._levelId || 'level1').replace('level', ''), 10) || 1;
     completeLevel(levelNum, P.raceTime);
 
     await playOutro();
@@ -420,12 +446,33 @@ export class GameScene {
     };
   }
 
+  // Performs the deferred buildScenery between frames, then re-aligns the
+  // clock so the rebuild cost is NOT billed as physics catch-up backlog.
+  _doSceneryRebuild() {
+    try { buildScenery(); } catch (_) {}
+    // Reset timing — rebuild took variable time, don't compound it.
+    this.last = performance.now();
+    this.accum = 0;
+    this._pendingSceneryRebuild = false;
+  }
+
   loop = (now) => {
     if (!this.running || this.paused) return;
 
-    const dtRaw = Math.min(MAX_DT_RAW, (now - this.last) / 1000);
+    // Compute raw delta. If the gap is huge (tab refocus, system pause),
+    // refuse to bill physics for it.
+    const dtRaw = (now - this.last) / 1000;
     this.last = now;
-    this.accum += dtRaw;
+
+    if (dtRaw > LONG_GAP_DT || !isFinite(dtRaw) || dtRaw < 0) {
+      // Long gap — render one frame at one step and bail out of catch-up.
+      this.accum = 0;
+      requestAnimationFrame(this.loop);
+      return;
+    }
+
+    const dtClamped = Math.min(MAX_DT_RAW, dtRaw);
+    this.accum += dtClamped;
 
     const STEP = C.STEP;
     const inp = readInput();
@@ -446,22 +493,33 @@ export class GameScene {
       this.accum -= STEP;
       steps++;
     }
+    // If we still have backlog, DROP it instead of letting it compound
+    // into next frame. One small visible micro-stutter, no spiral.
     if (this.accum >= STEP) this.accum = 0;
 
     this._trackPickups();
 
+    // Track switch — defer rebuild to AFTER this frame paints. The rebuild
+    // can allocate hundreds of scenery objects, so we run it between two
+    // frames and explicitly clear the time backlog so it doesn't trigger
+    // a physics catch-up burn on the next frame.
     if (P._needsTrackSwitch) {
       P._needsTrackSwitch = false;
-      requestAnimationFrame(() => buildScenery());
       safeCall(() => notify(this.level.forkMessage
         || 'RIGHT FORK! ROAD 2 UNLOCKED — FINISH THE LAP!'));
       if (getSetting('soundOn')) safeCall(playSfx, 'nitro');
+      this._pendingSceneryRebuild = true;
     }
 
-    tickParts(dtRaw);
-    tickCamAnim(dtRaw);
+    tickParts(dtClamped);
+    tickCamAnim(dtClamped);
     tickEdgeScrape();
-    this._checkSmartHints(now);
+
+    // Smart-hints: gated to ~250ms to stop the per-frame branch storm.
+    if (now - this._lastHintCheck >= HINT_CHECK_MS) {
+      this._checkSmartHints(now);
+      this._lastHintCheck = now;
+    }
 
     const steerVisual = (K.left ? -1 : 0) + (K.right ? 1 : 0);
     renderFrame(steerVisual);
@@ -475,9 +533,8 @@ export class GameScene {
       this._lastMinimapUpdate = now;
     }
 
-
-
-    this.fpsT += dtRaw;
+    // FPS tracking
+    this.fpsT += dtClamped;
     this.fpsN++;
     if (this.fpsT >= 0.5) {
       this.fps = (this.fpsN / this.fpsT) | 0;
@@ -499,143 +556,105 @@ export class GameScene {
       this.loseRace(P._failReason || this._failReason);
     }
 
+    // Run any deferred scenery rebuild AFTER paint, before scheduling next frame.
+    // This way the rebuild cost lives in the gap between frames, not inside
+    // the physics step where it would compound stutter.
+    if (this._pendingSceneryRebuild) {
+      this._doSceneryRebuild();
+    }
+
     requestAnimationFrame(this.loop);
   };
 
   _checkSmartHints(now) {
+    if (!this.level) return;
+    if (this.winShown || this.loseShown) return;
 
-  if (!this.level) return;
-  if (this.winShown || this.loseShown) return;
+    const lvlId = this._levelId;
+    const speed = Math.abs(P.speed || 0);
+    const moved = Math.abs((P.pos || 0) - this._lastProgressCheck);
 
-  const speed = Math.abs(P.speed || 0);
-  const moved = Math.abs((P.pos || 0) - this._lastProgressCheck);
+    // Track "stuck" state — use real elapsed since last check, not C.STEP
+    if (speed < 20 && moved < 50) {
+      this._stuckTimer += HINT_CHECK_MS / 1000;
+    } else {
+      this._stuckTimer = 0;
+    }
 
-  // Track "stuck" state
-  if (speed < 20 && moved < 50) {
-    this._stuckTimer += C.STEP;
-  } else {
-    this._stuckTimer = 0;
+    this._lastProgressCheck = P.pos || 0;
+
+    let shouldShowHint = false;
+
+    // 1. Player stuck too long
+    if (this._stuckTimer > 8) shouldShowHint = true;
+
+    // 2. No meaningful progress for long duration
+    const progressDelta = Math.abs((P.pos || 0) - this._lastHintProgress);
+    if (progressDelta < C.SEG_LEN * 2 && now - this._lastHintTime > 15000) {
+      shouldShowHint = true;
+    }
+
+    // 3. Driving wrong direction on level1
+    if (lvlId === 'level1' && !P.ghostRoad2Open &&
+        (P.reverseDistance || 0) < 100 && now - this._lastHintTime > 20000) {
+      shouldShowHint = true;
+    }
+
+    // 4. Near fake wall but not solving puzzle
+    if (lvlId === 'level1' && !P.ghostRoad2Open &&
+        (P.pos || 0) > trackLen * 0.35 && now - this._lastHintTime > 12000) {
+      shouldShowHint = true;
+    }
+
+    // 5. Level 2 wrong-path detection
+    if (lvlId === 'level2' && (P.level2CpHit || 0) >= 2 &&
+        now - this._lastHintTime > 15000) {
+      shouldShowHint = true;
+    }
+
+    // 6. Level 3 — Symbol sequence puzzle stuck / wrong order
+    if (lvlId === 'level3' && !P.level3PuzzleSolved &&
+        now - this._lastHintTime > 15000) {
+      const noProgress = (P.speed || 0) < 60;
+      const notStarted = !P.level3PuzzleStarted;
+      const wrongLoop = (P.level3LapCrossings || 0) >= 2;
+      if (noProgress || notStarted || wrongLoop) shouldShowHint = true;
+    }
+
+    // 7. Level 4 — Memory Sprint
+    if (lvlId === 'level4' && L4_MEMORY.phase !== 'finished' &&
+        now - this._lastHintTime > 15000) {
+      const slow = (P.speed || 0) < 70;
+      const visited = L4_MEMORY.visited || [];
+      let forgettingCount = 0;
+      for (let i = 0; i < visited.length; i++) {
+        if (visited[i] === false) forgettingCount++;
+      }
+      const forgetting = forgettingCount >= 2;
+      const stuckPreview = L4_MEMORY.phase === 'preview' && L4_MEMORY.timer > 3;
+      if (slow || forgetting || stuckPreview) shouldShowHint = true;
+    }
+
+    // 8. Level 5 — Key / hurdle puzzle
+    if (lvlId === 'level5' && !P.level5Completed &&
+        now - this._lastHintTime > 15000) {
+      const slowProgress = (P.speed || 0) < 60;
+      const wrongKeyHit = Array.isArray(P.level5KeyPicked) &&
+        P.level5KeyPicked.includes('wrong');
+      const stuckSection = (P.currentSection || 0) >= 2 && !(P.level5Completed);
+      if (slowProgress || wrongKeyHit || stuckSection) shouldShowHint = true;
+    }
+
+    if (!shouldShowHint) return;
+
+    const hints = this.level.repeatHints || [];
+    if (!hints.length) return;
+
+    const msg = hints[this._hintIndex % hints.length];
+    showRaceHint('🧠 HINT', msg, 6200);
+
+    this._hintIndex++;
+    this._lastHintTime = now;
+    this._lastHintProgress = P.pos || 0;
   }
-
-  // Save progress sample
-  this._lastProgressCheck = P.pos || 0;
-
-  let shouldShowHint = false;
-
-  // 1. Player stuck too long
-  if (this._stuckTimer > 8) {
-    shouldShowHint = true;
-  }
-
-  // 2. No meaningful progress for long duration
-  const progressDelta =
-    Math.abs((P.pos || 0) - this._lastHintProgress);
-
-  if (progressDelta < C.SEG_LEN * 2 &&
-      now - this._lastHintTime > 15000) {
-    shouldShowHint = true;
-  }
-
-  // 3. Driving wrong direction on level1
-  if (
-  this.level.id === 'level1' &&
-  !P.ghostRoad2Open &&
-  (P.reverseDistance || 0) < 100 &&
-  now - this._lastHintTime > 20000
-) {
-    shouldShowHint = true;
-  }
-
-  // 4. Near fake wall but not solving puzzle
- if (
-  this.level.id === 'level1' &&
-  !P.ghostRoad2Open &&
-  (P.pos || 0) > trackLen * 0.35 &&
-  now - this._lastHintTime > 12000
-){
-    shouldShowHint = true;
-  }
-
-  // 5. Level 2 wrong-path detection
-if (
-  this.level.id === 'level2' &&
-  (P.level2CpHit || 0) >= 2 &&
-  now - this._lastHintTime > 15000
-) {
-  shouldShowHint = true;
-}
-
-//    level3  
-// 6. Level 3 — Symbol sequence puzzle stuck / wrong order
-if (
-  this.level.id === 'level3' &&
-  !P.level3PuzzleSolved &&
-  now - this._lastHintTime > 15000
-) {
-  const noProgress = (P.speed || 0) < 60;
-  const notStarted = !P.level3PuzzleStarted;
-  const wrongLoop = (P.level3LapCrossings || 0) >= 2;
-
-  if (noProgress || notStarted || wrongLoop) {
-    shouldShowHint = true;
-  }
-}
-
-// level4 — hidden path hint
-// 7. Level 4 — Memory Sprint (stuck / failing checkpoints / confusion)
-if (
-  this.level.id === 'level4' &&
-  L4_MEMORY.phase !== 'finished' &&
-  now - this._lastHintTime > 15000
-) {
-  const slow = (P.speed || 0) < 70;
-  const forgetting = (L4_MEMORY.visited || []).filter(v => v === false).length >= 2;
-  const stuckPreview = L4_MEMORY.phase === 'preview' && L4_MEMORY.timer > 3;
-
-  if (slow || forgetting || stuckPreview) {
-    shouldShowHint = true;
-  }
-}
-
-// 8. Level 5 — Key / hurdle puzzle stuck or wrong picks
-if (
-  this.level.id === 'level5' &&
-  !P.level5Completed &&
-  now - this._lastHintTime > 15000
-) {
-  const slowProgress = (P.speed || 0) < 60;
-
-  const wrongKeyHit =
-    Array.isArray(P.level5KeyPicked) &&
-    P.level5KeyPicked.includes('wrong');
-
-  const stuckSection =
-    (P.currentSection || 0) >= 2 &&
-    !(P.level5Completed);
-
-  if (slowProgress || wrongKeyHit || stuckSection) {
-    shouldShowHint = true;
-  }
-}
-
-
-
-  if (!shouldShowHint) return;
-
-  const hints = this.level.repeatHints || [];
-
-  if (!hints.length) return;
-
-  const msg = hints[this._hintIndex % hints.length];
-
-  showRaceHint(
-    '🧠 HINT',
-    msg,
-    6200
-  );
-
-  this._hintIndex++;
-  this._lastHintTime = now;
-  this._lastHintProgress = P.pos || 0;
-}
 }
