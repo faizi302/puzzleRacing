@@ -115,7 +115,7 @@ export class CareerScene {
 
     const data = getPlayerData();
 
-    const LEVEL_UNLOCK_MODE = 'all_open'; // 'all_open' | 'progress' | 'manual' | 'hybrid'
+    const LEVEL_UNLOCK_MODE = 'progress'; // 'all_open' | 'progress' | 'manual' | 'hybrid'
 
     const MANUAL_UNLOCKED_LEVELS = [1, 2,5];
 
