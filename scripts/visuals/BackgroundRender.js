@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// BACKGROUND RENDER — Forward HorizonE, Backward HorizonC
-// ═══════════════════════════════════════════════════════
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { clamp, P } from '../systems/roadSystem.js';
 import { C, HORIZON_FRAMES } from '../configs/roadConfig.js';

@@ -1,4 +1,3 @@
-// Level preview SVG + in-game minimap (8% local window).
 import { START_PRE_FINISH } from "../configs/roadConfig.js"
 
 const BIOME_COLORS = {
@@ -8,8 +7,6 @@ const BIOME_COLORS = {
   ice: { road: '#a9e8ff', grass: '#1c2b3a', accent: '#dff4ff' },
   default: { road: '#a0c0ff', grass: '#1f2630', accent: '#d4e3ff' },
 };
-
-// Shape extraction
 
 function extractRoadShape(segs) {
   if (!segs || !segs.length) return [];
@@ -55,8 +52,6 @@ function fitShape(pts, boxW, boxH, pad = 14) {
   }
   return { pts: scaled, scale, ox, oy };
 }
-
-// Career card preview SVG
 
 export function renderLevelPreview(mountEl, opts = {}) {
   if (!mountEl) return;
@@ -127,8 +122,6 @@ export function renderLevelPreview(mountEl, opts = {}) {
     </svg>
   `;
 }
-
-// In-game minimap (8% local window, painted each frame)
 
 const _miniCache = new Map();
 
@@ -303,8 +296,6 @@ export function renderInGameMinimap(canvas, snapshot) {
   ctx.textAlign = 'left';
   ctx.fillText(`${Math.round(playerT * 100)}%`, 4, 4);
 }
-
-// Helpers
 
 function fallbackShape(seed) {
   const segs = [];

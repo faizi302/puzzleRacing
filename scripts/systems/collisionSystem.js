@@ -1,24 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// COLLISION SYSTEM — Pickups + solid scenery collision
-// ─────────────────────────────────────────────────────────
-//
-// PERFORMANCE NOTES (refactor):
-//   * wrapDz now uses a single conditional instead of a while-loop. The
-//     while-form could spin pathologically if dz ever went out of
-//     [-trackLen, +trackLen] (shouldn't, but it's a defensive cliff).
-//   * Inside checkSceneryCollisions, the outer iteration does a cheap
-//     "is this object even nearby" prefilter using a single subtract +
-//     compare *before* doing the wrap math, category lookup, hidden
-//     check, etc. For typical maps this cuts the per-tick scenery work
-//     to ~15-25% of original.
-//   * Per-object FX-cooldown timestamp now uses the cached frame `now`
-//     so we don't call performance.now() inside the inner loop for
-//     every potential hit.
-//   * Key-collection nested scans (level 5) now use a single pass that
-//     gathers both keys and ramps for the same sectionIndex in one go.
-//   * All collision rules, categories, level-specific branches, sound
-//     effects, and side-effects are preserved exactly.
-
 import { IMG } from '../visuals/objectRender.js';
 import { P, applyCollisionImpact } from './roadSystem.js';
 import { addNitroBottle } from '../player/player.js';
@@ -213,16 +192,12 @@ const HIT = {
   PLAYER_Z_AHEAD: 210,
 };
 
-// Outer prefilter window — anything outside this z-range is ignored.
-// Pickups have wider windows than collisions, so we use the widest one.
 const PREFILTER_Z = 320;
 
 function safeSfx(name, opts) {
   try { playSfx(name, opts); } catch (e) {}
 }
 
-// Single-conditional wrap (no while-loop). Assumes |dz| < trackLen which
-// is always true in practice; the conditional guards the wrap boundary.
 function wrapDz(objZ, playerZ) {
   const len = trackLen;
   if (!len) return objZ - playerZ;
@@ -308,7 +283,6 @@ function objLateralX(o) {
   return (o.side || 0) * (o.offset || 1.0);
 }
 
-// Frame-cached now to avoid 60+ performance.now() calls in the inner loop.
 let _frameNow = 0;
 
 function canFx(o, ms = 450) {
@@ -464,9 +438,6 @@ function resolveHurdleCollision(o, dz, objX, screenAnchorX, screenAnchorY) {
   }
 }
 
-// Single-pass section gather for level 5 key collection. Replaces 2-3
-// separate full scans of sceneryObjs that were happening on each key
-// pickup.
 function _handleLevel5KeyCollect(o, sceneryObjs, lvl, screenAnchorX, screenAnchorY) {
   const sectionIndex = o.sectionIndex;
   onKeyCollected(lvl.puzzleState, sectionIndex, o.laneIndex);

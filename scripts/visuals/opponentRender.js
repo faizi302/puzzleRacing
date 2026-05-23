@@ -1,5 +1,3 @@
-// Opponent render — sprite + dynamic position tag.
-
 import { C } from '../configs/roadConfig.js';
 import { P } from '../systems/roadSystem.js';
 import { opponents } from '../systems/opponentSystem.js';
@@ -10,7 +8,6 @@ import { _visibleSegs } from './roadRender.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-// Anchor an AI car onto the rendered road surface
 function visibleForZ(z) {
   if (!_visibleSegs.length) return null;
 
@@ -44,7 +41,6 @@ function wrapDz(objZ, playerZ, len) {
   return dz;
 }
 
-// Number tag — same style for everyone, no boss treatment
 function drawNumberTag(ctx, x, y, scale, position) {
   const tagW = clamp(46 * scale, 30, 82);
   const tagH = clamp(22 * scale, 16, 34);

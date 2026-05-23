@@ -1,11 +1,7 @@
-// Core canvas — single source of truth for game + menu canvases.
-
 let _cv = null, _cx = null;
 let _W = 0, _H = 0, _dpr = 1, _res = 1;
 
 let _menuCv = null, _menuCx = null;
-
-// Game canvas
 
 export function initRenderer(canvas) {
   _cv = canvas;
@@ -45,8 +41,6 @@ export const getW      = () => _W;
 export const getH      = () => _H;
 export const getRes    = () => _res;
 export const getDpr    = () => _dpr;
-
-// Menu canvas
 
 export function sizeMenuCanvas() {
   if (!_menuCv) {

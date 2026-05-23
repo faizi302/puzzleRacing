@@ -1,16 +1,3 @@
-// Opponent system — Asphalt-style average-speed AI, dynamic race positions.
-//
-// PERFORMANCE NOTES (refactor):
-//   * tickAISceneryCollision was being called twice per opponent per tick.
-//     Now called once. (Bug fix — also halves per-tick AI scenery work.)
-//   * updateRacePositions was called twice per tick. Now once, at end.
-//     Rubberband uses last-tick rank — visually identical, half the sort work.
-//   * findBestLane allocated a fresh blockers[] + N object literals per
-//     opponent per tick. Now uses a reusable module-level pool with no
-//     per-frame allocation.
-//   * wrapDz uses single-branch math (no while loops).
-//   * All public exports and gameplay behavior preserved.
-
 import { C } from '../configs/roadConfig.js';
 import { P, clamp } from './roadSystem.js';
 import { findSegOnTrack, trackLen, getTrackLen } from '../core/roadMap.js';
@@ -25,7 +12,6 @@ let _lastPlayerPos = 0;
 let _playerTotalDist = 0;
 let _raceTimeAccum = 0;
 
-// Roster — `boss: true` still drives AI behavior, but render no longer shows it.
 const LEVEL1_OPPONENTS = [
   { id: 'op_1', name: 'THUNDER', team: 'red',    type: 'normal',   number: 1, x: -0.55, z: C.SEG_LEN * 10,  speedKmh: 92,  skill: 0.62, aggression: 0.35 },
   { id: 'op_2', name: 'VIPER',   team: 'green',  type: 'normal',   number: 2, x:  0.00, z: C.SEG_LEN * 10,  speedKmh: 96,  skill: 0.68, aggression: 0.45 },
@@ -36,8 +22,6 @@ const LEVEL1_OPPONENTS = [
 
 const LANES = [-0.58, -0.29, 0, 0.29, 0.58];
 
-// Per-position "you need this avg km/h to beat me" threshold
-// position 1 = hardest opponent, position N = easiest
 const OPPONENT_BEAT_SPEEDS = [92, 83, 78, 70, 60];
 
 // Helpers
@@ -52,7 +36,6 @@ function wrapZ(z, len = trackLen) {
   return z;
 }
 
-// Single-branch wrap delta. Assumes |objZ - baseZ| < 1.5 * len (always true in practice).
 function wrapDz(objZ, baseZ, len = trackLen) {
   if (!len) return objZ - baseZ;
   const dz = objZ - baseZ;
@@ -90,7 +73,6 @@ function objX(o) {
   return (o.side || 0) * (o.offset || 1);
 }
 
-// Opponent factory
 
 function makeOpponent(cfg, i) {
   const baseSpeed = kmhToWorld(cfg.speedKmh);
@@ -144,8 +126,6 @@ function makeOpponent(cfg, i) {
   };
 }
 
-// Public API
-
 export function resetOpponents(levelId = 'level1') {
   _playerLap = 0;
   _lastPlayerPos = P.pos || 0;
@@ -183,12 +163,9 @@ export function getRaceOrder() {
   return raceOrder;
 }
 
-// Used by gameScene/minimap — returns the live opponents array.
 export function getOpponents() {
   return opponents;
 }
-
-// Player progress tracking
 
 function tickPlayerProgress(dt) {
   if (!trackLen) return;
@@ -236,8 +213,6 @@ function getAIProgress(ai) {
   return ai.totalDist;
 }
 
-// Puzzle brain
-
 function tickPuzzleBrain(ai) {
   if (ai.onRoad2 || ai.discoveredPuzzle) return;
 
@@ -282,8 +257,6 @@ function unlockAiRoad2(ai, bossJump = false) {
   ai.laneTargetX = ai.x;
 }
 
-// Jump AI
-
 function launchAIJump(ai, jumpObj, spr = {}) {
   if (ai.isAirborne || ai.jumpCooldown > 0) return false;
 
@@ -322,8 +295,6 @@ function tickAIJump(ai, dt) {
     ai.isAirborne = false;
   }
 }
-
-// Scenery collision
 
 function hitJumpAI(ai, o, dz) {
   const spr = JUMP_SPR[o.kind] || {};
@@ -391,11 +362,6 @@ function tickAISceneryCollision(ai, sceneryObjs) {
     if (o.isHurdle) { hitHurdleAI(ai, o, dz); continue; }
   }
 }
-
-// Lane planning — pooled to avoid per-frame allocation
-//
-// Each blocker is a fixed-shape object reused across frames. We track the
-// "used" count separately from pool length so we never shrink the pool.
 
 const _blockerPool = [];
 let _blockerPoolUsed = 0;
@@ -471,7 +437,6 @@ function findBestLane(ai, sceneryObjs, len) {
   return best;
 }
 
-// Asphalt-style speed scaling based on player's average speed.
 function getRubberbandScale(position, playerAvg) {
   const idx = clamp(position - 1, 0, OPPONENT_BEAT_SPEEDS.length - 1);
   const required = OPPONENT_BEAT_SPEEDS[idx];
@@ -483,8 +448,6 @@ function getRubberbandScale(position, playerAvg) {
   if (diff >  4) return 0.97;
   return 1.0;
 }
-
-// AI driving tick
 
 function tickAIDriving(ai, dt, sceneryObjs) {
   // Lock during countdown/start formation
@@ -611,8 +574,6 @@ function tickAIDriving(ai, dt, sceneryObjs) {
   ai.pos = ai.z;
 }
 
-// AI vs AI separation
-
 function tickOpponentSeparation() {
   for (let i = 0; i < opponents.length; i++) {
     const a = opponents[i];
@@ -640,8 +601,6 @@ function tickOpponentSeparation() {
   }
 }
 
-// Player vs AI collision
-
 function tickPlayerAICollision() {
   const playerZ = P.pos + (P.playerZ || 0);
 
@@ -667,8 +626,6 @@ function tickPlayerAICollision() {
     ai.x = clamp(ai.x, -0.90, 0.90);
   }
 }
-
-// Ranking — pooled scratch, single call per tick
 
 const _rankScratch = [];
 
@@ -717,8 +674,6 @@ export function updateRacePositions() {
 }
 
 function _rankCmp(a, b) { return b.progress - a.progress; }
-
-// Main update — called once per physics tick from gameScene
 
 export function updateOpponents(dt, sceneryObjs = []) {
   if (!opponents.length) return;

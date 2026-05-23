@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// OPPONENT SPRITES — JSON based UnitE loader
-// Uses UnitE from each team spritesheet
-// ═══════════════════════════════════════════════════════
-
 const TEAM_SHEETS = {
   red: {
     img: 'assets/player/UnitsTeamA.png',

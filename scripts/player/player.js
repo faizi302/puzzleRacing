@@ -1,11 +1,3 @@
-// Player — car renderer, nitro state, jump physics, FX layer.
-//
-// PERFORMANCE NOTES (refactor):
-//   * driftLines pre-trim now uses a single shift() in a loop, never the
-//     splice(0, n) form which allocates a discarded return-array.
-//   * Hoisted clock state out of drawCar inner block to avoid TDZ checks.
-//   * All FX, audio, animation behavior preserved exactly.
-
 import { P } from '../systems/roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 import { getCtx, getW, getH, getRes } from '../core/canvas.js';
@@ -15,7 +7,6 @@ import { loadPlayerCarSprites, getSelectedPlayerSprite, invalidatePlayerCarSelec
 import * as Audio from '../core/audio.js';
 import { clamp } from '../utils/math.js';
 
-// Tunables
 const BASE_SCALE      = 2.0;
 const DUST_HZ         = 20;
 const MAX_DRIFT_LINES = 80;
@@ -25,8 +16,6 @@ const NITRO_LOOP_KEY = 'nitroLoop';
 const nitroLoopStart = (v = 0.85) => { try { Audio.playSfx?.('nitro', { loop: true, key: NITRO_LOOP_KEY, volume: v }); } catch (_) {} };
 const nitroLoopStop  = ()         => { try { Audio.playSfx?.('nitro', { stop: true, key: NITRO_LOOP_KEY }); } catch (_) {} };
 
-// Sprite loading
-
 let _playerSpritesStarted = false;
 export function ensurePlayerSpritesLoaded() {
   if (_playerSpritesStarted) return;
@@ -34,8 +23,6 @@ export function ensurePlayerSpritesLoaded() {
   loadPlayerCarSprites();
 }
 ensurePlayerSpritesLoaded();
-
-// Camera intro/outro
 
 export const camAnim = { intro: false, t: 1.0, outro: false, outroT: 0 };
 
@@ -95,8 +82,6 @@ function getStraightIndex(sprite) {
   if (!sprite?.frames?.length) return 9;
   return sprite.straightIndex ?? Math.floor(sprite.frames.length / 2);
 }
-
-// Effects atlas
 
 let FX_ATLAS = null;
 let FX_READY = false;
@@ -166,8 +151,6 @@ function drawFxFrame(ctx, animName, frameIndex, cx, cy, size, opt = {}) {
 
   ctx.restore();
 }
-
-// One-shot FX (pooled)
 
 const oneShots     = [];
 const oneShotsPool = [];
@@ -521,8 +504,6 @@ function drawBaseDust(ctx, anchorX, anchorY, drawW, drawH, dt) {
   ctx.restore();
 }
 
-// Main car render — called once per frame from render.js
-
 export function drawCar(steerVisual = 0) {
   const now = performance.now() / 1000;
   let dt = _lastTime ? (now - _lastTime) : 1 / 60;
@@ -605,8 +586,6 @@ export function drawCar(steerVisual = 0) {
   drawOneShots(ctx);
 }
 
-// Public anchor / collision helpers
-
 export function getCarAnchor() {
   const res = getRes();
   const { srcW, srcH } = getBaseCarSize();
@@ -639,8 +618,6 @@ export function getPlayerCollisionInfo() {
 }
 
 export function forceStopNitro() { stopNitro(); }
-
-// Nitro speed-line overlay
 
 let _nitroStreakAlpha = 0;
 

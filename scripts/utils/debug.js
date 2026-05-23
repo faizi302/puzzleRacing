@@ -1,5 +1,3 @@
-// Debug helpers. Quiet by default — opt-in via window flags.
-
 const _onceKeys = new Set();
 
 export function isDebugPerf() {
@@ -28,7 +26,6 @@ export function safeCall(fn, ...args) {
   }
 }
 
-// Lightweight HUD overlay updater (only used when DEBUG_PERF is on).
 let _hudEl = null;
 function getHudEl() {
   if (!isDebugPerf()) return null;

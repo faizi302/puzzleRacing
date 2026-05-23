@@ -8,7 +8,6 @@ let _t1Segs = [], _t1Len = 0;
 let _t2Segs = [], _t2Len = 0;
 let _activeTrack = 1;
 
-// Build / rebuild geometry from the active level.
 export function buildTrack(buildSceneryCb) {
   const lvl = getActiveLevel();
   if (!lvl || typeof lvl.buildRoads !== 'function') {
@@ -29,7 +28,6 @@ export function buildTrack(buildSceneryCb) {
   if (typeof buildSceneryCb === 'function') buildSceneryCb();
 }
 
-// Hot-swap the live track. Called by roadSystem after the puzzle unlock.
 export function switchToTrack(n) {
   if (n === 2) {
     segs         = _t2Segs;
@@ -45,7 +43,6 @@ export function switchToTrack(n) {
 export const getActiveTrack = () => _activeTrack;
 export const getTrackLen    = (n) => (n === 2 ? _t2Len : _t1Len);
 
-// Segment lookup
 export function findSeg(z) {
   if (!segs.length) return null;
   const i = Math.floor(z / C.SEG_LEN);
@@ -61,7 +58,6 @@ export function findSegOnTrack(z, track = 1) {
   return arr[((i % len) + len) % len];
 }
 
-// Project a world-space point into screen space. Mutates p in place.
 export function project(p, camX, camY, camZ, W, H) {
   p.cam.x = (p.world.x || 0) - camX;
   p.cam.y = (p.world.y || 0) - camY;

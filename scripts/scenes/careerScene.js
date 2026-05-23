@@ -15,7 +15,7 @@ const LEVELS = [
     module: level1,
     difficulty: 'EASY',
     mission: 'Reach the finish line — find the secret fork',
-    reward: '+100 🪙',
+    reward: '100+ 🪙',
     gold: 100, silver: 80,
   },
   {
@@ -23,7 +23,7 @@ const LEVELS = [
     module: level2,
     difficulty: 'MEDIUM',
     mission: 'Drift without crashing',
-    reward: '+200 🪙',
+    reward: '200+ 🪙',
     gold: 200, silver: 95,
   },
   {
@@ -31,7 +31,7 @@ const LEVELS = [
     module: level3,
     difficulty: 'HARD',
     mission: 'Master traction in desert roads',
-    reward: '+300 🪙',
+    reward: '300+ 🪙',
     gold: 300, silver: 110,
   },
   {
@@ -39,7 +39,7 @@ const LEVELS = [
     module: level4,
     difficulty: 'VERY HARD',
     mission: 'Master the final frozen road',
-    reward: '+400 🪙',
+    reward: '350+ 🪙',
     gold: 400, silver: 130,
   },
   {
@@ -47,7 +47,7 @@ const LEVELS = [
     module: level5,
     difficulty: 'EXTREME',
     mission: 'Over come the hurldles to be Champ',
-    reward: '+500 🪙',
+    reward: '400+ 🪙',
     gold: 500, silver: 150,
   },
 ];

@@ -1,6 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// PLAYER ANIMATION — Countdown, notifications, fade overlays
-// ═══════════════════════════════════════════════════════
 import {
   startIntroAnim, startOutroAnim, tickCamAnim, getFadeAlpha, camAnim,
 } from './player.js';
@@ -36,7 +33,6 @@ export function countdown() {
   });
 }
 
-// Camera intro — player & camera "fade in" from far. Resolves when fade-in done.
 export function playIntro() {
   return new Promise(res => {
     startIntroAnim();
@@ -44,9 +40,6 @@ export function playIntro() {
   });
 }
 
-// Race-end fly-away — non-blocking, just kicks off the animation.
-// Returns a promise that resolves after a few seconds so caller can show the
-// win card with a fade-in.
 export function playOutro() {
   return new Promise(res => {
     startOutroAnim();
@@ -54,7 +47,6 @@ export function playOutro() {
   });
 }
 
-// Black overlay drawn AFTER everything (last in render pipeline).
 export function drawFadeOverlay() {
   const a = getFadeAlpha();
   if (a <= 0.001) return;

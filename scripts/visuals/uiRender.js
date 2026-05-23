@@ -1,8 +1,5 @@
 import { sizeMenuCanvas, getMenuCtx } from '../core/canvas.js';
 
-/* ════════════════════════════════════════════════════════════════════
- * 1. MENU BACKGROUND  (unchanged from your original uiRender.js)
- * ════════════════════════════════════════════════════════════════════ */
 export function drawMenuStars() {
   const cv = sizeMenuCanvas();
   if (!cv) return;
@@ -44,12 +41,8 @@ export function drawMenuStars() {
   c.lineTo(W, H); c.closePath(); c.fill();
 }
 
-/* ════════════════════════════════════════════════════════════════════
- * 2. FX HELPERS  (ex-Uifx.js — unchanged behaviour, same exports)
- * ════════════════════════════════════════════════════════════════════ */
 let _toastTimer = 0;
 
-/** Show a top-of-screen notification toast. */
 export function toast(message, ms = 2200) {
   const el = document.getElementById('nf');
   if (!el) return;
@@ -59,7 +52,6 @@ export function toast(message, ms = 2200) {
   _toastTimer = setTimeout(() => el.classList.remove('on'), ms);
 }
 
-/** Big center-screen reward popup ("+50 🪙", "LEVEL UP", etc.) */
 export function rewardBurst(text) {
   const el = document.getElementById('reward-burst');
   if (!el) return;
@@ -70,7 +62,6 @@ export function rewardBurst(text) {
   setTimeout(() => el.classList.remove('on'), 1500);
 }
 
-/** Pulse a stat-pill icon (coins/keys gain feedback). */
 export function popStat(valueElId) {
   const v = document.getElementById(valueElId);
   if (!v) return;
@@ -81,7 +72,6 @@ export function popStat(valueElId) {
   ico.classList.add('pop');
 }
 
-/** Tween a number from current → target over `ms`. */
 export function tweenNumber(elId, target, ms = 600) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -101,7 +91,6 @@ export function tweenNumber(elId, target, ms = 600) {
   requestAnimationFrame(step);
 }
 
-/** Briefly shake any element. */
 export function shake(elOrId) {
   const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
   if (!el) return;
@@ -110,38 +99,11 @@ export function shake(elOrId) {
   el.classList.add('fx-shake');
 }
 
-/* ════════════════════════════════════════════════════════════════════
- * 3. ASPHALT-STYLE RACE HUD
- * ─────────────────────────────────────────────────────────────────────
- * Layout (matches the screenshot you provided):
- *
- *   ┌─ TOP-LEFT ──────────────┐         ┌─── TOP-CENTER ────┐         ┌─ TOP-RIGHT ──┐
- *   │  ⏸  POS 1/6             │         │  ▱▱▱▱▱▱▱▱▱▱▱      │         │  KM/H  109   │
- *   │     DIST 28%            │         │   (distance bar)  │         │  ⏱ 00:21.104│
- *   └─────────────────────────┘         └───────────────────┘         └──────────────┘
- *
- *                                  NITRO  ▮▮▮       (top-right, under timer)
- *
- *                ┌──────────── HINT BANNER (auto-hides) ────────────┐
- *                │   THE FINISH IS A TRAP                            │
- *                │   Drive forward first, then discover the clue.    │
- *                └───────────────────────────────────────────────────┘
- *
- * The HUD lives in a single root <div id="race-hud"> so we can show/hide
- * it cleanly when entering/leaving the game scene. It is built once,
- * re-used between races, and updated each frame by updateRaceHUD().
- * ════════════════════════════════════════════════════════════════════ */
-
 let _hudRoot = null;
 let _hudEls  = null;
 let _hintTimer = 0;
 let _bestSeen  = 0;
 
-/**
- * Build the HUD DOM (idempotent — safe to call on every race enter).
- * Looks for a host element, creating one if absent.
- * Pause button click is forwarded via the optional onPause callback.
- */
 export function buildRaceHUD({ onPause } = {}) {
   if (_hudRoot && document.body.contains(_hudRoot)) {
     if (onPause) _hudRoot._onPause = onPause;
@@ -244,7 +206,6 @@ export function hideRaceHUD() {
   hideRaceHint();
 }
 
-/** Format seconds → "MM:SS.mmm". */
 function fmtTime(s) {
   if (!isFinite(s) || s < 0) s = 0;
   const m  = Math.floor(s / 60);
@@ -317,13 +278,6 @@ for (let i = 0; i < _hudEls.nitro.length; i++) {
 }
 }
 
-/* ════════════════════════════════════════════════════════════════════
- * 4. RACE-START HINT BANNER
- * ─────────────────────────────────────────────────────────────────────
- * One-shot. Auto-fades after `ms`. Used for the "THE FINISH IS A TRAP"
- * style level intro line. Title can be a single short headline; sub is
- * the longer explanation. If you only pass `title`, the sub is hidden.
- * ════════════════════════════════════════════════════════════════════ */
 export function showRaceHint(title, sub = '', ms = 4200) {
   if (!_hudEls) return;
   _hudEls.hintT.textContent = title || '';

@@ -1,7 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// AUDIO MANAGER 
-// ═══════════════════════════════════════════════════════
-
 const BASE = 'assets/audio/';
 
 const BANK = {
@@ -122,7 +118,6 @@ export function setSfxVolume(v) {
   _sfxVolume = Math.max(0, Math.min(1, v));
 }
 
-// Public: is the loop tagged with this key currently playing?
 export function isLoopPlaying(key) {
   const a = _loops.get(key);
   return !!(a && !a.paused && !a.ended);
@@ -219,11 +214,6 @@ export function stopAll() {
   _loops.clear();
 }
 
-// ─── Engine loop: speed-driven ───────────────────────────
-// Below the dead-zone, the engine sound is fully stopped so it
-// can never run silently in the background. Above the dead-zone
-// the existing loop just has its volume/rate updated — we never
-// spawn a second engine source.
 export function setEngineSpeed(speed01) {
   // Completely disable engine sound on movement / key press
   playSfx('engine', {

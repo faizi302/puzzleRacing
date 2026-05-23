@@ -1,4 +1,3 @@
-// Scenery sprite atlas. Numbers are tuned — do not change values.
 import { SPR_L2 } from './sceneryConfigLevel2.js';
 import { SPR_L3 } from '../levels/level3/sceneryConfig.js';
 import { SPR_L4 } from '../levels/level4/sceneryConfig.js';
@@ -52,7 +51,6 @@ export const SPR = {
   },
 };
 
-// Jump ramps
 export const JUMP_SPR = {
   rampSmall: { sx: 160,  sy: 220, sw: 331, sh: 124, scale: 0.45, anchorY: 1.00, liftFactor: 0.85, rampLengthZ: 320 },
   rampMed  : { sx: 535,  sy: 157, sw: 272, sh: 181, scale: 0.55, anchorY: 1.00, liftFactor: 1.00, rampLengthZ: 360 },
@@ -77,7 +75,6 @@ export const JUMP_SPR = {
 export const JUMP_KINDS = new Set(Object.keys(JUMP_SPR));
 export const JUMP_ATLAS_PATH = 'assets/level/level2/jumps.png';
 
-// Monster sprite atlas
 export const MONSTER_SPR = {
   sx: 0, sy: 0,
   cols: 5, rows: 4,

@@ -1,22 +1,3 @@
-// Game scene — orchestrates a single race from intro to win/lose.
-//
-// PERFORMANCE NOTES (refactor):
-//   * Physics catch-up loop reworked. Capped accumulator is now drained
-//     down to "current step or less"; if catch-up budget would overrun,
-//     we DROP the excess instead of running N heavy physics ticks. This
-//     kills the "1 hitch becomes 5" spiral.
-//   * After pause/resume or tab refocus, this.last is realigned BEFORE
-//     the next frame so a 1-second tab switch doesn't trigger physics
-//     burn-in.
-//   * After a track switch, buildScenery() is run synchronously between
-//     two non-rendering frames AND this.last is reset, so the inevitable
-//     allocation cost isn't billed as physics-step backlog.
-//   * Smart-hint evaluator is throttled to ~250ms — the criteria all
-//     trigger on 12s+ intervals anyway, so checking 60 times/sec was
-//     pure waste.
-//   * HUD/minimap rate-limits unchanged (already correct).
-//   * Every public method, callback, level branch, and field is preserved.
-
 import { sizeCanvas } from '../core/canvas.js';
 import { readInput, lockInput, K } from '../core/inputController.js';
 import {
@@ -64,14 +45,11 @@ import { L4_MEMORY } from '../levels/level4/logic.js';
 
 const HUD_UPDATE_MS = 60;
 const MINIMAP_UPDATE_MS = 100;
-const HINT_CHECK_MS = 250;     // smart-hints evaluated 4x/sec, not 60x
+const HINT_CHECK_MS = 250;
 
 const MAX_PHYS_STEPS = 5;
 const MAX_DT_RAW = 0.05;
 
-// If a single rAF delta exceeds this, treat it as a "long gap" (tab refocus,
-// system stutter, GC pause) and refuse to bill physics for it. We just step
-// one tick and reset the clock — visually a tiny pause, but no compounding.
 const LONG_GAP_DT = 0.30;
 
 export class GameScene {
@@ -446,8 +424,6 @@ export class GameScene {
     };
   }
 
-  // Performs the deferred buildScenery between frames, then re-aligns the
-  // clock so the rebuild cost is NOT billed as physics catch-up backlog.
   _doSceneryRebuild() {
     try { buildScenery(); } catch (_) {}
     // Reset timing — rebuild took variable time, don't compound it.

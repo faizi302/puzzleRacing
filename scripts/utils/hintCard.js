@@ -1,18 +1,5 @@
-// Hint card — wooden plaque drawn at FIXED screen size, anchored to an arch.
-//
-// The 5 frames below describe the non-green cards in assets/hint.png.
-// EDIT these numbers if the cards don't line up — open hint.png in any
-// image viewer, hover over a card, and read the pixel coordinates.
-//
-// Coordinates assume a roughly 2-column layout. If your image is much
-// wider or taller, adjust accordingly.
-
 import { IMG } from '../visuals/objectRender.js';
 
-// ── Card sprite frames ──────────────────────────────────────────────────
-// Format: { sx, sy, sw, sh, padX, padY }
-// padX/padY = inner padding (in pixels of the sprite) where text can live
-// without overlapping the wooden border.
 export const HINT_CARDS = [
   // Card 1 — oval (row 1 left)
   { sx:   8, sy:   8, sw: 200, sh:  92, padX: 30, padY: 18 },
@@ -33,14 +20,14 @@ export const HINT_CARDS = [
 // ── Fixed screen size (in CSS px before DPR) ────────────────────────────
 // These are the constants you tune for "how big the hint card appears".
 // They DO NOT depend on perspective — that's the whole point.
-const CARD_BASE_W = 280;       // base width in CSS px
-const CARD_BASE_H = 96;        // base height (will be derived from aspect)
-const CARD_MIN_W  = 180;       // never smaller than this on tiny screens
-const CARD_MAX_W  = 340;       // never larger than this on big screens
-const CARD_WIDTH_FRAC = 0.32;  // scales with canvas width (so phones/PCs both look ok)
+const CARD_BASE_W = 280;
+const CARD_BASE_H = 96;
+const CARD_MIN_W  = 180;
+const CARD_MAX_W  = 340;
+const CARD_WIDTH_FRAC = 0.32;
 
 // ── Text styling ────────────────────────────────────────────────────────
-const TEXT_COLOR  = '#fdecbb';   // warm cream — readable on wood
+const TEXT_COLOR  = '#fdecbb';
 const TEXT_SHADOW = 'rgba(0,0,0,0.55)';
 const MAX_LINES   = 2;
 

@@ -13,8 +13,6 @@ function getScenerySPR() {
   return SPR_BY_LEVEL[levelId] || SPR;
 }
 
-// Live binding — re-assigned by buildScenery() to whatever the
-// active level returns.
 export let sceneryObjs = [];
 
 export function buildScenery() {
@@ -31,7 +29,6 @@ export function buildScenery() {
   }
 }
 
-// ── Fast Z-to-visibleSeg lookup ────────────────────────
 function visibleForZ(z) {
   if (!_visibleSegs.length) return null;
 
@@ -87,7 +84,6 @@ function resolveSprite(kind) {
   return { spr, atlas: IMG.scenery, isJumpAtlas: false };
 }
 
-// ── Debug helpers ──────────────────────────────────────
 let _debugFrame = 0;
 let _debugReportedAtlasLoaded = false;
 
@@ -102,7 +98,6 @@ function debugTick(jumpsTotal, jumpsVisible, jumpsCulled, atlasReady) {
   );
 }
 
-// ── Main scenery draw ──────────────────────────────────
 export function drawScenery() {
   if (!_visibleSegs.length) return;
   if (

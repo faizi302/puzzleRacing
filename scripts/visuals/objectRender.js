@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// OBJECT RENDER — Level-safe image loader
-// Fix: when returning Level2 → Level1, images are reset correctly.
-// ═══════════════════════════════════════════════════════
-
 export function loadImage(src) {
   const img = new Image();
   img.ready = false;
@@ -37,8 +32,6 @@ export function loadImage(src) {
   return img;
 }
 
-// ── DEFAULT LEVEL 1 IMAGES ─────────────────────────────
-// These are used whenever the active level does not provide custom paths.
 const DEFAULT_LEVEL_IMAGES = {
   horizon: [
     'assets/backgrounds/Horizons.jpg',

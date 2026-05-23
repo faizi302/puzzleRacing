@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'racingGame_playerData_v1';   // unchanged on purpose
+const STORAGE_KEY = 'racingGame_playerData_v1';
 
 const DEFAULT_DATA = {
   // currencies
@@ -46,8 +46,6 @@ const DEFAULT_DATA = {
 
 let _data = null;
 
-
-// ─── Deep merge helper ────────────────────────────────
 function deepMerge(target, src) {
   const out = Array.isArray(target) ? target.slice() : { ...target };
   for (const k of Object.keys(src || {})) {
@@ -82,8 +80,6 @@ function ensureDailyReset(d) {
   }
 }
 
-
-// ─── Load / Save ──────────────────────────────────────
 export function loadPlayerData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -132,8 +128,6 @@ export function getPlayerData() {
   return _data;
 }
 
-
-// ─── Currencies ───────────────────────────────────────
 export function addCoins(amount) {
   const d = getPlayerData();
   d.coins = Math.max(0, d.coins + amount);
@@ -166,8 +160,6 @@ export function spendCoins(amount) {
   return true;
 }
 
-
-// ─── Levels ───────────────────────────────────────────
 export function isLevelUnlocked(levelNum) {
   return getPlayerData().unlockedLevels.includes(levelNum);
 }
@@ -203,8 +195,6 @@ export function completeLevel(levelNum, timeSec) {
   savePlayerData();
 }
 
-
-// ─── Garage ───────────────────────────────────────────
 export function selectCar(carId) {
   const d = getPlayerData();
   if (d.unlockedCars.includes(carId)) {
@@ -223,8 +213,6 @@ export function unlockCar(carId) {
   }
 }
 
-
-// ─── Settings ─────────────────────────────────────────
 export function updateSetting(key, value) {
   const d = getPlayerData();
   d.settings[key] = value;
@@ -235,8 +223,6 @@ export function getSetting(key) {
   return getPlayerData().settings[key];
 }
 
-
-// ─── Daily / Missions ─────────────────────────────────
 export function hasClaimedDaily() {
   const d = getPlayerData();
   return d._dailyClaimed === todayISO();
@@ -265,8 +251,6 @@ export function updateMission(name, patch) {
   savePlayerData();
 }
 
-
-// ─── Reset ────────────────────────────────────────────
 export function resetPlayerData() {
   _data = deepMerge({}, DEFAULT_DATA);
   savePlayerData();

@@ -1,5 +1,3 @@
-// HUD + lap-time display. Level 1 "Ghost Start" status flips through phases.
-
 import { P, kmh, best } from '../systems/roadSystem.js';
 import { C } from '../configs/roadConfig.js';
 
@@ -11,7 +9,6 @@ export function fmtT(t) {
   return `${m}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
-// HUD update — cached DOM refs to avoid getElementById churn per frame.
 const _el = {};
 function $(id) {
   return _el[id] || (_el[id] = document.getElementById(id));

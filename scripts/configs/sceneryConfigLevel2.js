@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// LEVEL 2 SCENERY CONFIG — LocationDScenery.png
-// Generated from LocationDScenery.json
-// ═══════════════════════════════════════════════════════
-
 export const SPR_L2 = {
   // TUNNELS / ARCHES
   stoneArch: { sx: 488, sy: 6, sw: 922, sh: 235, scale: 1.15, anchorY: 0.97 },

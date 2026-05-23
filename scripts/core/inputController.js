@@ -73,8 +73,6 @@ function shouldBlock(code) {
   return !!actionForCode(code);
 }
 
-// Read snapshot — call this once per physics tick. Returns ZEROED input
-// when locked so the player car doesn't move during cinematics.
 export function readInput() {
   if (K._locked) {
     return { up: false, down: false, left: false, right: false, hand: false, pause: false };
@@ -85,10 +83,6 @@ export function readInput() {
 export function lockInput(v = true) { K._locked = !!v; }
 export function isInputLocked() { return K._locked; }
 
-// ── Edge-detect helpers ────────────────────────────────
-// Call this from player.js once per tick to atomically read &
-// clear the "Space just pressed" flag. Guarantees one nitro
-// activation per physical key press.
 export function consumeNitroPress() {
   if (K._locked) { K.nitroPressed = false; return false; }
   const v = K.nitroPressed;

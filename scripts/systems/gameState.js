@@ -7,7 +7,6 @@ function isOverlayId(id) {
   return !!(el && el.classList.contains('ov'));
 }
 
-// Close any overlay screens that may currently be visible.
 function closeOverlays() {
   document.querySelectorAll('.scr.ov.on').forEach((el) => {
     el.classList.remove('on');

@@ -1,5 +1,3 @@
-// Road render — textured segments built from atlas frames.
-
 import {
   C, COL, START_PRE_FINISH,
   SEG_TEX, SEG_TEX_CYCLE_ROAD1, SEG_TEX_CYCLE_ROAD2,
@@ -20,7 +18,6 @@ export let _visibleSegs = [];
 const MAX_SLICES = 10;
 const TEXTURE_REPEAT_SEGMENTS = 10;
 
-// Pick the texture frame for a given segment index.
 function pickSegTex(segIndex) {
   if (segIndex === 0) return SEG_TEX.Grid;
   const cycle = getActiveTrack() === 2 ? SEG_TEX_CYCLE_ROAD2 : SEG_TEX_CYCLE_ROAD1;
@@ -28,7 +25,6 @@ function pickSegTex(segIndex) {
   return cycle[i];
 }
 
-// Main draw
 export function drawRoad() {
   const ctx = getCtx();
   const W = getW();
@@ -90,7 +86,6 @@ export function drawRoad() {
   drawRoad2UnlockCircleBehindStart(ctx, W, H);
 }
 
-// Textured segment draw — adaptive slice count
 function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
   const img = IMG.segments;
   const segH = y1 - y2;
@@ -162,7 +157,6 @@ function drawSegTextured(ctx, x1, y1, w1, x2, y2, w2, segIndex, fogA) {
   ctx.restore();
 }
 
-// Stretch the nearest visible road segment down to fill the bottom of the screen.
 function drawNearestRoadExtension(ctx, W, H) {
   if (!_visibleSegs.length) return;
 
@@ -228,7 +222,6 @@ function drawNearestRoadExtension(ctx, W, H) {
   ctx.restore();
 }
 
-// Reverse-into-wall hint marker behind the spawn line (Level 1, Road 1 only).
 function drawRoad2UnlockCircleBehindStart(ctx, W, H) {
   const lvl = getActiveLevel?.();
   if (lvl?.id !== 'level1') return;
@@ -269,7 +262,6 @@ function drawRoad2UnlockCircleBehindStart(ctx, W, H) {
   ctx.restore();
 }
 
-// Legacy export — flat coloured trapezoid with optional fog. Some renderers import this.
 export function poly(ctx, x1, y1, x2, y2, x3, y3, x4, y4, clr, fog, fogA) {
   fillTrapezoid(ctx, x1, y1, x2, y2, x3, y3, x4, y4, clr);
   if (fogA > 0.01) {

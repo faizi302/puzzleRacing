@@ -1,5 +1,3 @@
-// Shared canvas drawing helpers.
-
 export function safeDrawImage(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
   if (!img || !img.complete || !sw || !sh || dw <= 0 || dh <= 0) return false;
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);

@@ -1,5 +1,3 @@
-// Frame orchestrator. Calls each renderer in fixed order.
-
 import { getCtx, getW, getH } from '../core/canvas.js';
 import { drawBG } from './BackgroundRender.js';
 import { drawRoad } from './roadRender.js';
@@ -12,7 +10,6 @@ import { drawMonsters } from './monsterRender.js';
 import { P } from '../systems/roadSystem.js';
 import { drawCheckpoints } from '../levels/level2/checkpointRender.js';
 
-// Reused shake vector — avoids allocating a new object every frame.
 const _shake = { x: 0, y: 0 };
 
 function computeShake(now) {

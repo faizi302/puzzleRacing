@@ -1,23 +1,3 @@
-// ═══════════════════════════════════════════════════════
-// PLAYER CAR SPRITES — JSON based player car loader
-// Supports same car unit with different team/color sheets
-//
-// PERFORMANCE NOTE (stutter fix):
-//   Previously, getSelectedPlayerSprite() did a synchronous
-//   localStorage.getItem() + JSON.parse() AND a full parseFrames()
-//   allocation on EVERY call. Since drawCar() calls this every
-//   frame, that was 60 localStorage reads/sec + ~1,400 object
-//   allocations/sec — the random 3-7 second hitch was browsers
-//   flushing localStorage to disk while we were trying to read it.
-//
-//   This version caches the result. localStorage and parseFrames
-//   are only hit when:
-//     1) the sprite is first resolved, or
-//     2) the cache is explicitly invalidated (via savePlayerCarSelection
-//        or invalidatePlayerCarSelection — call this from settings UI
-//        when the player picks a new color or car).
-// ═══════════════════════════════════════════════════════
-
 const TEAM_PATHS = {
   none: {
     img: 'assets/player/UnitsNone.png',
@@ -45,9 +25,6 @@ const TEAM_PATHS = {
   },
 };
 
-// Level/car unlock rule:
-// level1 car = UnitA
-// later level2 can become UnitB, level3 UnitC, etc.
 export const PLAYER_CAR_UNITS = {
   car1: 'UnitA',
   car2: 'UnitB',
@@ -63,12 +40,6 @@ const DEFAULT_STATE = {
 
 export const PLAYER_SPRITES = {};
 
-// ── Caches (the whole point of this rewrite) ───────────
-// _cachedSelection : the parsed { selectedCar, selectedColor } from
-//                    localStorage. Null = needs re-read.
-// _cachedSpriteKey : "color:carId" string for which _cachedSprite is valid.
-// _cachedSprite    : the fully-built sprite object returned by
-//                    getSelectedPlayerSprite. Reused across frames.
 let _cachedSelection = null;
 let _cachedSpriteKey = null;
 let _cachedSprite    = null;
@@ -123,10 +94,6 @@ function readPlayerSelection() {
   return _cachedSelection;
 }
 
-// Public: clear caches so the next getSelectedPlayerSprite() call
-// will re-read localStorage and re-parse frames. Call this from any
-// settings UI code that writes selection to localStorage by hand
-// (savePlayerCarSelection below already does this internally).
 export function invalidatePlayerCarSelection() {
   _cachedSelection = null;
   _cachedSpriteKey = null;

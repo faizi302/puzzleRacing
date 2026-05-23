@@ -1,17 +1,4 @@
 'use strict';
-// Road system — physics, reverse puzzle, level1 monsters, level2/5 finish logic.
-//
-// PERFORMANCE NOTES (refactor):
-//   * getActiveLevel() was being called 4-8 times per updatePhys tick
-//     (puzzle tick, monster tick, crossing logic, etc). Now cached once
-//     at the top of the tick and threaded through.
-//   * tickLevel1Monsters short-circuits earlier when scenery list is
-//     empty AND the active level isn't level1, avoiding the always-on
-//     array build.
-//   * Monster scan reuses the existing _monsterScratch array and uses
-//     single-branch wrap math.
-//   * All public exports, P fields, callbacks, level branches, gameplay
-//     mechanics, and side-effects preserved exactly.
 
 import { C, START_PRE_FINISH } from '../configs/roadConfig.js';
 import { findSeg, trackLen, switchToTrack } from '../core/roadMap.js';
@@ -61,7 +48,6 @@ export const P = {
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-// Hoisted collision table — module-level so no allocation per call.
 const IMPACT_TABLE = {
   soft   : { keep: 0.88, push: 0.025, dmg: 0,  shake: 0.08, cd: 0.10, nitro: false, min: 0   },
   medium : { keep: 0.62, push: 0.090, dmg: 8,  shake: 0.25, cd: 0.35, nitro: false, min: 350 },
@@ -71,7 +57,6 @@ const IMPACT_TABLE = {
   deadly : { keep: 0.06, push: 0.260, dmg: 45, shake: 0.85, cd: 0.90, nitro: true,  min: 0   },
 };
 
-// Reused scratch array — avoids per-tick allocation in level1 monster scan
 const _monsterScratch = [];
 
 // Callbacks
@@ -280,7 +265,6 @@ function tickReversePuzzle(d, lvl) {
   }
 }
 
-// Lazy scenery import
 let _sceneryObjsRef = null;
 async function loadSceneryRef() {
   if (_sceneryObjsRef) return _sceneryObjsRef;

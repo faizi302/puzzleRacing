@@ -1,5 +1,3 @@
-// Road / physics / texture config. All gameplay values preserved.
-
 export const C = {
   // Geometry
   ROAD_W : 1200,
@@ -53,7 +51,7 @@ C.KMH_TO_WORLD = (C.MAX_SPD * 0.45) / C.NORMAL_KMH;
 C.NORMAL_MAX   = C.NORMAL_KMH * C.KMH_TO_WORLD;
 C.NITRO_MAX    = C.NITRO_KMH  * C.KMH_TO_WORLD;
 
-// Derived: accel/decel/steering (must precede reverse-accel which references ACCEL)
+// Derived: accel/decel/steering
 C.ACCEL         = C.NORMAL_MAX / 6.2;
 C.DECEL         = -C.NORMAL_MAX / 3.2;
 C.STEER_SPD     = 4.2;
@@ -99,7 +97,6 @@ export const LCOL = {
   START: { road: COL.ROAD_S, grass: COL.GRASS_A, rum: COL.RUM_A, lane: COL.LANE },
 };
 
-// Horizon atlas frames
 export const HORIZON_FRAMES = {
   A: { sx: 2, sy: 2,    sw: 1536, sh: 336 },
   B: { sx: 2, sy: 342,  sw: 1536, sh: 336 },
@@ -109,7 +106,6 @@ export const HORIZON_FRAMES = {
 };
 export const HORIZON_FRAME = HORIZON_FRAMES.E;
 
-// Road segment atlas frames
 export const SEG_TEX = {
   Segment_1 : { sx: 1, sy: 131,  sw: 1024, sh: 128 },
   Segment_2 : { sx: 1, sy: 781,  sw: 1024, sh: 128 },
