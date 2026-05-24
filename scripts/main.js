@@ -15,6 +15,7 @@ import { GameScene } from './scenes/gameScene.js';
 
 import { initGlobalAudioButtons, startMenuMusic } from './core/audio.js';
 import { initBackground } from './ui/background.js';
+import { restoreActive } from './systems/gameState.js';
 
 import level1 from './levels/level1/index.js';
 import level2 from './levels/level2/index.js';
@@ -195,32 +196,59 @@ window.addEventListener('keydown', (e) => {
 scenes.go('menu');
 
 
+// ✅ FIX: Track settings origin in a reliable JS variable (not a CSS class).
+// CSS classes like 'from-pause' get wiped by closeOverlays() whenever any
+// toggle inside settings calls show() for a non-overlay scene.
+let _settingsOrigin = null; // 'pause' | null
+
 $('btn-pause-settings')?.addEventListener('click', () => {
-  const settings = document.getElementById('s-settings');
+  _settingsOrigin = 'pause';
 
-  if (!settings) return;
+  // Hide the pause overlay manually (don't call show() here to avoid
+  // closeOverlays() nuking s-game behind it).
+  document.getElementById('s-pause')?.classList.remove('on');
 
-  settings.classList.add('from-pause');
-  settings.classList.add('on');
+  // ✅ Call settingsScene.enter() so all toggle/slider/keybind listeners
+  // are properly wired. Just doing classList.add('on') skips enter() and
+  // leaves every button in the settings panel dead/unresponsive.
+  // enter() calls show('settings') which sets _active = s-settings and
+  // hides s-game — we restore s-game in backToPauseFromSettings().
+  settingsScene.enter();
+
+  // Re-stamp from-pause after enter() since show('settings') may strip it.
+  document.getElementById('s-settings')?.classList.add('from-pause');
 });
 
 function showSettingsFromPause() {
+  _settingsOrigin = 'pause';
   document.getElementById('s-settings')?.classList.add('on');
   document.getElementById('s-settings')?.classList.add('from-pause');
 }
 
 function backToPauseFromSettings() {
   document.getElementById('s-settings')?.classList.remove('on');
+  document.getElementById('s-settings')?.classList.remove('from-pause');
   document.getElementById('s-touch-editor')?.classList.remove('on');
+
+  // ✅ FIX: settingsScene.enter() called show('settings') which set
+  // _active = s-settings and hid s-game. We must restore s-game as the
+  // active scene before adding the pause overlay on top, otherwise the
+  // game canvas is missing and the app falls back to the starting scene.
+  restoreActive('game');
   document.getElementById('s-pause')?.classList.add('on');
 }
 
-$('btn-settings-back')?.addEventListener('click', () => {
-  if (document.getElementById('s-settings')?.classList.contains('from-pause')) {
-    document.getElementById('s-settings')?.classList.remove('from-pause');
+$('btn-settings-back')?.addEventListener('click', (e) => {
+  if (_settingsOrigin === 'pause') {
+    // ✅ FIX: settingsScene.enter() also attaches a back-button listener
+    // (its normal "back to hub" path). Without stopping propagation here,
+    // it fires right after ours and clobbers us back to the Hub.
+    e.stopImmediatePropagation();
+    _settingsOrigin = null;
     backToPauseFromSettings();
   }
-});
+  // Not from pause? Let settingsScene's own listener handle it normally.
+}, true); // capture phase, just to be safe
 
 $('btn-edit-touch')?.addEventListener('click', () => {
   document.getElementById('s-settings')?.classList.remove('on');
@@ -231,7 +259,11 @@ $('btn-edit-touch')?.addEventListener('click', () => {
 $('btn-touch-ok')?.addEventListener('click', () => {
   saveEditorPositionsToGameButtons();
   document.getElementById('s-touch-editor')?.classList.remove('on');
-  document.getElementById('s-pause')?.classList.add('on');
+  if (_settingsOrigin === 'pause') {
+    _settingsOrigin = null;
+    restoreActive('game');
+    document.getElementById('s-pause')?.classList.add('on');
+  }
 });
 
 $('btn-touch-cancel')?.addEventListener('click', () => {

@@ -140,6 +140,13 @@ export class GameScene {
   }
 
   async enter(level) {
+    // ✅ FIX: Kill any previous game loop before resetting state.
+    // Without this, the old loop keeps calling updateOpponents() while
+    // resetPhys() has already cleared P.countdownActive, causing opponents
+    // to move freely during the countdown on level transitions / restarts.
+    this.running = false;
+    this.paused = false;
+
     if (level) {
       this.level = level;
       this._levelId = level.id || null;
@@ -176,6 +183,10 @@ export class GameScene {
 
     buildTrack(buildScenery);
     resetPhys();
+    // ✅ FIX: Immediately lock opponents after physics reset so they are
+    // frozen from frame 0, before resetOpponents() and countdown() run.
+    // The existing tickAIDriving() guard reads this flag to freeze AI movement.
+    P.countdownActive = true;
     resetParts();
 
     this.level?.resetPuzzle?.();
@@ -218,6 +229,12 @@ export class GameScene {
     if (getSetting('soundOn')) playSfx('engine', { volume: 0.35 });
 
     await countdown();
+
+    // ✅ FIX: Clear the flag we set before countdown so opponents are
+    // released to drive. countdown() was never designed to clear
+    // P.countdownActive (it only clears P.countdownT / P.starting /
+    // P.readyState), so we must clear it ourselves here.
+    P.countdownActive = false;
 
     this._showStartRank = false;
     updateRaceHUD(this._hudSnapshot());

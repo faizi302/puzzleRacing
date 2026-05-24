@@ -32,3 +32,12 @@ export function show(id) {
   el.classList.add('on');
   playSfx('sceneOpen', { volume: 0.55 });
 }
+// ✅ FIX: Allow external code to restore a scene as _active without
+// triggering a full scene switch (no closeOverlays, no sfx).
+// Used when returning from settings back to the paused game scene.
+export function restoreActive(id) {
+  const el = document.getElementById('s-' + id);
+  if (!el) return;
+  el.classList.add('on');
+  _active = el;
+}
